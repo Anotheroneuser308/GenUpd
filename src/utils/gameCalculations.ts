@@ -93,9 +93,9 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(boostMult);
   }
 
-  // Upgrade 9: Cascade Surge (Higher tiers 5-8 produce 10x faster)
-  if (genId >= 5 && state.prestigeUpgrades?.cascadeSurge) {
-    mult = mult.mul(10);
+  // Upgrade 9: Cascade Surge - x3 production multiplier for every generator.
+  if (state.prestigeUpgrades?.cascadeSurge) {
+    mult = mult.mul(3);
   }
 
   // Upgrade 10: Cosmic Resonance (Every 10 total generator purchases multiplies each generator by 1.1x)
@@ -202,7 +202,8 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
 /**
  * Calculate Prestige Points gained on Prestige reset.
  * Requirement: 1.00e18 Points.
- * Buffed curve: 1 PP at requirement, scaling so 1e200 gives about 1.9e7 PP.
+ * Curved progression: early Prestige gains grow quickly, then taper off toward Infinity.
+ * At 1e200 this yields about 5.6 million PP before other bonuses.
  * Pre-Infinity Node 3 multiplies PP gain by 3x.
  */
 export function calculatePrestigePointsGain(points: Decimal, state?: GameState): Decimal {
@@ -213,8 +214,10 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
   const logPoints = points.log10();
   const reqLog = PRESTIGE_REQUIREMENT.log10();
   const excessLog = Math.max(0, logPoints - reqLog);
-  // Use Decimal exponentiation instead of Math.pow so later layers can safely exceed 1e308.
-  let gain = new Decimal(10).pow(excessLog / 25).floor();
+  // Square-root scaling is generous early, but grows slower than a linear log curve
+  // as Points approach Infinity. Use Decimal exponentiation to support huge values.
+  const prestigeExponent = Math.sqrt(excessLog) * 0.5;
+  let gain = new Decimal(10).pow(prestigeExponent).floor();
   if (gain.lt(1)) gain = new Decimal(1);
 
   if (state?.infinityTree?.pre_3) {

@@ -830,7 +830,7 @@ export function useGameLoop() {
         chronosFlow: new Decimal(25),
         logarithmicCascade: new Decimal(50),
         cascadeSurge: new Decimal(100),
-        cosmicResonance: new Decimal(250),
+        cosmicResonance: new Decimal(50),
       };
 
       // Upgrade 3A: Cascading Boosts (up to 20 levels)

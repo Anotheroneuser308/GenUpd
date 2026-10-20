@@ -101,7 +101,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             }`}
           >
             <Atom className="w-3.5 h-3.5" />
-            <span>Chamber & Protocols</span>
+            <span>Infinity Upgrades</span>
           </button>
         </div>
       </div>
@@ -125,10 +125,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
             <div>
               <h3 className="font-semibold text-base text-slate-100">
-                Infinity Protocols & Expansion
+                Infinity Upgrades
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Advanced singularity features unlocked through the New Features branch of the Infinity Tree.
+                Permanent upgrades and progression systems unlocked through the New Features branch of the Infinity Tree.
               </p>
             </div>
             <div className="font-mono text-xs text-amber-400 shrink-0">
@@ -139,10 +139,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
             <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
               <div>
-                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 1</span>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">System 1</span>
                 <h4 className="font-semibold text-xs text-slate-200 mt-1">Infinity Upgrades</h4>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Unlocked via New Features Node 1 (3 IP) on the Infinity Tree.
+                  Unlocked via Infinity Upgrades Matrix (1 IP) on the Infinity Tree.
                 </p>
               </div>
               <div className="mt-3 text-[10px] font-mono text-amber-500/80">
@@ -152,7 +152,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
 
             <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
               <div>
-                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 2</span>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">System 2</span>
                 <h4 className="font-semibold text-xs text-slate-200 mt-1">Prestige Transcendence</h4>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Unlocked via New Features Node 2 (10 IP) on the Infinity Tree.
@@ -165,7 +165,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
 
             <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
               <div>
-                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 3</span>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">System 3</span>
                 <h4 className="font-semibold text-xs text-slate-200 mt-1">Infinity Milestones</h4>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Unlocked via New Features Node 3 (50 IP) on the Infinity Tree.
@@ -178,7 +178,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
 
             <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
               <div>
-                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 4</span>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">System 4</span>
                 <h4 className="font-semibold text-xs text-slate-200 mt-1">Break Infinity</h4>
                 <p className="text-[11px] text-slate-400 mt-1">
                   Unlocked via New Features Node 4 (10,000 IP) on the Infinity Tree.
