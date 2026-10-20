@@ -4,8 +4,8 @@ import { GameState } from '../types/game';
 
 interface HeaderProps {
   state: GameState;
-  activeTab: 'generators' | 'prestige' | 'infinity' | 'automation' | 'achievements' | 'stats';
-  onTabChange: (tab: 'generators' | 'prestige' | 'infinity' | 'automation' | 'achievements' | 'stats') => void;
+  activeTab: 'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats';
+  onTabChange: (tab: 'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats') => void;
   onBuyMaxAll: () => void;
   onSaveGame: () => void;
 }
@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
     setTimeout(() => setSaveFeedback(false), 1500);
   };
   const tabs: Array<{
-    id: 'generators' | 'prestige' | 'infinity' | 'automation' | 'achievements' | 'stats';
+    id: 'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats';
     label: string;
     visible?: boolean;
     badge?: string;
@@ -37,12 +37,6 @@ export const Header: React.FC<HeaderProps> = ({
       label: 'Infinity',
       visible: state.infinity.unlocked || state.infinity.count > 0 || state.stats.totalInfinities > 0,
       badge: '★',
-    },
-    {
-      id: 'automation',
-      label: 'Automation',
-      visible: state.infinity.unlocked || state.infinity.count > 0 || state.stats.totalInfinities > 0,
-      badge: '⚙',
     },
     { id: 'achievements', label: 'Achievements' },
     { id: 'stats', label: 'Stats & Settings' },

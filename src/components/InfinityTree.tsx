@@ -25,6 +25,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
   const currentIP = state.infinity.points;
   const totalInfinities = state.infinity.count || state.stats.totalInfinities || 0;
   const tree = state.infinityTree || {};
+  const temporalSurgeMultiplier = 1 + ((state.stats?.timeThisInfinity || 0) * 0.01);
 
   // Root node multiplier: 4^Infinities
   const rootMultiplier = totalInfinities > 0 ? new Decimal(4).pow(totalInfinities) : Decimal.one();
@@ -193,6 +194,13 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                           <p className="text-[11px] text-slate-300 leading-tight">
                             {node.desc}
                           </p>
+                          {nodeId === 'pre_1' && isBought && (
+                            <div className="mt-2 rounded-lg bg-slate-950/80 border border-amber-500/20 p-2 space-y-1 text-[10px] font-mono">
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">Base bonus</span><span className="text-slate-300">x1.00</span></div>
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">Growth</span><span className="text-amber-300">+0.01x / second</span></div>
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">Current bonus</span><span className="text-emerald-300">x{temporalSurgeMultiplier.toFixed(2)}</span></div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px] font-mono">

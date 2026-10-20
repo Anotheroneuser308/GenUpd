@@ -118,10 +118,10 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(new Decimal(4).pow(totalInfinities));
   }
 
-  // Infinity Tree - Pre-Infinity Node 1 (Temporal Surge: +1x every 5 minutes in current Infinity)
+  // Infinity Tree - Temporal Surge: starts at x1.00 and adds +0.01x per second in the current Infinity.
   if (state.infinityTree?.pre_1) {
     const timeInf = state.stats?.timeThisInfinity || 0;
-    const timeMult = 1 + (timeInf / 300);
+    const timeMult = 1 + (timeInf * 0.01);
     mult = mult.mul(new Decimal(timeMult));
   }
 
@@ -202,7 +202,7 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
 /**
  * Calculate Prestige Points gained on Prestige reset.
  * Requirement: 1.00e18 Points.
- * Balanced curve: 1 PP at requirement, scaling smoothly so 1e200 gives ~3e6 PP (never runaway 1e12+).
+ * Buffed curve: 1 PP at requirement, scaling so 1e200 gives about 1.9e7 PP.
  * Pre-Infinity Node 3 multiplies PP gain by 3x.
  */
 export function calculatePrestigePointsGain(points: Decimal, state?: GameState): Decimal {
@@ -213,8 +213,9 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
   const logPoints = points.log10();
   const reqLog = PRESTIGE_REQUIREMENT.log10();
   const excessLog = Math.max(0, logPoints - reqLog);
-  const scaled = Math.pow(10, excessLog / 28);
-  let gain = new Decimal(Math.max(1, scaled)).floor();
+  // Use Decimal exponentiation instead of Math.pow so later layers can safely exceed 1e308.
+  let gain = new Decimal(10).pow(excessLog / 25).floor();
+  if (gain.lt(1)) gain = new Decimal(1);
 
   if (state?.infinityTree?.pre_3) {
     gain = gain.mul(3);

@@ -1,31 +1,50 @@
 import React, { useState } from 'react';
-import { GameState } from '../types/game';
-import { Cpu, Zap, Lock, Settings2 } from 'lucide-react';
+import { GameState, PrestigeAutobuyerMode } from '../types/game';
+import { Cpu, Lock } from 'lucide-react';
 
 interface AutomationTabProps {
   state: GameState;
   onToggleAutobuyer: (id: string) => void;
   onSetAutobuyerTarget: (id: string, target: number) => void;
+  onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
 }
 
 export const AutomationTab: React.FC<AutomationTabProps> = ({
   state,
   onToggleAutobuyer,
   onSetAutobuyerTarget,
+  onSetPrestigeAutobuyerSettings,
 }) => {
-  const [prestigeInput, setPrestigeInput] = useState<string>(
-    state.autobuyers?.prestige?.target?.toString() || '1'
-  );
 
   const tree = state.infinityTree || {};
   const isHyperSpeed = !!tree['auto_4'];
 
-  const handleTargetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setPrestigeInput(val);
-    const num = parseFloat(val);
-    if (!isNaN(num) && num >= 1) {
-      onSetAutobuyerTarget('prestige', num);
+  const prestigeBuyer = state.autobuyers?.prestige;
+  const prestigeMode: PrestigeAutobuyerMode = prestigeBuyer?.mode || 'targetPP';
+  const [prestigeInput, setPrestigeInput] = useState(() => String(prestigeBuyer?.target ?? 1));
+  const [timeInput, setTimeInput] = useState(() => String(prestigeBuyer?.timeTarget ?? 60));
+  const [ratioInput, setRatioInput] = useState(() => String(prestigeBuyer?.ratioTarget ?? 2));
+  const commitNumber = (field: 'target' | 'timeTarget' | 'ratioTarget') => {
+    const raw = field === 'target' ? prestigeInput : field === 'timeTarget' ? timeInput : ratioInput;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) {
+      if (field === 'target') setPrestigeInput(String(prestigeBuyer?.target ?? 1));
+      else if (field === 'timeTarget') setTimeInput(String(prestigeBuyer?.timeTarget ?? 60));
+      else setRatioInput(String(prestigeBuyer?.ratioTarget ?? 2));
+      return;
+    }
+    if (field === 'target') {
+      const next = Math.max(1, value);
+      onSetAutobuyerTarget('prestige', next);
+      setPrestigeInput(String(next));
+    } else if (field === 'timeTarget') {
+      const next = Math.max(1, value);
+      onSetPrestigeAutobuyerSettings({ timeTarget: next });
+      setTimeInput(String(next));
+    } else {
+      const next = Math.max(1.01, value);
+      onSetPrestigeAutobuyerSettings({ ratioTarget: next });
+      setRatioInput(String(next));
     }
   };
 
@@ -48,7 +67,7 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
     { key: 'gen6', name: 'Auto: Generator 6', desc: 'Automatically purchases Generator 6 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
     { key: 'gen7', name: 'Auto: Generator 7', desc: 'Automatically purchases Generator 7 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
     { key: 'gen8', name: 'Auto: Generator 8', desc: 'Automatically purchases Generator 8 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
-    { key: 'prestige', name: 'Prestige Autobuyer', desc: 'Automatically triggers Prestige when target PP is reached', reqNode: 'Prestige Autobuyer (auto_3)' },
+    { key: 'prestige', name: 'Prestige Autobuyer', desc: 'Automatically triggers Prestige using the selected reset condition', reqNode: 'Prestige Autobuyer (auto_3)' },
   ];
 
   return (
@@ -152,20 +171,58 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                 )}
               </div>
 
-              {/* Custom input for Prestige Autobuyer */}
+              {/* Prestige Autobuyer conditions */}
               {item.key === 'prestige' && isUnlocked && (
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
-                  <span className="text-slate-400 text-[11px]">Target PP:</span>
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="number"
-                      min="1"
-                      value={prestigeInput}
-                      onChange={handleTargetChange}
-                      className="w-24 px-2 py-0.5 rounded bg-slate-950 border border-slate-700 text-right text-xs text-amber-300 font-mono focus:border-amber-500 focus:outline-none"
-                    />
-                    <span className="text-slate-400 text-[10px]">PP</span>
-                  </div>
+                <div className="pt-3 border-t border-slate-800 space-y-3 text-xs font-mono">
+                  <label className="block text-slate-400 text-[11px]">
+                    Reset condition
+                    <select
+                      value={prestigeMode}
+                      onChange={(e) => onSetPrestigeAutobuyerSettings({ mode: e.target.value as PrestigeAutobuyerMode })}
+                      className="mt-1 w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="time">After a set time</option>
+                      <option value="targetPP">When PP gain reaches a value</option>
+                      <option value="ppMultiplier">When PP gain exceeds previous gain by a multiplier</option>
+                    </select>
+                  </label>
+
+                  {prestigeMode === 'time' && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset after
+                      <div className="mt-1 flex items-center gap-2">
+                        <input type="number" min="1" step="1" value={timeInput}
+                          onChange={(e) => setTimeInput(e.target.value)} onBlur={() => commitNumber('timeTarget')}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <span className="text-slate-400">seconds</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {prestigeMode === 'targetPP' && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset when PP gained is at least
+                      <div className="mt-1 flex items-center gap-2">
+                        <input type="number" min="1" step="1" value={prestigeInput}
+                          onChange={(e) => setPrestigeInput(e.target.value)} onBlur={() => commitNumber('target')}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <span className="text-slate-400">PP</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {prestigeMode === 'ppMultiplier' && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset when PP gain is at least this many times the previous reset
+                      <div className="mt-1 flex items-center gap-2">
+                        <input type="number" min="1.01" step="0.1" value={ratioInput}
+                          onChange={(e) => setRatioInput(e.target.value)} onBlur={() => commitNumber('ratioTarget')}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <span className="text-slate-400">× previous PP</span>
+                      </div>
+                      <span className="block mt-1 text-slate-500">Previous reset gain: {prestigeBuyer?.previousPPGain?.format(state.settings.notation) ?? '0'} PP</span>
+                    </label>
+                  )}
                 </div>
               )}
             </div>

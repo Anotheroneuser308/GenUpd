@@ -71,6 +71,7 @@ export function useGameLoop() {
       const subDt = simulatedSeconds / steps;
 
       for (let s = 0; s < steps; s++) {
+        state.stats.timeThisInfinity = (state.stats.timeThisInfinity || 0) + subDt;
         const unlockedCount = getUnlockedGeneratorsCount(state);
         const tickspeed = getTotalTickspeedSpeed(state);
         const pointsMult = getPointsGenerationMultiplier(state);
@@ -107,7 +108,6 @@ export function useGameLoop() {
       const pointsGained = state.points.sub(initialPoints);
       state.stats.totalTimePlayed += simulatedSeconds;
       state.stats.timeThisPrestige += simulatedSeconds;
-      state.stats.timeThisInfinity = (state.stats.timeThisInfinity || 0) + simulatedSeconds;
       state.lastUpdate = now;
 
       if (pointsGained.gt(0)) {
@@ -231,7 +231,9 @@ export function useGameLoop() {
           prestigeEnergy: { ...prev.prestigeEnergy },
           prestigeUpgrades: { ...prev.prestigeUpgrades },
           infinity: { ...prev.infinity },
-          autobuyers: { ...prev.autobuyers },
+          autobuyers: Object.fromEntries(
+            Object.entries(prev.autobuyers).map(([key, buyer]) => [key, { ...buyer }] as const)
+          ),
           stats: { ...prev.stats },
           settings: { ...prev.settings },
         };
@@ -409,11 +411,39 @@ export function useGameLoop() {
           if (autoPres && autoPres.unlocked && autoPres.enabled) {
             const ppGain = calculatePrestigePointsGain(state.points, state);
             const target = typeof autoPres.target === 'number' ? autoPres.target : 1;
-            if (ppGain.gte(target)) {
-              // Trigger automated prestige
+            const mode = autoPres.mode || 'targetPP'; // Keeps existing saves on their previous behavior.
+            const previousGain = autoPres.previousPPGain instanceof Decimal
+              ? autoPres.previousPPGain
+              : Decimal.zero();
+            const timeTarget = Math.max(1, autoPres.timeTarget || 60);
+            const ratioTarget = Math.max(1.01, autoPres.ratioTarget || 2);
+            let shouldPrestige = false;
+
+            // Never reset until this run can actually award at least 1 PP.
+            if (ppGain.gte(1)) {
+              if (mode === 'time') {
+                shouldPrestige = state.stats.timeThisPrestige >= timeTarget;
+              } else if (mode === 'ppMultiplier') {
+                // If there is no recorded previous run yet, use the first successful run
+                // to establish a baseline; later runs must beat it by the configured ratio.
+                shouldPrestige = previousGain.gt(0)
+                  ? ppGain.gte(previousGain.mul(ratioTarget))
+                  : true;
+              } else {
+                shouldPrestige = ppGain.gte(target);
+              }
+            }
+
+            if (shouldPrestige) {
+              const totalPP = state.prestige.points.add(ppGain);
+              const completedPrestigeTime = state.stats.timeThisPrestige;
+              // Trigger automated Prestige and remember the gain for ratio mode.
               state.prestige.count++;
-              state.prestige.points = state.prestige.points.add(ppGain);
+              state.prestige.points = totalPP;
               state.stats.totalPrestiges++;
+              state.stats.fastestPrestige = Math.min(state.stats.fastestPrestige, completedPrestigeTime);
+              state.stats.highestPPEver = totalPP.gt(state.stats.highestPPEver) ? totalPP : state.stats.highestPPEver;
+              state.autobuyers['prestige'] = { ...autoPres, previousPPGain: ppGain };
               state.stats.timeThisPrestige = 0;
               state.points = state.infinityTree?.pre_2 ? new Decimal(1e6) : (state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10));
               state.generators = INITIAL_GENERATORS();
@@ -723,6 +753,12 @@ export function useGameLoop() {
           cost: baseTickCost,
         },
         generators: resetGenerators,
+        autobuyers: {
+          ...prev.autobuyers,
+          prestige: prev.autobuyers.prestige
+            ? { ...prev.autobuyers.prestige, previousPPGain: ppGain }
+            : prev.autobuyers.prestige,
+        },
         stats: {
           ...prev.stats,
           totalPrestiges,
@@ -1018,6 +1054,28 @@ export function useGameLoop() {
     });
   }, []);
 
+  const setPrestigeAutobuyerSettings = useCallback((settings: Partial<{
+    target: number;
+    mode: 'time' | 'targetPP' | 'ppMultiplier';
+    timeTarget: number;
+    ratioTarget: number;
+  }>) => {
+    setGameState((prev) => {
+      const current = prev.autobuyers.prestige;
+      if (!current) return prev;
+      return {
+        ...prev,
+        autobuyers: {
+          ...prev.autobuyers,
+          prestige: {
+            ...current,
+            ...settings,
+          },
+        },
+      };
+    });
+  }, []);
+
   const toggleAutobuyer = useCallback((id: string) => {
     setGameState((prev) => {
       const target = prev.autobuyers[id];
@@ -1252,6 +1310,7 @@ export function useGameLoop() {
     buyPrestigeUpgrade,
     buyInfinityTreeNode,
     setAutobuyerTarget,
+    setPrestigeAutobuyerSettings,
     restoreBackup,
     toggleAutobuyer,
     toggleSound,

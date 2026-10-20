@@ -51,12 +51,18 @@ export interface InfinityState {
   unlocked: boolean; // unlocked when reaching 1.79e308
 }
 
+export type PrestigeAutobuyerMode = 'time' | 'targetPP' | 'ppMultiplier';
+
 export interface Autobuyer {
   id: string;
   name: string;
   enabled: boolean;
   unlocked: boolean;
   target?: number | string;
+  mode?: PrestigeAutobuyerMode;
+  timeTarget?: number; // Seconds between eligible Prestige resets
+  ratioTarget?: number; // Required multiple of the previous Prestige gain
+  previousPPGain?: Decimal; // PP gained on the last completed Prestige reset
 }
 
 export interface Achievement {

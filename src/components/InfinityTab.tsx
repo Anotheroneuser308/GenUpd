@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
-import { GameState } from '../types/game';
+import { GameState, PrestigeAutobuyerMode } from '../types/game';
 import { INFINITY_THRESHOLD } from '../utils/gameCalculations';
 import { InfinityTree } from './InfinityTree';
-import { Sparkles, Layers, Shield, Atom } from 'lucide-react';
+import { Layers, Atom, Cpu } from 'lucide-react';
+import { AutomationTab } from './AutomationTab';
 
 interface InfinityTabProps {
   state: GameState;
   onBuyInfinityTreeNode: (nodeId: string) => void;
+  onToggleAutobuyer: (id: string) => void;
+  onSetAutobuyerTarget: (id: string, target: number) => void;
+  onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
 }
 
 export const InfinityTab: React.FC<InfinityTabProps> = ({
   state,
   onBuyInfinityTreeNode,
+  onToggleAutobuyer,
+  onSetAutobuyerTarget,
+  onSetPrestigeAutobuyerSettings,
 }) => {
-  const [subTab, setSubTab] = useState<'tree' | 'chamber'>('tree');
+  const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation'>('tree');
   const notation = state.settings.notation;
 
   return (
@@ -73,6 +80,19 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
 
           <button
             type="button"
+            onClick={() => setSubTab('automation')}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              subTab === 'automation'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Automation</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setSubTab('chamber')}
             className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
               subTab === 'chamber'
@@ -91,6 +111,13 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
         <InfinityTree
           state={state}
           onBuyInfinityTreeNode={onBuyInfinityTreeNode}
+        />
+      ) : subTab === 'automation' ? (
+        <AutomationTab
+          state={state}
+          onToggleAutobuyer={onToggleAutobuyer}
+          onSetAutobuyerTarget={onSetAutobuyerTarget}
+          onSetPrestigeAutobuyerSettings={onSetPrestigeAutobuyerSettings}
         />
       ) : (
         /* Infinity Chamber Protocols */

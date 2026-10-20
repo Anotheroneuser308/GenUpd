@@ -11,7 +11,6 @@ import { GeneratorsTab } from './components/GeneratorsTab';
 import { PrestigeTab } from './components/PrestigeTab';
 import { InfinityTab } from './components/InfinityTab';
 import { InfinityOverlay } from './components/InfinityOverlay';
-import { AutomationTab } from './components/AutomationTab';
 import { AchievementsTab } from './components/AchievementsTab';
 import { StatsTab } from './components/StatsTab';
 import { ToastContainer } from './components/ToastContainer';
@@ -34,6 +33,7 @@ export default function App() {
     buyPrestigeUpgrade,
     buyInfinityTreeNode,
     setAutobuyerTarget,
+    setPrestigeAutobuyerSettings,
     restoreBackup,
     toggleAutobuyer,
     toggleSound,
@@ -49,7 +49,7 @@ export default function App() {
   } = useGameLoop();
 
   const [activeTab, setActiveTab] = useState<
-    'generators' | 'prestige' | 'infinity' | 'automation' | 'achievements' | 'stats'
+    'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats'
   >('generators');
 
   const handleProceedInfinity = () => {
@@ -156,14 +156,9 @@ export default function App() {
           <InfinityTab
             state={gameState}
             onBuyInfinityTreeNode={buyInfinityTreeNode}
-          />
-        )}
-
-        {activeTab === 'automation' && (gameState.infinity.unlocked || gameState.infinity.count > 0 || gameState.stats.totalInfinities > 0) && (
-          <AutomationTab
-            state={gameState}
             onToggleAutobuyer={toggleAutobuyer}
             onSetAutobuyerTarget={setAutobuyerTarget}
+            onSetPrestigeAutobuyerSettings={setPrestigeAutobuyerSettings}
           />
         )}
 

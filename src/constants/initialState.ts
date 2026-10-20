@@ -141,7 +141,7 @@ export const createInitialState = (): GameState => ({
     gen7: { id: 'gen7', name: 'Auto: Generator 7', enabled: false, unlocked: false },
     gen8: { id: 'gen8', name: 'Auto: Generator 8', enabled: false, unlocked: false },
     tickspeed: { id: 'tickspeed', name: 'Auto: Tickspeed', enabled: false, unlocked: false },
-    prestige: { id: 'prestige', name: 'Auto: Prestige', enabled: false, unlocked: false, target: 1 },
+    prestige: { id: 'prestige', name: 'Auto: Prestige', enabled: false, unlocked: false, target: 1, mode: 'targetPP', timeTarget: 60, ratioTarget: 2, previousPPGain: Decimal.zero() },
   },
 
   achievements: {},
@@ -259,6 +259,27 @@ export const deserializeState = (raw: string): GameState | null => {
         points: parsed.infinity?.points instanceof Decimal ? parsed.infinity.points : Decimal.zero(),
       },
       infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
+      autobuyers: {
+        ...initial.autobuyers,
+        ...(parsed.autobuyers || {}),
+        prestige: {
+          ...initial.autobuyers.prestige,
+          ...(parsed.autobuyers?.prestige || {}),
+          mode: ['time', 'targetPP', 'ppMultiplier'].includes(parsed.autobuyers?.prestige?.mode)
+            ? parsed.autobuyers.prestige.mode
+            : 'targetPP',
+          target: typeof parsed.autobuyers?.prestige?.target === 'number' ? parsed.autobuyers.prestige.target : 1,
+          timeTarget: typeof parsed.autobuyers?.prestige?.timeTarget === 'number' && parsed.autobuyers.prestige.timeTarget > 0
+            ? parsed.autobuyers.prestige.timeTarget
+            : 60,
+          ratioTarget: typeof parsed.autobuyers?.prestige?.ratioTarget === 'number' && parsed.autobuyers.prestige.ratioTarget >= 1
+            ? parsed.autobuyers.prestige.ratioTarget
+            : 2,
+          previousPPGain: parsed.autobuyers?.prestige?.previousPPGain instanceof Decimal
+            ? parsed.autobuyers.prestige.previousPPGain
+            : Decimal.zero(),
+        },
+      },
       tickspeed: {
         ...initial.tickspeed,
         ...(parsed.tickspeed || {}),
