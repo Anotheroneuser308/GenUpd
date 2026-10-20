@@ -1,0 +1,3268 @@
+This file contains only changed files from the updated Generators project.
+For each section, replace the existing project file at that exact path with the content between the markers.
+Do not delete or rewrite any files that are not listed here. Do not modify anything beyond these files.
+
+=== FILE: src/App.tsx ===
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState, useEffect } from 'react';
+import { useGameLoop } from './hooks/useGameLoop';
+import { Header } from './components/Header';
+import { PointsDisplay } from './components/PointsDisplay';
+import { GeneratorsTab } from './components/GeneratorsTab';
+import { PrestigeTab } from './components/PrestigeTab';
+import { InfinityTab } from './components/InfinityTab';
+import { InfinityOverlay } from './components/InfinityOverlay';
+import { AchievementsTab } from './components/AchievementsTab';
+import { StatsTab } from './components/StatsTab';
+import { ToastContainer } from './components/ToastContainer';
+
+export default function App() {
+  const {
+    gameState,
+    offlineMessage,
+    showInfinityOverlay,
+    proceedInfinity,
+    clearOfflineMessage,
+    toasts,
+    dismissToast,
+    buyGenerator,
+    buyMaxGenerator,
+    buyTickspeed,
+    buyMaxAll,
+    performPrestige,
+    performPrestigeEnergy,
+    buyPrestigeUpgrade,
+    buyInfinityTreeNode,
+    setAutobuyerTarget,
+    setPrestigeAutobuyerSettings,
+    restoreBackup,
+    toggleAutobuyer,
+    toggleSound,
+    setNotation,
+    saveGame,
+    setAutoSaveEnabled,
+    setAutoSaveInterval,
+    exportSave,
+    importSave,
+    exportSaveToFile,
+    importSaveFromFile,
+    hardReset,
+  } = useGameLoop();
+
+  const [activeTab, setActiveTab] = useState<
+    'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats'
+  >('generators');
+
+  const handleProceedInfinity = () => {
+    proceedInfinity();
+  };
+
+  // Keyboard Shortcuts (supporting both Latin and Cyrillic keyboard layouts)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore when focused in text input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      if (key === 'm' || key === 'ь') {
+        e.preventDefault();
+        buyMaxAll();
+      } else if (key === 'p' || key === 'з') {
+        e.preventDefault();
+        performPrestige();
+      } else if (key === 't' || key === 'е') {
+        e.preventDefault();
+        buyTickspeed();
+      } else if (key >= '1' && key <= '8') {
+        const num = parseInt(key, 10);
+        buyGenerator(num);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    buyMaxAll,
+    performPrestige,
+    buyTickspeed,
+    buyGenerator,
+  ]);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white relative">
+      {/* Toast Notification Container */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Dramatic Orange Fullscreen Infinity Overlay */}
+      {showInfinityOverlay && (
+        <InfinityOverlay onProceed={handleProceedInfinity} />
+      )}
+
+      {/* Top Bar Contract Header */}
+      <Header
+        state={gameState}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onBuyMaxAll={buyMaxAll}
+        onSaveGame={saveGame}
+      />
+
+      {/* Hero Points & Status Bar */}
+      <PointsDisplay state={gameState} />
+
+      {/* Offline Catch-up Notification Banner */}
+      {offlineMessage && (
+        <div className="bg-indigo-950/80 border-b border-indigo-500/30 px-6 py-3 flex items-center justify-between text-xs text-indigo-200">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-white">⚡</span>
+            <span>{offlineMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={clearOfflineMessage}
+            className="px-2 py-1 bg-indigo-900/60 hover:bg-indigo-800 text-indigo-100 rounded text-[11px] font-medium transition-colors cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-6 md:p-8">
+        {activeTab === 'generators' && (
+          <GeneratorsTab
+            state={gameState}
+            onBuyGenerator={buyGenerator}
+            onBuyMaxGenerator={buyMaxGenerator}
+            onBuyTickspeed={buyTickspeed}
+          />
+        )}
+
+        {activeTab === 'prestige' && (
+          <PrestigeTab
+            state={gameState}
+            onPrestige={performPrestige}
+            onPrestigeEnergy={performPrestigeEnergy}
+            onBuyUpgrade={buyPrestigeUpgrade}
+          />
+        )}
+
+        {activeTab === 'infinity' && (gameState.infinity.unlocked || gameState.infinity.count > 0 || gameState.stats.totalInfinities > 0) && (
+          <InfinityTab
+            state={gameState}
+            onBuyInfinityTreeNode={buyInfinityTreeNode}
+            onToggleAutobuyer={toggleAutobuyer}
+            onSetAutobuyerTarget={setAutobuyerTarget}
+            onSetPrestigeAutobuyerSettings={setPrestigeAutobuyerSettings}
+          />
+        )}
+
+        {activeTab === 'achievements' && (
+          <AchievementsTab state={gameState} />
+        )}
+
+        {activeTab === 'stats' && (
+          <StatsTab
+            state={gameState}
+            onSetNotation={setNotation}
+            onToggleSound={toggleSound}
+            onSaveGame={saveGame}
+            onSetAutoSaveEnabled={setAutoSaveEnabled}
+            onSetAutoSaveInterval={setAutoSaveInterval}
+            onExportSave={exportSave}
+            onImportSave={importSave}
+            onExportSaveToFile={exportSaveToFile}
+            onImportSaveFromFile={importSaveFromFile}
+            onRestoreBackup={restoreBackup}
+            onHardReset={hardReset}
+          />
+        )}
+      </main>
+
+      {/* Clean Quiet Footer */}
+      <footer className="border-t border-slate-900 px-6 py-4 text-xs text-slate-500">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
+          <div className="flex items-center gap-2 text-[11px]">
+            <span>Hotkeys:</span>
+            <span className="text-slate-400">1-8 (Gens)</span>
+            <span>·</span>
+            <span className="text-slate-400">M (Max All)</span>
+            <span>·</span>
+            <span className="text-slate-400">T (Tickspeed)</span>
+            <span>·</span>
+            <span className="text-slate-400">P (Prestige)</span>
+          </div>
+
+          <div className="text-[11px] text-slate-600">
+            {gameState.settings.autoSaveEnabled
+              ? `Auto-saves locally every ${gameState.settings.autoSaveInterval}s`
+              : 'Auto-save disabled'}
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+=== END FILE: src/App.tsx ===
+
+=== FILE: src/components/AutomationTab.tsx ===
+import React, { useState } from 'react';
+import { GameState, PrestigeAutobuyerMode } from '../types/game';
+import { Cpu, Lock } from 'lucide-react';
+
+interface AutomationTabProps {
+  state: GameState;
+  onToggleAutobuyer: (id: string) => void;
+  onSetAutobuyerTarget: (id: string, target: number) => void;
+  onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
+}
+
+export const AutomationTab: React.FC<AutomationTabProps> = ({
+  state,
+  onToggleAutobuyer,
+  onSetAutobuyerTarget,
+  onSetPrestigeAutobuyerSettings,
+}) => {
+
+  const tree = state.infinityTree || {};
+  const isHyperSpeed = !!tree['auto_4'];
+
+  const prestigeBuyer = state.autobuyers?.prestige;
+  const prestigeMode: PrestigeAutobuyerMode = prestigeBuyer?.mode || 'targetPP';
+  const [prestigeInput, setPrestigeInput] = useState(() => String(prestigeBuyer?.target ?? 1));
+  const [timeInput, setTimeInput] = useState(() => String(prestigeBuyer?.timeTarget ?? 60));
+  const [ratioInput, setRatioInput] = useState(() => String(prestigeBuyer?.ratioTarget ?? 2));
+  const commitNumber = (field: 'target' | 'timeTarget' | 'ratioTarget') => {
+    const raw = field === 'target' ? prestigeInput : field === 'timeTarget' ? timeInput : ratioInput;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) {
+      if (field === 'target') setPrestigeInput(String(prestigeBuyer?.target ?? 1));
+      else if (field === 'timeTarget') setTimeInput(String(prestigeBuyer?.timeTarget ?? 60));
+      else setRatioInput(String(prestigeBuyer?.ratioTarget ?? 2));
+      return;
+    }
+    if (field === 'target') {
+      const next = Math.max(1, value);
+      onSetAutobuyerTarget('prestige', next);
+      setPrestigeInput(String(next));
+    } else if (field === 'timeTarget') {
+      const next = Math.max(1, value);
+      onSetPrestigeAutobuyerSettings({ timeTarget: next });
+      setTimeInput(String(next));
+    } else {
+      const next = Math.max(1.01, value);
+      onSetPrestigeAutobuyerSettings({ ratioTarget: next });
+      setRatioInput(String(next));
+    }
+  };
+
+  const handleToggleAll = (enable: boolean) => {
+    Object.keys(state.autobuyers).forEach((key) => {
+      const ab = state.autobuyers[key];
+      if (ab?.unlocked && ab.enabled !== enable) {
+        onToggleAutobuyer(key);
+      }
+    });
+  };
+
+  const autobuyersList = [
+    { key: 'tickspeed', name: 'Tickspeed Autobuyer', desc: 'Automatically purchases tickspeed upgrades when affordable', reqNode: 'Apex Autobuyers (auto_2)' },
+    { key: 'gen1', name: 'Auto: Generator 1', desc: 'Automatically purchases Generator 1', reqNode: 'Core Autobuyers (auto_1)' },
+    { key: 'gen2', name: 'Auto: Generator 2', desc: 'Automatically purchases Generator 2', reqNode: 'Core Autobuyers (auto_1)' },
+    { key: 'gen3', name: 'Auto: Generator 3', desc: 'Automatically purchases Generator 3', reqNode: 'Core Autobuyers (auto_1)' },
+    { key: 'gen4', name: 'Auto: Generator 4', desc: 'Automatically purchases Generator 4', reqNode: 'Core Autobuyers (auto_1)' },
+    { key: 'gen5', name: 'Auto: Generator 5', desc: 'Automatically purchases Generator 5 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
+    { key: 'gen6', name: 'Auto: Generator 6', desc: 'Automatically purchases Generator 6 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
+    { key: 'gen7', name: 'Auto: Generator 7', desc: 'Automatically purchases Generator 7 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
+    { key: 'gen8', name: 'Auto: Generator 8', desc: 'Automatically purchases Generator 8 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
+    { key: 'prestige', name: 'Prestige Autobuyer', desc: 'Automatically triggers Prestige using the selected reset condition', reqNode: 'Prestige Autobuyer (auto_3)' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Banner */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-md">
+        <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              Automation Command Center
+            </span>
+            {isHyperSpeed && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                ⚡ Hyper-Speed 20 Ticks/sec Active
+              </span>
+            )}
+          </div>
+          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+            <Cpu className="w-6 h-6 text-emerald-400" />
+            <span>Autobuyers Command</span>
+          </h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-xl leading-relaxed">
+            Configure automated purchasing routines. Autobuyers are permanently unlocked on the <strong className="text-amber-400">Infinity Tree</strong> (located in the Infinity tab under Branch 2: Automation).
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => handleToggleAll(true)}
+            className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold hover:bg-emerald-900/60 transition-colors cursor-pointer"
+          >
+            All ON
+          </button>
+          <button
+            type="button"
+            onClick={() => handleToggleAll(false)}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition-colors cursor-pointer"
+          >
+            All OFF
+          </button>
+        </div>
+      </div>
+
+      {/* Autobuyers Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {autobuyersList.map((item) => {
+          const ab = state.autobuyers[item.key];
+          const isUnlocked = !!ab?.unlocked;
+          const isEnabled = !!ab?.enabled;
+
+          return (
+            <div
+              key={item.key}
+              className={`p-4 rounded-xl border flex flex-col justify-between gap-3.5 transition-all ${
+                isUnlocked
+                  ? isEnabled
+                    ? 'bg-slate-900/90 border-emerald-500/30'
+                    : 'bg-slate-900 border-slate-800'
+                  : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-xs text-slate-100 flex items-center gap-1.5">
+                    {isUnlocked ? (
+                      <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
+                    ) : (
+                      <Lock className="w-3 h-3 text-slate-500" />
+                    )}
+                    <span>{item.name}</span>
+                  </span>
+
+                  {isUnlocked ? (
+                    <button
+                      type="button"
+                      onClick={() => onToggleAutobuyer(item.key)}
+                      className={`px-3 py-1 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                        isEnabled
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {isEnabled ? 'ON' : 'OFF'}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-mono text-slate-500">
+                      LOCKED
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-400 mt-1">
+                  {item.desc}
+                </p>
+
+                {!isUnlocked && (
+                  <p className="text-[10px] font-mono text-amber-400/80 mt-1.5">
+                    Unlock in Infinity Tree: {item.reqNode}
+                  </p>
+                )}
+              </div>
+
+              {/* Prestige Autobuyer conditions */}
+              {item.key === 'prestige' && isUnlocked && (
+                <div className="pt-3 border-t border-slate-800 space-y-3 text-xs font-mono">
+                  <label className="block text-slate-400 text-[11px]">
+                    Reset condition
+                    <select
+                      value={prestigeMode}
+                      onChange={(e) => onSetPrestigeAutobuyerSettings({ mode: e.target.value as PrestigeAutobuyerMode })}
+                      className="mt-1 w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="time">After a set time</option>
+                      <option value="targetPP">When PP gain reaches a value</option>
+                      <option value="ppMultiplier">When PP gain exceeds previous gain by a multiplier</option>
+                    </select>
+                  </label>
+
+                  {prestigeMode === 'time' && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset after
+                      <div className="mt-1 flex items-center gap-2">
+                        <input type="number" min="1" step="1" value={timeInput}
+                          onChange={(e) => setTimeInput(e.target.value)} onBlur={() => commitNumber('timeTarget')}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <span className="text-slate-400">seconds</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {prestigeMode === 'targetPP' && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset when PP gained is at least
+                      <div className="mt-1 flex items-center gap-2">
+                        <input type="number" min="1" step="1" value={prestigeInput}
+                          onChange={(e) => setPrestigeInput(e.target.value)} onBlur={() => commitNumber('target')}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <span className="text-slate-400">PP</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {prestigeMode === 'ppMultiplier' && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset when PP gain is at least this many times the previous reset
+                      <div className="mt-1 flex items-center gap-2">
+                        <input type="number" min="1.01" step="0.1" value={ratioInput}
+                          onChange={(e) => setRatioInput(e.target.value)} onBlur={() => commitNumber('ratioTarget')}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <span className="text-slate-400">× previous PP</span>
+                      </div>
+                      <span className="block mt-1 text-slate-500">Previous reset gain: {prestigeBuyer?.previousPPGain?.format(state.settings.notation) ?? '0'} PP</span>
+                    </label>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+=== END FILE: src/components/AutomationTab.tsx ===
+
+=== FILE: src/components/Header.tsx ===
+import React, { useState } from 'react';
+import { Save, Check } from 'lucide-react';
+import { GameState } from '../types/game';
+
+interface HeaderProps {
+  state: GameState;
+  activeTab: 'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats';
+  onTabChange: (tab: 'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats') => void;
+  onBuyMaxAll: () => void;
+  onSaveGame: () => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  state,
+  activeTab,
+  onTabChange,
+  onBuyMaxAll,
+  onSaveGame,
+}) => {
+  const [saveFeedback, setSaveFeedback] = useState(false);
+
+  const handleManualSave = () => {
+    onSaveGame();
+    setSaveFeedback(true);
+    setTimeout(() => setSaveFeedback(false), 1500);
+  };
+  const tabs: Array<{
+    id: 'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats';
+    label: string;
+    visible?: boolean;
+    badge?: string;
+  }> = [
+    { id: 'generators', label: 'Generators' },
+    { id: 'prestige', label: 'Prestige' },
+    {
+      id: 'infinity',
+      label: 'Infinity',
+      visible: state.infinity.unlocked || state.infinity.count > 0 || state.stats.totalInfinities > 0,
+      badge: '★',
+    },
+    { id: 'achievements', label: 'Achievements' },
+    { id: 'stats', label: 'Stats & Settings' },
+  ];
+
+  const visibleTabs = tabs.filter((t) => t.visible !== false);
+
+  return (
+    <header className="flex items-center justify-between gap-8 px-6 py-4 bg-slate-950 border-b border-slate-800/80 sticky top-0 z-30">
+      {/* Zone 1: Single text element wordmark */}
+      <div className="flex items-center gap-2 whitespace-nowrap shrink-0">
+        <span className="text-lg font-bold tracking-tight text-white font-mono">
+          GENERATORS
+        </span>
+      </div>
+
+      {/* Zone 2: Single-line nav links */}
+      <nav className="flex items-center gap-6 overflow-x-auto py-1 scrollbar-none text-sm font-medium">
+        {visibleTabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          const isInfinity = tab.id === 'infinity';
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={`whitespace-nowrap shrink-0 transition-colors pb-1 border-b-2 font-medium cursor-pointer flex items-center gap-1.5 ${
+                isActive
+                  ? isInfinity
+                    ? 'text-amber-300 border-amber-500'
+                    : 'text-white border-indigo-500'
+                  : isInfinity
+                  ? 'text-amber-400/80 hover:text-amber-300 border-transparent'
+                  : 'text-slate-400 hover:text-slate-200 border-transparent'
+              }`}
+            >
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span className="text-[10px] text-amber-400">{tab.badge}</span>
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Zone 3: Actions */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <button
+          type="button"
+          onClick={handleManualSave}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700 active:scale-95"
+          title="Save instantly without waiting for auto-save"
+        >
+          {saveFeedback ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-emerald-400 font-bold">Saved!</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-3.5 h-3.5 text-slate-400" />
+              <span>Save</span>
+            </>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={onBuyMaxAll}
+          className="px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors whitespace-nowrap shrink-0 shadow-sm shadow-indigo-500/20 active:scale-95 cursor-pointer"
+          title="Hotkey: M"
+        >
+          Max All [M]
+        </button>
+      </div>
+    </header>
+  );
+};
+=== END FILE: src/components/Header.tsx ===
+
+=== FILE: src/components/InfinityTab.tsx ===
+import React, { useState } from 'react';
+import { GameState, PrestigeAutobuyerMode } from '../types/game';
+import { INFINITY_THRESHOLD } from '../utils/gameCalculations';
+import { InfinityTree } from './InfinityTree';
+import { Layers, Atom, Cpu } from 'lucide-react';
+import { AutomationTab } from './AutomationTab';
+
+interface InfinityTabProps {
+  state: GameState;
+  onBuyInfinityTreeNode: (nodeId: string) => void;
+  onToggleAutobuyer: (id: string) => void;
+  onSetAutobuyerTarget: (id: string, target: number) => void;
+  onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
+}
+
+export const InfinityTab: React.FC<InfinityTabProps> = ({
+  state,
+  onBuyInfinityTreeNode,
+  onToggleAutobuyer,
+  onSetAutobuyerTarget,
+  onSetPrestigeAutobuyerSettings,
+}) => {
+  const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation'>('tree');
+  const notation = state.settings.notation;
+
+  return (
+    <div className="space-y-6">
+      {/* Infinity Banner */}
+      <div className="bg-gradient-to-b from-amber-950/40 via-orange-950/20 to-slate-900 border border-amber-500/30 rounded-2xl p-6 md:p-8 flex flex-col items-center text-center gap-6 shadow-xl">
+        <div className="max-w-xl">
+          <span className="text-xs uppercase tracking-widest text-amber-400 font-semibold font-mono">
+            Singularity Tier
+          </span>
+          <h2 className="text-3xl font-bold text-white mt-1 tracking-tight">
+            The Infinity Dimension
+          </h2>
+          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+            You have transcended beyond 1.79e308 Points. At this layer, the universe undergoes complete collapse,
+            yielding powerful Infinity Points (IP) to reconstruct cosmic reality through the Infinity Skill Tree.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-6 text-xs font-mono">
+          <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl min-w-[160px]">
+            <span className="text-slate-500 uppercase text-[10px] block">Infinity Points (IP)</span>
+            <span className="text-xl font-bold text-amber-400 mt-1 block">
+              {state.infinity.points.format(notation)} IP
+            </span>
+          </div>
+
+          <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl min-w-[160px]">
+            <span className="text-slate-500 uppercase text-[10px] block">Total Infinities</span>
+            <span className="text-xl font-bold text-orange-400 mt-1 block">
+              {state.infinity.count}
+            </span>
+          </div>
+
+          <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl min-w-[160px]">
+            <span className="text-slate-500 uppercase text-[10px] block">Threshold</span>
+            <span className="text-xl font-bold text-slate-200 mt-1 block">
+              {INFINITY_THRESHOLD.format(notation)}
+            </span>
+          </div>
+        </div>
+
+        {/* Sub-tab Navigation */}
+        <div className="flex items-center gap-2 border-t border-slate-800/80 pt-4">
+          <button
+            type="button"
+            onClick={() => setSubTab('tree')}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              subTab === 'tree'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Infinity Skill Tree</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubTab('automation')}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              subTab === 'automation'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Automation</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubTab('chamber')}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              subTab === 'chamber'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+            }`}
+          >
+            <Atom className="w-3.5 h-3.5" />
+            <span>Chamber & Protocols</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Render selected subtab */}
+      {subTab === 'tree' ? (
+        <InfinityTree
+          state={state}
+          onBuyInfinityTreeNode={onBuyInfinityTreeNode}
+        />
+      ) : subTab === 'automation' ? (
+        <AutomationTab
+          state={state}
+          onToggleAutobuyer={onToggleAutobuyer}
+          onSetAutobuyerTarget={onSetAutobuyerTarget}
+          onSetPrestigeAutobuyerSettings={onSetPrestigeAutobuyerSettings}
+        />
+      ) : (
+        /* Infinity Chamber Protocols */
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="font-semibold text-base text-slate-100">
+                Infinity Protocols & Expansion
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Advanced singularity features unlocked through the New Features branch of the Infinity Tree.
+              </p>
+            </div>
+            <div className="font-mono text-xs text-amber-400 shrink-0">
+              Current Balance: {state.infinity.points.format(notation)} IP
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+            <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 1</span>
+                <h4 className="font-semibold text-xs text-slate-200 mt-1">Infinity Upgrades</h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Unlocked via New Features Node 1 (3 IP) on the Infinity Tree.
+                </p>
+              </div>
+              <div className="mt-3 text-[10px] font-mono text-amber-500/80">
+                {state.infinityTree?.feat_1 ? 'Unlocked' : 'Requires Node feat_1'}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 2</span>
+                <h4 className="font-semibold text-xs text-slate-200 mt-1">Prestige Transcendence</h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Unlocked via New Features Node 2 (10 IP) on the Infinity Tree.
+                </p>
+              </div>
+              <div className="mt-3 text-[10px] font-mono text-amber-500/80">
+                {state.infinityTree?.feat_2 ? 'Unlocked' : 'Requires Node feat_2'}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 3</span>
+                <h4 className="font-semibold text-xs text-slate-200 mt-1">Infinity Milestones</h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Unlocked via New Features Node 3 (50 IP) on the Infinity Tree.
+                </p>
+              </div>
+              <div className="mt-3 text-[10px] font-mono text-amber-500/80">
+                {state.infinityTree?.feat_3 ? 'Unlocked' : 'Requires Node feat_3'}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-xl border border-dashed border-amber-500/30 bg-amber-950/10 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">Protocol 4</span>
+                <h4 className="font-semibold text-xs text-slate-200 mt-1">Break Infinity</h4>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Unlocked via New Features Node 4 (10,000 IP) on the Infinity Tree.
+                </p>
+              </div>
+              <div className="mt-3 text-[10px] font-mono text-amber-500/80">
+                {state.infinityTree?.feat_4 ? 'Active (Uncapped!)' : 'Requires Node feat_4'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+=== END FILE: src/components/InfinityTab.tsx ===
+
+=== FILE: src/components/InfinityTree.tsx ===
+import React, { useState } from 'react';
+import { GameState } from '../types/game';
+import { INFINITY_TREE_NODES, BRANCH_CONFIG } from '../constants/infinityTree';
+import { Decimal } from '../utils/decimal';
+import {
+  Sparkles,
+  Layers,
+  CheckCircle2,
+  Lock,
+  ArrowDown,
+} from 'lucide-react';
+
+interface InfinityTreeProps {
+  state: GameState;
+  onBuyInfinityTreeNode: (nodeId: string) => void;
+}
+
+export const InfinityTree: React.FC<InfinityTreeProps> = ({
+  state,
+  onBuyInfinityTreeNode,
+}) => {
+  const [selectedBranch, setSelectedBranch] = useState<'all' | 'pre' | 'auto' | 'feat'>('all');
+
+  const notation = state.settings.notation;
+  const currentIP = state.infinity.points;
+  const totalInfinities = state.infinity.count || state.stats.totalInfinities || 0;
+  const tree = state.infinityTree || {};
+  const temporalSurgeMultiplier = 1 + ((state.stats?.timeThisInfinity || 0) * 0.01);
+
+  // Root node multiplier: 4^Infinities
+  const rootMultiplier = totalInfinities > 0 ? new Decimal(4).pow(totalInfinities) : Decimal.one();
+  const rootDef = INFINITY_TREE_NODES['root'];
+
+  // 3 branches as specified by user
+  const branches = [
+    { key: 'pre' as const, title: 'Pre-Infinity', nodes: ['pre_1', 'pre_2', 'pre_3', 'pre_4'] },
+    { key: 'auto' as const, title: 'Automation', nodes: ['auto_1', 'auto_2', 'auto_3', 'auto_4'] },
+    { key: 'feat' as const, title: 'New Features', nodes: ['feat_1', 'feat_2', 'feat_3', 'feat_4'] },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Tree Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+        <div>
+          <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <Layers className="w-5 h-5 text-amber-400" />
+            <span>Infinity Skill Tree</span>
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            The root node amplifies all generators by <code className="text-amber-400 font-mono font-semibold">4^Infinities</code>, feeding 3 expansion paths.
+          </p>
+        </div>
+
+        {/* Branch Filter Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setSelectedBranch('all')}
+            className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+              selectedBranch === 'all'
+                ? 'bg-slate-800 text-white font-semibold shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            All Branches
+          </button>
+          {branches.map((b) => (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => setSelectedBranch(b.key)}
+              className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer text-xs ${
+                selectedBranch === b.key
+                  ? 'bg-amber-600 text-white font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {b.title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ROOT NODE CARD */}
+      <div className="flex flex-col items-center">
+        <div className="w-full max-w-lg bg-gradient-to-b from-amber-950/40 to-slate-950 border-2 border-amber-500/60 rounded-2xl p-5 text-center shadow-xl relative overflow-hidden">
+          <div className="absolute top-2 right-2">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              <CheckCircle2 className="w-3 h-3 text-amber-400" /> ACTIVE ROOT
+            </span>
+          </div>
+
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl shadow-inner mb-2.5">
+            ⚡
+          </div>
+
+          <h4 className="text-base font-bold text-white tracking-wide">
+            {rootDef.title}
+          </h4>
+          <p className="text-xs text-slate-300 mt-1 max-w-md mx-auto">
+            {rootDef.desc}
+          </p>
+
+          <div className="mt-3.5 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-amber-500/40 text-xs font-mono text-amber-300">
+            <span>Generator Boost:</span>
+            <strong className="text-amber-400 text-sm">
+              x{rootMultiplier.format(notation)}
+            </strong>
+            <span className="text-[10px] text-slate-400">
+              (4^{totalInfinities})
+            </span>
+          </div>
+        </div>
+
+        {/* Connector arrow */}
+        <div className="flex flex-col items-center my-3 text-slate-600">
+          <div className="w-0.5 h-6 bg-gradient-to-b from-amber-500/60 to-slate-700"></div>
+          <ArrowDown className="w-4 h-4 text-slate-500 -mt-1" />
+        </div>
+      </div>
+
+      {/* 3 BRANCHES GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {branches.map((branch) => {
+          if (selectedBranch !== 'all' && selectedBranch !== branch.key) return null;
+          const branchStyle = BRANCH_CONFIG[branch.key];
+
+          return (
+            <div
+              key={branch.key}
+              className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex flex-col space-y-4"
+            >
+              {/* Branch Header */}
+              <div className={`p-3 rounded-xl border ${branchStyle.badge} flex items-center justify-between`}>
+                <div>
+                  <h4 className="font-bold text-xs uppercase tracking-wider">
+                    {branch.title}
+                  </h4>
+                  <span className="text-[10px] opacity-80 font-mono block">
+                    Branch Progression
+                  </span>
+                </div>
+                <span className="text-xs font-mono font-bold">
+                  {branch.nodes.filter((id) => tree[id]).length}/4
+                </span>
+              </div>
+
+              {/* Nodes Stack */}
+              <div className="space-y-3 flex-1 flex flex-col justify-between">
+                {branch.nodes.map((nodeId, idx) => {
+                  const node = INFINITY_TREE_NODES[nodeId];
+                  if (!node) return null;
+
+                  const isBought = !!tree[nodeId];
+                  const parentBought = node.req === 'root' || !!tree[node.req];
+                  const canAfford = currentIP.gte(node.cost);
+                  const canBuy = !isBought && parentBought && canAfford;
+                  const isLocked = !isBought && !parentBought;
+
+                  return (
+                    <div key={nodeId} className="relative">
+                      {idx > 0 && (
+                        <div className="w-0.5 h-3 bg-slate-800 mx-auto -mt-1.5 mb-1.5"></div>
+                      )}
+
+                      <div
+                        className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between gap-2.5 ${
+                          isBought
+                            ? 'bg-slate-900/90 border-emerald-500/40 text-slate-200'
+                            : canBuy
+                            ? 'bg-slate-900 border-amber-500/50 hover:border-amber-400 hover:shadow-md cursor-pointer'
+                            : isLocked
+                            ? 'bg-slate-950/40 border-slate-800/60 opacity-50'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1.5 mb-1">
+                            <span className="text-sm font-bold flex items-center gap-1.5">
+                              <span>{node.icon || '✦'}</span>
+                              <span className="text-xs font-semibold text-slate-100">
+                                {node.title}
+                              </span>
+                            </span>
+                            {isBought && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            )}
+                            {isLocked && (
+                              <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-slate-300 leading-tight">
+                            {node.desc}
+                          </p>
+                          {nodeId === 'pre_1' && isBought && (
+                            <div className="mt-2 rounded-lg bg-slate-950/80 border border-amber-500/20 p-2 space-y-1 text-[10px] font-mono">
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">Base bonus</span><span className="text-slate-300">x1.00</span></div>
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">Growth</span><span className="text-amber-300">+0.01x / second</span></div>
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">Current bonus</span><span className="text-emerald-300">x{temporalSurgeMultiplier.toFixed(2)}</span></div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px] font-mono">
+                          <span className="text-slate-400">
+                            Cost:{' '}
+                            <strong className={isBought ? 'text-emerald-400' : 'text-amber-400'}>
+                              {node.cost.toLocaleString()} IP
+                            </strong>
+                          </span>
+
+                          {isBought ? (
+                            <span className="text-emerald-400 font-semibold uppercase">
+                              Purchased
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={!canBuy}
+                              onClick={() => onBuyInfinityTreeNode(nodeId)}
+                              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                                canBuy
+                                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-sm active:scale-95'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              {isLocked ? 'Locked' : canAfford ? 'Buy' : 'Need IP'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+=== END FILE: src/components/InfinityTree.tsx ===
+
+=== FILE: src/constants/infinityTree.ts ===
+export interface InfinityTreeNodeDef {
+  id: string;
+  branch: 'root' | 'pre' | 'auto' | 'feat';
+  title: string;
+  desc: string;
+  cost: number; // IP
+  req: string; // parent node id ('none' for root)
+  icon?: string;
+}
+
+export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
+  root: {
+    id: 'root',
+    branch: 'root',
+    title: 'Infinity Nexus',
+    desc: 'All generators produce 4^Infinities more. Unlocks all 3 branches.',
+    cost: 0, // Unlocked automatically when 1st Infinity is reached
+    req: 'none',
+    icon: '⚡',
+  },
+
+  // Branch 1: Pre-Infinity
+  pre_1: {
+    id: 'pre_1',
+    branch: 'pre',
+    title: 'Temporal Surge',
+    desc: 'All generators start with a x1.00 bonus and gain +0.01x every second spent in the current Infinity.',
+    cost: 1,
+    req: 'root',
+    icon: '⏳',
+  },
+  pre_2: {
+    id: 'pre_2',
+    branch: 'pre',
+    title: 'Cosmic Retention',
+    desc: 'Start every Prestige and Infinity with 1,000,000 Points and 1 of each unlocked Generator.',
+    cost: 2,
+    req: 'pre_1',
+    icon: '🛡️',
+  },
+  pre_3: {
+    id: 'pre_3',
+    branch: 'pre',
+    title: 'Prestige Amplification',
+    desc: 'Prestige Points gained on Prestige reset are multiplied by 3x.',
+    cost: 4,
+    req: 'pre_2',
+    icon: '💎',
+  },
+  pre_4: {
+    id: 'pre_4',
+    branch: 'pre',
+    title: 'Tickspeed Induction',
+    desc: 'Tickspeed multiplier also boosts all generators at a reduced power (tickspeed^0.5).',
+    cost: 8,
+    req: 'pre_3',
+    icon: '⚡',
+  },
+
+  // Branch 2: Automation
+  auto_1: {
+    id: 'auto_1',
+    branch: 'auto',
+    title: 'Core Generator Autobuyers',
+    desc: 'Unlocks autobuyers for Generators 1 through 4.',
+    cost: 1,
+    req: 'root',
+    icon: '🤖',
+  },
+  auto_2: {
+    id: 'auto_2',
+    branch: 'auto',
+    title: 'Apex & Tickspeed Autobuyers',
+    desc: 'Unlocks autobuyers for Tickspeed and Generators 5 through 8.',
+    cost: 2,
+    req: 'auto_1',
+    icon: '⚙️',
+  },
+  auto_3: {
+    id: 'auto_3',
+    branch: 'auto',
+    title: 'Prestige Autobuyer',
+    desc: 'Unlocks the Prestige Autobuyer with configurable time, PP-gain, or gain-multiplier conditions.',
+    cost: 5,
+    req: 'auto_2',
+    icon: '🔄',
+  },
+  auto_4: {
+    id: 'auto_4',
+    branch: 'auto',
+    title: 'Hyper-Speed Automation',
+    desc: 'Autobuyers run 5x faster (every 0.05s) and purchase maximum available generators simultaneously.',
+    cost: 12,
+    req: 'auto_3',
+    icon: '🚀',
+  },
+
+  // Branch 3: New Features
+  feat_1: {
+    id: 'feat_1',
+    branch: 'feat',
+    title: 'Infinity Upgrades Matrix',
+    desc: 'Unlocks the Infinity Upgrades section in the Infinity Main Chamber.',
+    cost: 3,
+    req: 'root',
+    icon: '⭐',
+  },
+  feat_2: {
+    id: 'feat_2',
+    branch: 'feat',
+    title: 'Prestige Transcendence',
+    desc: 'Unlocks a new upgrade tier in the Prestige tab.',
+    cost: 10,
+    req: 'feat_1',
+    icon: '🔮',
+  },
+  feat_3: {
+    id: 'feat_3',
+    branch: 'feat',
+    title: 'Infinity Milestones',
+    desc: 'Unlocks Milestone progression rewards in the Infinity tab.',
+    cost: 50,
+    req: 'feat_2',
+    icon: '🏆',
+  },
+  feat_4: {
+    id: 'feat_4',
+    branch: 'feat',
+    title: 'Break Infinity',
+    desc: 'Shatters the 1.79e308 boundary, allowing points and production to scale endlessly.',
+    cost: 10000,
+    req: 'feat_3',
+    icon: '🌌',
+  },
+};
+
+export const BRANCH_CONFIG = {
+  pre: {
+    name: 'Pre-Infinity',
+    color: 'cyan',
+    badge: 'border-cyan-500/40 text-cyan-300 bg-cyan-950/40',
+    accent: 'from-cyan-500/20 to-blue-500/20',
+  },
+  auto: {
+    name: 'Automation',
+    color: 'emerald',
+    badge: 'border-emerald-500/40 text-emerald-300 bg-emerald-950/40',
+    accent: 'from-emerald-500/20 to-teal-500/20',
+  },
+  feat: {
+    name: 'New Features',
+    color: 'purple',
+    badge: 'border-purple-500/40 text-purple-300 bg-purple-950/40',
+    accent: 'from-purple-500/20 to-indigo-500/20',
+  },
+};
+=== END FILE: src/constants/infinityTree.ts ===
+
+=== FILE: src/constants/initialState.ts ===
+import { Decimal } from '../utils/decimal';
+import { GameState, GeneratorState } from '../types/game';
+
+export const STORAGE_KEY = 'kosmos_prestige_v4';
+export const STORAGE_BACKUP_KEY = 'kosmos_prestige_v4_backup';
+export const STORAGE_PREV_BACKUP_KEY = 'kosmos_prestige_v4_prev_backup';
+
+export const INITIAL_GENERATORS: () => GeneratorState[] = () => [
+  {
+    id: 1,
+    name: 'Generator 1',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(10),
+    costMult: new Decimal(10),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 2,
+    name: 'Generator 2',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(100),
+    costMult: new Decimal(100),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 3,
+    name: 'Generator 3',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(1e4),
+    costMult: new Decimal(1e3),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 4,
+    name: 'Generator 4',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(1e6),
+    costMult: new Decimal(1e4),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 5,
+    name: 'Generator 5',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(1e9),
+    costMult: new Decimal(1e5),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 6,
+    name: 'Generator 6',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(1e13),
+    costMult: new Decimal(1e6),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 7,
+    name: 'Generator 7',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(1e18),
+    costMult: new Decimal(1e8),
+    multiplier: Decimal.one(),
+  },
+  {
+    id: 8,
+    name: 'Generator 8',
+    amount: Decimal.zero(),
+    bought: 0,
+    baseCost: new Decimal(1e24),
+    costMult: new Decimal(1e10),
+    multiplier: Decimal.one(),
+  },
+];
+
+export const createInitialState = (): GameState => ({
+  version: 4,
+  points: new Decimal(10),
+  pointsPerSecond: Decimal.zero(),
+  lastUpdate: Date.now(),
+
+  generators: INITIAL_GENERATORS(),
+
+  tickspeed: {
+    bought: 0,
+    baseCost: new Decimal(1e3),
+    costMult: new Decimal(15),
+    cost: new Decimal(1e3),
+    multiplier: 1.10,
+  },
+
+  prestige: {
+    count: 0,
+    points: Decimal.zero(),
+    unlockedGenerators: 4,
+  },
+
+  prestigeEnergy: {
+    unlocked: false,
+    amount: Decimal.zero(),
+    multiplier: Decimal.one(),
+    resets: 0,
+  },
+
+  prestigeUpgrades: {
+    pointScaling: false,
+    achievementBoost: false,
+    cascadingBoostsLevel: 0,
+    generatorUnlockLevel: 0,
+    tickspeedDiscount: false,
+    prestigeSynergy: false,
+    amplifiedDoubling: false,
+    chronosFlow: false,
+    logarithmicCascade: false,
+    cascadeSurge: false,
+    cosmicResonance: false,
+  },
+
+  infinity: {
+    count: 0,
+    points: Decimal.zero(),
+    unlocked: false,
+  },
+
+  infinityTree: {},
+
+  autobuyers: {
+    gen1: { id: 'gen1', name: 'Auto: Generator 1', enabled: false, unlocked: false },
+    gen2: { id: 'gen2', name: 'Auto: Generator 2', enabled: false, unlocked: false },
+    gen3: { id: 'gen3', name: 'Auto: Generator 3', enabled: false, unlocked: false },
+    gen4: { id: 'gen4', name: 'Auto: Generator 4', enabled: false, unlocked: false },
+    gen5: { id: 'gen5', name: 'Auto: Generator 5', enabled: false, unlocked: false },
+    gen6: { id: 'gen6', name: 'Auto: Generator 6', enabled: false, unlocked: false },
+    gen7: { id: 'gen7', name: 'Auto: Generator 7', enabled: false, unlocked: false },
+    gen8: { id: 'gen8', name: 'Auto: Generator 8', enabled: false, unlocked: false },
+    tickspeed: { id: 'tickspeed', name: 'Auto: Tickspeed', enabled: false, unlocked: false },
+    prestige: { id: 'prestige', name: 'Auto: Prestige', enabled: false, unlocked: false, target: 1, mode: 'targetPP', timeTarget: 60, ratioTarget: 2, previousPPGain: Decimal.zero() },
+  },
+
+  achievements: {},
+
+  stats: {
+    totalTimePlayed: 0,
+    timeThisPrestige: 0,
+    timeThisInfinity: 0,
+    totalPrestiges: 0,
+    fastestPrestige: Infinity,
+    totalInfinities: 0,
+    peakPointsRate: Decimal.zero(),
+    totalManualClicks: 0,
+    highestPointsEver: new Decimal(10),
+    highestPPEver: Decimal.zero(),
+    highestIPEver: Decimal.zero(),
+    growthHistory: [],
+  },
+
+  settings: {
+    language: 'en',
+    notation: 'scientific',
+    soundEnabled: true,
+    autoSaveEnabled: true,
+    autoSaveInterval: 5,
+  },
+});
+
+export const serializeState = (state: GameState): string => {
+  return JSON.stringify(state, (_key, value) => {
+    if (value instanceof Decimal) {
+      return { _isDecimal: true, m: value.mantissa, e: value.exponent };
+    }
+    return value;
+  });
+};
+
+export const deserializeState = (raw: string): GameState | null => {
+  try {
+    const parsed = JSON.parse(raw, (_key, value) => {
+      if (value && typeof value === 'object' && value._isDecimal) {
+        return new Decimal(value.m, value.e);
+      }
+      return value;
+    });
+
+    const initial = createInitialState();
+    return {
+      ...initial,
+      ...parsed,
+      generators: initial.generators.map((g, i) => {
+        const saved = parsed.generators?.[i];
+        if (!saved) return g;
+        return {
+          ...g,
+          ...saved,
+          amount: saved.amount instanceof Decimal ? saved.amount : new Decimal(saved.amount || 0),
+          multiplier: saved.multiplier instanceof Decimal ? saved.multiplier : Decimal.one(),
+          baseCost: g.baseCost,
+          costMult: g.costMult,
+        };
+      }),
+      points: (() => {
+        const rawPoints = parsed.points instanceof Decimal ? parsed.points : new Decimal(parsed.points ?? 10);
+        const hasGenAmount = parsed.generators?.some((g: { amount?: Decimal | number }) => {
+          const amt = g.amount instanceof Decimal ? g.amount : new Decimal(g.amount || 0);
+          return amt.gt(0);
+        });
+        if (rawPoints.lt(10) && !hasGenAmount) {
+          return parsed.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10);
+        }
+        return rawPoints;
+      })(),
+      pointsPerSecond: parsed.pointsPerSecond instanceof Decimal ? parsed.pointsPerSecond : Decimal.zero(),
+      prestige: {
+        ...initial.prestige,
+        ...(parsed.prestige || {}),
+        points: parsed.prestige?.points instanceof Decimal ? parsed.prestige.points : Decimal.zero(),
+        unlockedGenerators: Math.max(
+          4,
+          Math.min(
+            8,
+            4 + (typeof parsed.prestigeUpgrades?.generatorUnlockLevel === 'number'
+              ? parsed.prestigeUpgrades.generatorUnlockLevel
+              : (parsed.prestigeUpgrades?.generatorDoublerLevel && parsed.prestigeUpgrades.generatorDoublerLevel >= 4
+                  ? parsed.prestigeUpgrades.generatorDoublerLevel - 4
+                  : 0))
+          )
+        ),
+      },
+      prestigeEnergy: {
+        ...initial.prestigeEnergy,
+        ...(parsed.prestigeEnergy || {}),
+        amount: parsed.prestigeEnergy?.amount instanceof Decimal ? parsed.prestigeEnergy.amount : Decimal.zero(),
+        multiplier: parsed.prestigeEnergy?.multiplier instanceof Decimal ? parsed.prestigeEnergy.multiplier : Decimal.one(),
+      },
+      prestigeUpgrades: {
+        ...initial.prestigeUpgrades,
+        ...(parsed.prestigeUpgrades || {}),
+        cascadingBoostsLevel: typeof parsed.prestigeUpgrades?.cascadingBoostsLevel === 'number'
+          ? parsed.prestigeUpgrades.cascadingBoostsLevel
+          : (typeof (parsed.prestigeUpgrades as Record<string, unknown>)?.generatorDoublerLevel === 'number'
+              ? ((parsed.prestigeUpgrades as Record<string, unknown>).generatorDoublerLevel as number)
+              : 0),
+        generatorUnlockLevel: typeof parsed.prestigeUpgrades?.generatorUnlockLevel === 'number'
+          ? parsed.prestigeUpgrades.generatorUnlockLevel
+          : (typeof (parsed.prestigeUpgrades as Record<string, unknown>)?.generatorDoublerLevel === 'number' &&
+             ((parsed.prestigeUpgrades as Record<string, unknown>).generatorDoublerLevel as number) >= 4
+              ? ((parsed.prestigeUpgrades as Record<string, unknown>).generatorDoublerLevel as number) - 4
+              : 0),
+      },
+      infinity: {
+        ...initial.infinity,
+        ...(parsed.infinity || {}),
+        points: parsed.infinity?.points instanceof Decimal ? parsed.infinity.points : Decimal.zero(),
+      },
+      infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
+      autobuyers: {
+        ...initial.autobuyers,
+        ...(parsed.autobuyers || {}),
+        prestige: {
+          ...initial.autobuyers.prestige,
+          ...(parsed.autobuyers?.prestige || {}),
+          mode: ['time', 'targetPP', 'ppMultiplier'].includes(parsed.autobuyers?.prestige?.mode)
+            ? parsed.autobuyers.prestige.mode
+            : 'targetPP',
+          target: typeof parsed.autobuyers?.prestige?.target === 'number' ? parsed.autobuyers.prestige.target : 1,
+          timeTarget: typeof parsed.autobuyers?.prestige?.timeTarget === 'number' && parsed.autobuyers.prestige.timeTarget > 0
+            ? parsed.autobuyers.prestige.timeTarget
+            : 60,
+          ratioTarget: typeof parsed.autobuyers?.prestige?.ratioTarget === 'number' && parsed.autobuyers.prestige.ratioTarget >= 1
+            ? parsed.autobuyers.prestige.ratioTarget
+            : 2,
+          previousPPGain: parsed.autobuyers?.prestige?.previousPPGain instanceof Decimal
+            ? parsed.autobuyers.prestige.previousPPGain
+            : Decimal.zero(),
+        },
+      },
+      tickspeed: {
+        ...initial.tickspeed,
+        ...(parsed.tickspeed || {}),
+        cost: parsed.tickspeed?.cost instanceof Decimal ? parsed.tickspeed.cost : initial.tickspeed.cost,
+      },
+      stats: {
+        ...initial.stats,
+        ...(parsed.stats || {}),
+        timeThisInfinity: typeof parsed.stats?.timeThisInfinity === 'number' ? parsed.stats.timeThisInfinity : 0,
+        peakPointsRate: parsed.stats?.peakPointsRate instanceof Decimal ? parsed.stats.peakPointsRate : Decimal.zero(),
+        highestPointsEver: parsed.stats?.highestPointsEver instanceof Decimal ? parsed.stats.highestPointsEver : Decimal.zero(),
+        highestPPEver: parsed.stats?.highestPPEver instanceof Decimal ? parsed.stats.highestPPEver : Decimal.zero(),
+        highestIPEver: parsed.stats?.highestIPEver instanceof Decimal ? parsed.stats.highestIPEver : Decimal.zero(),
+        growthHistory: Array.isArray(parsed.stats?.growthHistory)
+          ? parsed.stats.growthHistory.slice(-120)
+          : [],
+      },
+      settings: {
+        ...initial.settings,
+        ...(parsed.settings || {}),
+        language: 'en',
+        autoSaveEnabled: parsed.settings?.autoSaveEnabled !== false,
+        autoSaveInterval:
+          typeof parsed.settings?.autoSaveInterval === 'number' && parsed.settings.autoSaveInterval > 0
+            ? parsed.settings.autoSaveInterval
+            : 5,
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Robust Save System with automated backup rotation.
+ * Rotates latest backup to prev_backup, and saves current state to primary and latest backup.
+ */
+export function saveStateWithBackup(state: GameState): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const serialized = serializeState(state);
+    const existing = localStorage.getItem(STORAGE_KEY);
+    if (existing) {
+      localStorage.setItem(STORAGE_PREV_BACKUP_KEY, existing);
+    }
+    localStorage.setItem(STORAGE_KEY, serialized);
+    localStorage.setItem(STORAGE_BACKUP_KEY, serialized);
+    return true;
+  } catch (err) {
+    console.error('Save failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Attempts to load from primary storage, falling back to backup if corrupted.
+ */
+export function loadStateSafe(): GameState {
+  if (typeof window === 'undefined') return createInitialState();
+  try {
+    const primary = localStorage.getItem(STORAGE_KEY);
+    if (primary) {
+      const parsed = deserializeState(primary);
+      if (parsed) return parsed;
+    }
+
+    const backup = localStorage.getItem(STORAGE_BACKUP_KEY);
+    if (backup) {
+      const parsed = deserializeState(backup);
+      if (parsed) {
+        console.warn('Recovered from latest backup save!');
+        return parsed;
+      }
+    }
+
+    const prevBackup = localStorage.getItem(STORAGE_PREV_BACKUP_KEY);
+    if (prevBackup) {
+      const parsed = deserializeState(prevBackup);
+      if (parsed) {
+        console.warn('Recovered from previous backup save!');
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Safe load failed:', err);
+  }
+  return createInitialState();
+}
+=== END FILE: src/constants/initialState.ts ===
+
+=== FILE: src/hooks/useGameLoop.ts ===
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { GameState, ToastNotification, Achievement } from '../types/game';
+import { ACHIEVEMENTS } from '../constants/achievements';
+import {
+  createInitialState,
+  serializeState,
+  deserializeState,
+  INITIAL_GENERATORS,
+  STORAGE_KEY,
+  saveStateWithBackup,
+  loadStateSafe,
+} from '../constants/initialState';
+import { INFINITY_TREE_NODES } from '../constants/infinityTree';
+import { Decimal } from '../utils/decimal';
+import { sound } from '../utils/audio';
+import {
+  PRESTIGE_REQUIREMENT,
+  PRESTIGE_ENERGY_THRESHOLD,
+  INFINITY_THRESHOLD,
+  getGeneratorCost,
+  getGeneratorMultiplier,
+  getTotalTickspeedSpeed,
+  getPointsGenerationMultiplier,
+  getTickspeedBaseCost,
+  getTickspeedCost,
+  getCascadingBoostCost,
+  MAX_CASCADING_BOOSTS,
+  getGeneratorUnlockCost,
+  MAX_GENERATOR_UNLOCKS,
+  getUnlockedGeneratorsCount,
+  calculatePrestigePointsGain,
+  calculatePrestigeEnergyMultiplier,
+} from '../utils/gameCalculations';
+
+export function useGameLoop() {
+  const [gameState, setGameState] = useState<GameState>(() => {
+    return loadStateSafe();
+  });
+
+  const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
+  const [showInfinityOverlay, setShowInfinityOverlay] = useState<boolean>(false);
+  const infinityTriggeredRef = useRef<boolean>(false);
+  const proceedInfinityRef = useRef<() => void>(() => {});
+
+  const stateRef = useRef<GameState>(gameState);
+  stateRef.current = gameState;
+
+  // Sync sound settings
+  useEffect(() => {
+    sound.enabled = gameState.settings.soundEnabled;
+  }, [gameState.settings.soundEnabled]);
+
+  // Handle Offline Progress on Mount (Simulate ALL unlocked generators cascading downward)
+  useEffect(() => {
+    const now = Date.now();
+    const last = stateRef.current.lastUpdate;
+    const diffSec = Math.max(0, (now - last) / 1000);
+
+    if (diffSec > 5) {
+      const state = {
+        ...stateRef.current,
+        generators: stateRef.current.generators.map((g) => ({ ...g })),
+      };
+
+      // Cap simulated time to 3 days (259,200s)
+      const simulatedSeconds = Math.min(diffSec, 86400 * 3);
+      const initialPoints = state.points;
+
+      // 100 discrete substeps accurately simulate cascading generator exponential growth
+      const steps = Math.min(150, Math.max(20, Math.floor(simulatedSeconds)));
+      const subDt = simulatedSeconds / steps;
+
+      for (let s = 0; s < steps; s++) {
+        state.stats.timeThisInfinity = (state.stats.timeThisInfinity || 0) + subDt;
+        const unlockedCount = getUnlockedGeneratorsCount(state);
+        const tickspeed = getTotalTickspeedSpeed(state);
+        const pointsMult = getPointsGenerationMultiplier(state);
+
+        // Update multipliers for each generator
+        for (let i = 0; i < state.generators.length; i++) {
+          state.generators[i].multiplier = getGeneratorMultiplier(i + 1, state);
+        }
+
+        // Cascade Generation: higher tiers produce lower tiers
+        for (let i = unlockedCount - 1; i >= 1; i--) {
+          const producer = state.generators[i];
+          const receiver = state.generators[i - 1];
+          if (producer.amount.gt(0)) {
+            const produced = producer.amount.mul(producer.multiplier).mul(subDt);
+            receiver.amount = receiver.amount.add(produced);
+          }
+        }
+
+        // Generator 1 produces Points
+        const gen1 = state.generators[0];
+        if (gen1.amount.gt(0)) {
+          const pointsRate = gen1.amount.mul(gen1.multiplier).mul(tickspeed).mul(pointsMult);
+          state.points = state.points.add(pointsRate.mul(subDt));
+        }
+
+        // Tree Node feat_2: Passive Prestige Energy accumulation
+        if (state.infinityTree?.feat_2 && state.prestigeEnergy?.unlocked) {
+          const passiveEnergy = calculatePrestigeEnergyMultiplier(state.points).mul(0.005 * subDt);
+          state.prestigeEnergy.multiplier = state.prestigeEnergy.multiplier.add(passiveEnergy);
+        }
+      }
+
+      const pointsGained = state.points.sub(initialPoints);
+      state.stats.totalTimePlayed += simulatedSeconds;
+      state.stats.timeThisPrestige += simulatedSeconds;
+      state.lastUpdate = now;
+
+      if (pointsGained.gt(0)) {
+        const msg = `Welcome back! While you were away (${Math.floor(simulatedSeconds)}s), all active generators worked in cascade, producing ${pointsGained.format(state.settings.notation)} Points.`;
+        setOfflineMessage(msg);
+        setGameState(state);
+        saveStateWithBackup(state);
+      }
+    }
+  }, []);
+
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const addToast = useCallback(
+    (toast: Omit<ToastNotification, 'id' | 'timestamp'>) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const newToast: ToastNotification = {
+        ...toast,
+        id,
+        timestamp: Date.now(),
+      };
+      setToasts((prev) => [...prev.slice(-4), newToast]);
+    },
+    []
+  );
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Check achievements against current state
+  const checkAchievements = useCallback((state: GameState): {
+    updated: Record<string, boolean>;
+    newAchievements: Achievement[];
+  } => {
+    const updated = { ...state.achievements };
+    const newlyUnlockedIds: string[] = [];
+
+    const check = (id: string, condition: boolean) => {
+      if (!updated[id] && condition) {
+        updated[id] = true;
+        newlyUnlockedIds.push(id);
+      }
+    };
+
+    check('first_step', state.generators[0].bought > 0);
+    check('cascade_begins', state.generators[1].bought > 0);
+    check('deep_production', state.generators[2].bought > 0);
+    check('peak_tier', state.generators[3].bought > 0);
+    check('tick_master', state.tickspeed.bought > 0);
+    check('hundred_points', state.points.gte(100));
+    check('thousand_points', state.points.gte(1000));
+    check('million_points', state.points.gte(1e6));
+    check('billion_points', state.points.gte(1e9));
+    check('trillion_points', state.points.gte(1e12));
+    check('prestige_ready', state.points.gte(PRESTIGE_REQUIREMENT));
+    check('first_prestige', state.stats.totalPrestiges >= 1);
+    check('speed_prestige', state.stats.fastestPrestige <= 600);
+    check('rapid_prestige', state.stats.fastestPrestige <= 180);
+    check('ten_prestiges', state.stats.totalPrestiges >= 10);
+    check('hundred_prestige_points', state.prestige.points.gte(100));
+    check('all_eight_gens', state.prestige.unlockedGenerators >= 8);
+    check('prestige_energy', state.prestigeEnergy?.resets >= 1);
+    check('reach_infinity', state.points.gte(INFINITY_THRESHOLD) || state.infinity.count >= 1);
+
+    const newAchievements: Achievement[] = [];
+    for (const id of newlyUnlockedIds) {
+      const found = ACHIEVEMENTS.find((a) => a.id === id);
+      if (found) newAchievements.push(found);
+    }
+
+    return { updated, newAchievements };
+  }, []);
+
+  // Main Loop with Background Execution (runs continuously when window is minimized or inactive)
+  useEffect(() => {
+    let animId: number;
+    let lastTime = performance.now();
+    let saveAccumulator = 0;
+    let autoAccumulator = 0;
+    let growthAccumulator = 0;
+
+    // Create an inline Web Worker that ticks every 50ms even when the window is minimized or in the background
+    let worker: Worker | null = null;
+    try {
+      if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+        const workerScript = `
+          let timer = null;
+          self.onmessage = function(e) {
+            if (e.data === 'start') {
+              if (!timer) {
+                timer = setInterval(function() {
+                  self.postMessage('tick');
+                }, 50);
+              }
+            } else if (e.data === 'stop') {
+              if (timer) {
+                clearInterval(timer);
+                timer = null;
+              }
+            }
+          };
+        `;
+        const blob = new Blob([workerScript], { type: 'application/javascript' });
+        worker = new Worker(URL.createObjectURL(blob));
+        worker.postMessage('start');
+      }
+    } catch {
+      worker = null;
+    }
+
+    const runSimulationStep = (dt: number) => {
+      if (dt <= 0) return;
+
+      setGameState((prev) => {
+        const state: GameState = {
+          ...prev,
+          generators: prev.generators.map((g) => ({ ...g })),
+          tickspeed: { ...prev.tickspeed },
+          prestige: { ...prev.prestige },
+          prestigeEnergy: { ...prev.prestigeEnergy },
+          prestigeUpgrades: { ...prev.prestigeUpgrades },
+          infinity: { ...prev.infinity },
+          autobuyers: Object.fromEntries(
+            Object.entries(prev.autobuyers).map(([key, buyer]) => [key, { ...buyer }] as const)
+          ),
+          stats: { ...prev.stats },
+          settings: { ...prev.settings },
+        };
+
+        // Dynamically compute unlocked generators from Cascading Doublers (4 up to 8)
+        const unlockedCount = getUnlockedGeneratorsCount(state);
+        state.prestige.unlockedGenerators = unlockedCount;
+
+        const tickspeedSpeed = getTotalTickspeedSpeed(state);
+
+        // Update multipliers for each generator
+        for (let i = 0; i < state.generators.length; i++) {
+          state.generators[i].multiplier = getGeneratorMultiplier(i + 1, state);
+        }
+
+        // Cascade Generation: Gen 8 -> Gen 7 -> ... -> Gen 1
+        for (let i = unlockedCount - 1; i >= 1; i--) {
+          const producer = state.generators[i];
+          const receiver = state.generators[i - 1];
+          if (producer.amount.gt(0)) {
+            const produced = producer.amount.mul(producer.multiplier).mul(dt);
+            receiver.amount = receiver.amount.add(produced);
+          }
+        }
+
+        // Gen 1 produces Points
+        const gen1 = state.generators[0];
+        let pointsRate = Decimal.zero();
+        if (gen1.amount.gt(0)) {
+          const pointsMult = getPointsGenerationMultiplier(state);
+          pointsRate = gen1.amount.mul(gen1.multiplier).mul(tickspeedSpeed).mul(pointsMult);
+          state.points = state.points.add(pointsRate.mul(dt));
+        }
+        state.pointsPerSecond = pointsRate;
+
+        // Anti-softlock safety: if player has 0 generators and cannot afford Generator 1 (< 10 points)
+        if (state.points.lt(10) && state.generators.every((g) => g.amount.lte(0))) {
+          const startingCapital = state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10);
+          state.points = startingCapital;
+        }
+
+        // Auto-unlock Prestige Energy flag once 1e154 is reached
+        if (state.points.gte(PRESTIGE_ENERGY_THRESHOLD)) {
+          state.prestigeEnergy.unlocked = true;
+        }
+
+        // Stats tracking
+        state.stats.totalTimePlayed += dt;
+        state.stats.timeThisPrestige += dt;
+        state.stats.timeThisInfinity = (state.stats.timeThisInfinity || 0) + dt;
+        if (pointsRate.gt(state.stats.peakPointsRate)) {
+          state.stats.peakPointsRate = pointsRate;
+        }
+        if (state.points.gt(state.stats.highestPointsEver)) {
+          state.stats.highestPointsEver = state.points;
+        }
+
+        // Growth History tracking (record every 2s, capped at 100 points)
+        growthAccumulator += dt;
+        if (growthAccumulator >= 2 || !state.stats.growthHistory || state.stats.growthHistory.length === 0) {
+          growthAccumulator = 0;
+          const currentHistory = state.stats.growthHistory ? [...state.stats.growthHistory] : [];
+          const logVal = state.points.mantissa > 0 ? Math.max(0, state.points.log10()) : 0;
+
+          currentHistory.push({
+            timestamp: Date.now(),
+            timePlayed: Math.floor(state.stats.totalTimePlayed),
+            points: state.points.toNumber(),
+            logPoints: Math.round(logVal * 100) / 100,
+            formattedPoints: state.points.format(state.settings.notation),
+            rate: pointsRate.mantissa > 0 ? Math.round(pointsRate.log10() * 100) / 100 : 0,
+          });
+
+          if (currentHistory.length > 100) {
+            currentHistory.shift();
+          }
+          state.stats.growthHistory = currentHistory;
+        }
+
+        // Tree Node root auto-unlock if player has >= 1 Infinity
+        if (state.infinity.count > 0 && !state.infinityTree?.root) {
+          state.infinityTree = { ...(state.infinityTree || {}), root: true };
+        }
+
+        // Sync autobuyer unlocked status based on Tree Nodes
+        if (state.infinityTree?.auto_1) {
+          ['gen1', 'gen2', 'gen3', 'gen4'].forEach((k) => {
+            if (state.autobuyers[k] && !state.autobuyers[k].unlocked) {
+              state.autobuyers[k].unlocked = true;
+            }
+          });
+        }
+        if (state.infinityTree?.auto_2) {
+          ['tickspeed', 'gen5', 'gen6', 'gen7', 'gen8'].forEach((k) => {
+            if (state.autobuyers[k] && !state.autobuyers[k].unlocked) {
+              state.autobuyers[k].unlocked = true;
+            }
+          });
+        }
+        if (state.infinityTree?.auto_3) {
+          if (state.autobuyers['prestige'] && !state.autobuyers['prestige'].unlocked) {
+            state.autobuyers['prestige'].unlocked = true;
+          }
+        }
+
+        // Check Infinity Threshold (1.79e308 Points)
+        // If Break Infinity (feat_4) is NOT active, trigger forced collapse
+        if (!state.infinityTree?.feat_4 && state.points.gte(INFINITY_THRESHOLD) && !infinityTriggeredRef.current) {
+          infinityTriggeredRef.current = true;
+          if (state.infinity.count < 10) {
+            setShowInfinityOverlay(true);
+            sound.playCollapse();
+          } else {
+            // After 10 infinities, the "YOU REACHED INFINITY" overlay no longer appears
+            setTimeout(() => {
+              proceedInfinityRef.current();
+            }, 0);
+          }
+        }
+
+        // Autobuyers execution (every ~0.25s, or 0.05s with auto_4)
+        const autoInterval = state.infinityTree?.auto_4 ? 0.05 : 0.25;
+        autoAccumulator += dt;
+        if (autoAccumulator >= autoInterval) {
+          autoAccumulator = 0;
+
+          // Auto Generators (only unlocked tiers)
+          for (let i = 0; i < unlockedCount; i++) {
+            const abKey = `gen${i + 1}`;
+            const ab = state.autobuyers[abKey];
+            if (ab && ab.unlocked && ab.enabled) {
+              const gen = state.generators[i];
+              if (state.infinityTree?.auto_4) {
+                // Quantum Autobuyer: Buy max available
+                while (true) {
+                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought);
+                  if (state.points.lt(cost)) break;
+                  state.points = state.points.sub(cost);
+                  gen.amount = gen.amount.add(1);
+                  gen.bought++;
+                }
+              } else {
+                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought);
+                if (state.points.gte(cost)) {
+                  state.points = state.points.sub(cost);
+                  gen.amount = gen.amount.add(1);
+                  gen.bought++;
+                }
+              }
+            }
+          }
+
+          // Auto Tickspeed
+          const autoTick = state.autobuyers['tickspeed'];
+          if (autoTick && autoTick.unlocked && autoTick.enabled) {
+            const baseTick = getTickspeedBaseCost(state);
+            if (state.infinityTree?.auto_4) {
+              while (state.points.gte(state.tickspeed.cost)) {
+                state.points = state.points.sub(state.tickspeed.cost);
+                state.tickspeed.bought++;
+                state.tickspeed.cost = baseTick.mul(state.tickspeed.costMult.pow(state.tickspeed.bought));
+              }
+            } else {
+              const tickCost = state.tickspeed.cost;
+              if (state.points.gte(tickCost)) {
+                state.points = state.points.sub(tickCost);
+                state.tickspeed.bought++;
+                state.tickspeed.cost = getTickspeedCost(state);
+              }
+            }
+          }
+
+          // Auto Prestige (Branch 2 Node 3)
+          const autoPres = state.autobuyers['prestige'];
+          if (autoPres && autoPres.unlocked && autoPres.enabled) {
+            const ppGain = calculatePrestigePointsGain(state.points, state);
+            const target = typeof autoPres.target === 'number' ? autoPres.target : 1;
+            const mode = autoPres.mode || 'targetPP'; // Keeps existing saves on their previous behavior.
+            const previousGain = autoPres.previousPPGain instanceof Decimal
+              ? autoPres.previousPPGain
+              : Decimal.zero();
+            const timeTarget = Math.max(1, autoPres.timeTarget || 60);
+            const ratioTarget = Math.max(1.01, autoPres.ratioTarget || 2);
+            let shouldPrestige = false;
+
+            // Never reset until this run can actually award at least 1 PP.
+            if (ppGain.gte(1)) {
+              if (mode === 'time') {
+                shouldPrestige = state.stats.timeThisPrestige >= timeTarget;
+              } else if (mode === 'ppMultiplier') {
+                // If there is no recorded previous run yet, use the first successful run
+                // to establish a baseline; later runs must beat it by the configured ratio.
+                shouldPrestige = previousGain.gt(0)
+                  ? ppGain.gte(previousGain.mul(ratioTarget))
+                  : true;
+              } else {
+                shouldPrestige = ppGain.gte(target);
+              }
+            }
+
+            if (shouldPrestige) {
+              const totalPP = state.prestige.points.add(ppGain);
+              const completedPrestigeTime = state.stats.timeThisPrestige;
+              // Trigger automated Prestige and remember the gain for ratio mode.
+              state.prestige.count++;
+              state.prestige.points = totalPP;
+              state.stats.totalPrestiges++;
+              state.stats.fastestPrestige = Math.min(state.stats.fastestPrestige, completedPrestigeTime);
+              state.stats.highestPPEver = totalPP.gt(state.stats.highestPPEver) ? totalPP : state.stats.highestPPEver;
+              state.autobuyers['prestige'] = { ...autoPres, previousPPGain: ppGain };
+              state.stats.timeThisPrestige = 0;
+              state.points = state.infinityTree?.pre_2 ? new Decimal(1e6) : (state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10));
+              state.generators = INITIAL_GENERATORS();
+              if (state.infinityTree?.pre_2) {
+                for (let k = 0; k < 4; k++) {
+                  state.generators[k].amount = new Decimal(1);
+                  state.generators[k].bought = 1;
+                }
+              }
+              state.tickspeed.bought = 0;
+              state.tickspeed.cost = getTickspeedBaseCost(state);
+            }
+          }
+        }
+
+        // Achievements check & Toast Notifications
+        const { updated, newAchievements } = checkAchievements(state);
+        state.achievements = updated;
+        if (newAchievements.length > 0) {
+          sound.playAchievement();
+          newAchievements.forEach((ach) => {
+            addToast({
+              title: ach.name,
+              message: ach.name,
+              description: ach.desc,
+              icon: '🏆',
+              type: 'achievement',
+            });
+          });
+        }
+
+        // Auto Save to localStorage (if enabled in settings) with automated backup rotation
+        if (state.settings.autoSaveEnabled) {
+          saveAccumulator += dt;
+          if (saveAccumulator >= state.settings.autoSaveInterval) {
+            saveAccumulator = 0;
+            state.lastUpdate = Date.now();
+            saveStateWithBackup(state);
+          }
+        }
+
+        return state;
+      });
+    };
+
+    // When worker sends tick: if window is hidden / minimized, process background simulation
+    if (worker) {
+      worker.onmessage = () => {
+        if (document.hidden) {
+          const now = performance.now();
+          const rawDt = (now - lastTime) / 1000;
+          lastTime = now;
+          if (rawDt > 0.01) {
+            const maxStep = 0.25;
+            const steps = Math.min(60, Math.ceil(rawDt / maxStep));
+            const stepDt = rawDt / steps;
+            for (let s = 0; s < steps; s++) {
+              runSimulationStep(stepDt);
+            }
+          }
+        }
+      };
+    }
+
+    // Secondary interval heartbeat to guarantee active execution even if browser throttles workers
+    const bgInterval = setInterval(() => {
+      if (document.hidden) {
+        const now = performance.now();
+        const rawDt = (now - lastTime) / 1000;
+        lastTime = now;
+        if (rawDt > 0.05) {
+          const maxStep = 0.25;
+          const steps = Math.min(60, Math.ceil(rawDt / maxStep));
+          const stepDt = rawDt / steps;
+          for (let s = 0; s < steps; s++) {
+            runSimulationStep(stepDt);
+          }
+        }
+      }
+    }, 100);
+
+    // Main 60fps loop for active window
+    const tick = (currentTime: number) => {
+      if (!document.hidden) {
+        const rawDt = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+        const dt = Math.min(0.5, Math.max(0.001, rawDt));
+        runSimulationStep(dt);
+      }
+      animId = requestAnimationFrame(tick);
+    };
+
+    // Immediate catch-up listener when window becomes visible or gains focus
+    const handleFocusOrVisible = () => {
+      const now = performance.now();
+      const rawDt = (now - lastTime) / 1000;
+      lastTime = now;
+      if (rawDt > 0.05) {
+        // Step in increments of at most 0.25s up to 100 steps so cascading & autobuyers catch up cleanly
+        const steps = Math.min(100, Math.ceil(rawDt / 0.25));
+        const stepDt = rawDt / steps;
+        for (let s = 0; s < steps; s++) {
+          runSimulationStep(stepDt);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+    window.addEventListener('focus', handleFocusOrVisible);
+
+    animId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      clearInterval(bgInterval);
+      if (worker) {
+        worker.postMessage('stop');
+        worker.terminate();
+      }
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+      window.removeEventListener('focus', handleFocusOrVisible);
+    };
+  }, [checkAchievements, addToast]);
+
+  // Actions
+  const buyGenerator = useCallback((id: number) => {
+    setGameState((prev) => {
+      const unlockedCount = getUnlockedGeneratorsCount(prev);
+      if (id > unlockedCount) return prev;
+      const genIndex = id - 1;
+      const gen = prev.generators[genIndex];
+      if (!gen) return prev;
+
+      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought);
+      if (prev.points.lt(cost)) return prev;
+
+      sound.playBuy();
+
+      const newGenerators = prev.generators.map((g, idx) => {
+        if (idx === genIndex) {
+          return {
+            ...g,
+            amount: g.amount.add(1),
+            bought: g.bought + 1,
+          };
+        }
+        return g;
+      });
+
+      return {
+        ...prev,
+        points: prev.points.sub(cost),
+        generators: newGenerators,
+        stats: {
+          ...prev.stats,
+          totalManualClicks: prev.stats.totalManualClicks + 1,
+        },
+      };
+    });
+  }, []);
+
+  const buyMaxGenerator = useCallback((id: number) => {
+    setGameState((prev) => {
+      const unlockedCount = getUnlockedGeneratorsCount(prev);
+      if (id > unlockedCount) return prev;
+      const genIndex = id - 1;
+      const gen = prev.generators[genIndex];
+      if (!gen) return prev;
+
+      let currentPoints = prev.points;
+      let currentAmount = gen.amount;
+      let currentBought = gen.bought;
+      let purchases = 0;
+
+      while (true) {
+        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought);
+        if (currentPoints.lt(cost) || purchases >= 50) break;
+        currentPoints = currentPoints.sub(cost);
+        currentAmount = currentAmount.add(1);
+        currentBought++;
+        purchases++;
+      }
+
+      if (purchases === 0) return prev;
+      sound.playBuy();
+
+      const newGenerators = prev.generators.map((g, idx) => {
+        if (idx === genIndex) {
+          return { ...g, amount: currentAmount, bought: currentBought };
+        }
+        return g;
+      });
+
+      return {
+        ...prev,
+        points: currentPoints,
+        generators: newGenerators,
+      };
+    });
+  }, []);
+
+  const buyTickspeed = useCallback(() => {
+    setGameState((prev) => {
+      const cost = prev.tickspeed.cost;
+      if (prev.points.lt(cost)) return prev;
+
+      sound.playBuy();
+      const newBought = prev.tickspeed.bought + 1;
+      const nextCost = getTickspeedBaseCost(prev).mul(prev.tickspeed.costMult.pow(newBought));
+
+      return {
+        ...prev,
+        points: prev.points.sub(cost),
+        tickspeed: {
+          ...prev.tickspeed,
+          bought: newBought,
+          cost: nextCost,
+        },
+        stats: {
+          ...prev.stats,
+          totalManualClicks: prev.stats.totalManualClicks + 1,
+        },
+      };
+    });
+  }, []);
+
+  const buyMaxAll = useCallback(() => {
+    setGameState((prev) => {
+      let currentPoints = prev.points;
+      const newGenerators = prev.generators.map((g) => ({ ...g }));
+      const unlockedCount = getUnlockedGeneratorsCount(prev);
+      let didBuy = false;
+
+      // Buy Tickspeed
+      let tickBought = prev.tickspeed.bought;
+      let tickCost = prev.tickspeed.cost;
+      const baseTick = getTickspeedBaseCost(prev);
+      while (currentPoints.gte(tickCost)) {
+        currentPoints = currentPoints.sub(tickCost);
+        tickBought++;
+        tickCost = baseTick.mul(prev.tickspeed.costMult.pow(tickBought));
+        didBuy = true;
+      }
+
+      // Buy all unlocked generators
+      for (let i = unlockedCount - 1; i >= 0; i--) {
+        const g = newGenerators[i];
+        while (true) {
+          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought);
+          if (currentPoints.lt(cost)) break;
+          currentPoints = currentPoints.sub(cost);
+          g.amount = g.amount.add(1);
+          g.bought++;
+          didBuy = true;
+        }
+      }
+
+      if (!didBuy) return prev;
+      sound.playBuy();
+
+      return {
+        ...prev,
+        points: currentPoints,
+        generators: newGenerators,
+        tickspeed: {
+          ...prev.tickspeed,
+          bought: tickBought,
+          cost: tickCost,
+        },
+      };
+    });
+  }, []);
+
+  const performPrestige = useCallback(() => {
+    setGameState((prev) => {
+      const ppGain = calculatePrestigePointsGain(prev.points, prev);
+      if (ppGain.lt(1)) return prev;
+
+      sound.playCollapse();
+
+      const totalPrestiges = prev.stats.totalPrestiges + 1;
+      const fastest = Math.min(prev.stats.fastestPrestige, prev.stats.timeThisPrestige);
+      const resetGenerators = INITIAL_GENERATORS();
+      const newPP = prev.prestige.points.add(ppGain);
+
+      const baseTickCost = prev.prestigeUpgrades.tickspeedDiscount ? new Decimal(10) : new Decimal(1000);
+      let startingPoints = prev.prestigeUpgrades.tickspeedDiscount ? new Decimal(110) : new Decimal(10);
+      if (prev.infinityTree?.pre_2) {
+        startingPoints = new Decimal(1e6);
+        for (let i = 0; i < 4; i++) {
+          resetGenerators[i].amount = new Decimal(1);
+          resetGenerators[i].bought = 1;
+        }
+      }
+
+      return {
+        ...prev,
+        points: startingPoints,
+        prestige: {
+          ...prev.prestige,
+          count: prev.prestige.count + 1,
+          points: newPP,
+        },
+        tickspeed: {
+          ...prev.tickspeed,
+          bought: 0,
+          cost: baseTickCost,
+        },
+        generators: resetGenerators,
+        autobuyers: {
+          ...prev.autobuyers,
+          prestige: prev.autobuyers.prestige
+            ? { ...prev.autobuyers.prestige, previousPPGain: ppGain }
+            : prev.autobuyers.prestige,
+        },
+        stats: {
+          ...prev.stats,
+          totalPrestiges,
+          fastestPrestige: fastest,
+          timeThisPrestige: 0,
+          highestPPEver: newPP.gt(prev.stats.highestPPEver) ? newPP : prev.stats.highestPPEver,
+        },
+      };
+    });
+  }, []);
+
+  // Mini-reset: Prestige Energy
+  // Resets everything prior to Prestige Energy (including prestige points, prestige count, and ALL prestige upgrades)
+  // in exchange for a permanent compounded Generators multiplier!
+  const performPrestigeEnergy = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.points.lt(PRESTIGE_ENERGY_THRESHOLD)) return prev;
+
+      const gainedMult = calculatePrestigeEnergyMultiplier(prev.points);
+      if (gainedMult.lt(2)) return prev;
+
+      sound.playBoost();
+
+      const newMultiplier = prev.prestigeEnergy.multiplier.mul(gainedMult);
+      const newAmount = prev.prestigeEnergy.amount.add(gainedMult);
+      const initial = createInitialState();
+
+      return {
+        ...prev,
+        points: new Decimal(10),
+        generators: INITIAL_GENERATORS(),
+        tickspeed: {
+          ...initial.tickspeed,
+        },
+        prestige: {
+          count: 0,
+          points: Decimal.zero(),
+          unlockedGenerators: 4,
+        },
+        prestigeUpgrades: {
+          ...initial.prestigeUpgrades,
+        },
+        prestigeEnergy: {
+          unlocked: true,
+          amount: newAmount,
+          multiplier: newMultiplier,
+          resets: prev.prestigeEnergy.resets + 1,
+        },
+        stats: {
+          ...prev.stats,
+          timeThisPrestige: 0,
+        },
+      };
+    });
+  }, []);
+
+  // Buy any Prestige Upgrade
+  const buyPrestigeUpgrade = useCallback((upgradeId: string) => {
+    setGameState((prev) => {
+      const currentPP = prev.prestige.points;
+      const upgs = prev.prestigeUpgrades;
+
+      const costs: Record<string, Decimal> = {
+        pointScaling: new Decimal(1),
+        achievementBoost: new Decimal(2),
+        tickspeedDiscount: new Decimal(2),
+        prestigeSynergy: new Decimal(5),
+        amplifiedDoubling: new Decimal(15),
+        chronosFlow: new Decimal(25),
+        logarithmicCascade: new Decimal(50),
+        cascadeSurge: new Decimal(100),
+        cosmicResonance: new Decimal(250),
+      };
+
+      // Upgrade 3A: Cascading Boosts (up to 20 levels)
+      if (upgradeId === 'cascadingBoosts') {
+        const currentLvl = upgs.cascadingBoostsLevel;
+        if (currentLvl >= MAX_CASCADING_BOOSTS) return prev;
+        const cost = getCascadingBoostCost(currentLvl);
+        if (currentPP.lt(cost)) return prev;
+        sound.playBuy();
+
+        return {
+          ...prev,
+          prestige: {
+            ...prev.prestige,
+            points: currentPP.sub(cost),
+          },
+          prestigeUpgrades: {
+            ...upgs,
+            cascadingBoostsLevel: currentLvl + 1,
+          },
+        };
+      }
+
+      // Upgrade 3B: Generator Expander (up to 4 levels, unlocking Gen 5, 6, 7, 8)
+      if (upgradeId === 'generatorUnlock') {
+        const currentLvl = upgs.generatorUnlockLevel;
+        if (currentLvl >= MAX_GENERATOR_UNLOCKS) return prev;
+        const cost = getGeneratorUnlockCost(currentLvl);
+        if (currentPP.lt(cost)) return prev;
+        sound.playBuy();
+
+        const nextLvl = currentLvl + 1;
+        const nextUnlockedGens = 4 + nextLvl;
+
+        return {
+          ...prev,
+          prestige: {
+            ...prev.prestige,
+            points: currentPP.sub(cost),
+            unlockedGenerators: nextUnlockedGens,
+          },
+          prestigeUpgrades: {
+            ...upgs,
+            generatorUnlockLevel: nextLvl,
+          },
+        };
+      }
+
+      const cost = costs[upgradeId];
+      if (!cost || currentPP.lt(cost)) return prev;
+
+      // Check if already bought boolean upgrade
+      if ((upgs as unknown as Record<string, boolean>)[upgradeId]) return prev;
+
+      sound.playBuy();
+
+      const nextUpgrades = {
+        ...upgs,
+        [upgradeId]: true,
+      };
+
+      const nextState = {
+        ...prev,
+        prestige: { ...prev.prestige, points: currentPP.sub(cost) },
+        prestigeUpgrades: nextUpgrades,
+      };
+
+      if (upgradeId === 'tickspeedDiscount') {
+        return {
+          ...nextState,
+          points: nextState.points.add(100),
+          tickspeed: {
+            ...nextState.tickspeed,
+            cost: getTickspeedCost(nextState),
+          },
+        };
+      }
+
+      return nextState;
+    });
+  }, []);
+
+  // Complete reset to Infinity layer: grants IP, unlocks Infinity tab, and resets pre-infinity progress
+  const proceedInfinity = useCallback(() => {
+    setShowInfinityOverlay(false);
+    infinityTriggeredRef.current = false;
+
+    setGameState((prev) => {
+      const newCount = prev.infinity.count + 1;
+      let ipGain = 1;
+      if (prev.infinityTree?.feat_4 && prev.points.gte(INFINITY_THRESHOLD)) {
+        const excess = Math.max(0, prev.points.log10() - 308);
+        ipGain += Math.floor(excess / 10);
+      }
+      const newIP = prev.infinity.points.add(ipGain);
+
+      const resetGenerators = INITIAL_GENERATORS();
+      let startingPoints = new Decimal(10);
+      if (prev.infinityTree?.pre_2) {
+        startingPoints = new Decimal(1e6);
+        for (let i = 0; i < 4; i++) {
+          resetGenerators[i].amount = new Decimal(1);
+          resetGenerators[i].bought = 1;
+        }
+      }
+
+      // Root node auto-unlocks upon first Infinity
+      const nextTree = {
+        ...(prev.infinityTree || {}),
+        root: true,
+      };
+
+      const nextState: GameState = {
+        ...prev,
+        points: startingPoints,
+        generators: resetGenerators,
+        tickspeed: {
+          ...prev.tickspeed,
+          bought: 0,
+          cost: new Decimal(1000),
+        },
+        prestige: {
+          count: 0,
+          points: Decimal.zero(),
+          unlockedGenerators: 4,
+        },
+        prestigeEnergy: {
+          unlocked: false,
+          amount: Decimal.zero(),
+          multiplier: Decimal.one(),
+          resets: 0,
+        },
+        prestigeUpgrades: {
+          ...createInitialState().prestigeUpgrades,
+        },
+        infinity: {
+          count: newCount,
+          points: newIP,
+          unlocked: true,
+        },
+        infinityTree: nextTree,
+        stats: {
+          ...prev.stats,
+          totalInfinities: newCount,
+          timeThisPrestige: 0,
+          timeThisInfinity: 0,
+          highestIPEver: newIP.gt(prev.stats.highestIPEver) ? newIP : prev.stats.highestIPEver,
+        },
+      };
+
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+  proceedInfinityRef.current = proceedInfinity;
+
+  const buyInfinityTreeNode = useCallback((nodeId: string) => {
+    setGameState((prev) => {
+      const def = INFINITY_TREE_NODES[nodeId];
+      if (!def) return prev;
+      const tree = prev.infinityTree || {};
+      if (tree[nodeId]) return prev;
+
+      // Check parent requirement
+      if (def.req !== 'none' && !tree[def.req]) {
+        return prev;
+      }
+
+      const cost = new Decimal(def.cost);
+      if (prev.infinity.points.lt(cost)) {
+        return prev;
+      }
+
+      sound.playBuy();
+      const nextIP = prev.infinity.points.sub(cost);
+      const nextTree = { ...tree, [nodeId]: true };
+
+      // Unlock corresponding autobuyers immediately
+      const nextAutobuyers = { ...prev.autobuyers };
+      if (nodeId === 'auto_1') {
+        ['gen1', 'gen2', 'gen3', 'gen4'].forEach((k) => {
+          if (nextAutobuyers[k]) nextAutobuyers[k] = { ...nextAutobuyers[k], unlocked: true };
+        });
+      } else if (nodeId === 'auto_2') {
+        ['tickspeed', 'gen5', 'gen6', 'gen7', 'gen8'].forEach((k) => {
+          if (nextAutobuyers[k]) nextAutobuyers[k] = { ...nextAutobuyers[k], unlocked: true };
+        });
+      } else if (nodeId === 'auto_3') {
+        if (nextAutobuyers['prestige']) nextAutobuyers['prestige'] = { ...nextAutobuyers['prestige'], unlocked: true };
+      }
+
+      const nextState: GameState = {
+        ...prev,
+        infinity: {
+          ...prev.infinity,
+          points: nextIP,
+        },
+        infinityTree: nextTree,
+        autobuyers: nextAutobuyers,
+      };
+
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const setAutobuyerTarget = useCallback((id: string, target: number) => {
+    setGameState((prev) => {
+      const ab = prev.autobuyers[id];
+      if (!ab) return prev;
+      return {
+        ...prev,
+        autobuyers: {
+          ...prev.autobuyers,
+          [id]: {
+            ...ab,
+            target,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const setPrestigeAutobuyerSettings = useCallback((settings: Partial<{
+    target: number;
+    mode: 'time' | 'targetPP' | 'ppMultiplier';
+    timeTarget: number;
+    ratioTarget: number;
+  }>) => {
+    setGameState((prev) => {
+      const current = prev.autobuyers.prestige;
+      if (!current) return prev;
+      return {
+        ...prev,
+        autobuyers: {
+          ...prev.autobuyers,
+          prestige: {
+            ...current,
+            ...settings,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const toggleAutobuyer = useCallback((id: string) => {
+    setGameState((prev) => {
+      const target = prev.autobuyers[id];
+      if (!target || !target.unlocked) return prev;
+      return {
+        ...prev,
+        autobuyers: {
+          ...prev.autobuyers,
+          [id]: {
+            ...target,
+            enabled: !target.enabled,
+          },
+        },
+      };
+    });
+  }, []);
+
+  const toggleSound = useCallback(() => {
+    setGameState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        soundEnabled: !prev.settings.soundEnabled,
+      },
+    }));
+  }, []);
+
+  const setLanguage = useCallback((language: 'en' | 'ru') => {
+    setGameState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        language,
+      },
+    }));
+  }, []);
+
+  const setNotation = useCallback((notation: 'scientific' | 'engineering' | 'standard' | 'logarithm') => {
+    setGameState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        notation,
+      },
+    }));
+  }, []);
+
+  const exportSave = useCallback((): string => {
+    try {
+      const json = serializeState(stateRef.current);
+      return btoa(unescape(encodeURIComponent(json)));
+    } catch {
+      return '';
+    }
+  }, []);
+
+  const importSave = useCallback((raw: string): boolean => {
+    try {
+      let json = raw.trim();
+      try {
+        json = decodeURIComponent(escape(atob(json)));
+      } catch {
+        // Fallback
+      }
+      const state = deserializeState(json);
+      if (state) {
+        setGameState(state);
+        saveStateWithBackup(state);
+        return true;
+      }
+    } catch {
+      // Failed
+    }
+    return false;
+  }, []);
+
+  const saveGame = useCallback(() => {
+    setGameState((prev) => {
+      const now = Date.now();
+      const updated = {
+        ...prev,
+        lastUpdate: now,
+      };
+      const saved = saveStateWithBackup(updated);
+      if (saved) {
+        addToast({
+          title: 'Game Saved',
+          message: 'Saved with automated backup snapshot!',
+          description: `Time: ${new Date(now).toLocaleTimeString()}`,
+          icon: '💾',
+          type: 'save',
+        });
+      }
+      return updated;
+    });
+  }, [addToast]);
+
+  const restoreBackup = useCallback((): boolean => {
+    const backupState = loadStateSafe();
+    if (backupState) {
+      setGameState(backupState);
+      saveStateWithBackup(backupState);
+      sound.playBoost();
+      addToast({
+        title: 'Backup Restored',
+        message: 'Successfully restored from automatic backup snapshot!',
+        icon: '🛡️',
+        type: 'save',
+      });
+      return true;
+    }
+    return false;
+  }, [addToast]);
+
+  const setAutoSaveEnabled = useCallback((enabled: boolean) => {
+    setGameState((prev) => {
+      const next = {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          autoSaveEnabled: enabled,
+        },
+      };
+      saveStateWithBackup(next);
+      return next;
+    });
+  }, []);
+
+  const setAutoSaveInterval = useCallback((interval: number) => {
+    setGameState((prev) => {
+      const next = {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          autoSaveInterval: interval,
+        },
+      };
+      saveStateWithBackup(next);
+      return next;
+    });
+  }, []);
+
+  const exportSaveToFile = useCallback(() => {
+    try {
+      const json = serializeState(stateRef.current);
+      const encoded = btoa(unescape(encodeURIComponent(json)));
+      const blob = new Blob([encoded], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      a.href = url;
+      a.download = `generators_save_${dateStr}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addToast({
+        title: 'Save File Exported',
+        message: 'File downloaded successfully!',
+        description: `generators_save_${dateStr}.txt`,
+        type: 'save',
+      });
+    } catch {
+      addToast({
+        title: 'Export Failed',
+        message: 'Could not generate save file.',
+        type: 'info',
+      });
+    }
+  }, [addToast]);
+
+  const importSaveFromFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') return;
+        let json = text.trim();
+        try {
+          json = decodeURIComponent(escape(atob(json)));
+        } catch {
+          // May be direct JSON
+        }
+        const state = deserializeState(json);
+        if (state) {
+          setGameState(state);
+          saveStateWithBackup(state);
+          sound.playBoost();
+          addToast({
+            title: 'Save File Loaded',
+            message: `Successfully loaded from ${file.name}!`,
+            type: 'save',
+          });
+        } else {
+          addToast({
+            title: 'Import Failed',
+            message: 'Invalid save file content.',
+            type: 'info',
+          });
+        }
+      } catch {
+        addToast({
+          title: 'Import Error',
+          message: 'Error reading save file.',
+          type: 'info',
+        });
+      }
+    };
+    reader.readAsText(file);
+  }, [addToast]);
+
+  const hardReset = useCallback(() => {
+    const fresh = createInitialState();
+    localStorage.removeItem(STORAGE_KEY);
+    setGameState(fresh);
+  }, []);
+
+  return {
+    gameState,
+    offlineMessage,
+    showInfinityOverlay,
+    proceedInfinity,
+    clearOfflineMessage: () => setOfflineMessage(null),
+    toasts,
+    dismissToast,
+    buyGenerator,
+    buyMaxGenerator,
+    buyTickspeed,
+    buyMaxAll,
+    performPrestige,
+    performPrestigeEnergy,
+    buyPrestigeUpgrade,
+    buyInfinityTreeNode,
+    setAutobuyerTarget,
+    setPrestigeAutobuyerSettings,
+    restoreBackup,
+    toggleAutobuyer,
+    toggleSound,
+    setLanguage,
+    setNotation,
+    saveGame,
+    setAutoSaveEnabled,
+    setAutoSaveInterval,
+    exportSave,
+    importSave,
+    exportSaveToFile,
+    importSaveFromFile,
+    hardReset,
+  };
+}
+=== END FILE: src/hooks/useGameLoop.ts ===
+
+=== FILE: src/types/game.ts ===
+import { Decimal } from '../utils/decimal';
+
+export interface GeneratorState {
+  id: number;
+  name: string;
+  amount: Decimal;
+  bought: number;
+  baseCost: Decimal;
+  costMult: Decimal;
+  multiplier: Decimal;
+}
+
+export interface TickspeedState {
+  bought: number;
+  baseCost: Decimal;
+  costMult: Decimal;
+  cost: Decimal;
+  multiplier: number; // e.g. 1.10x
+}
+
+export interface PrestigeState {
+  count: number;
+  points: Decimal; // Prestige Points (PP)
+  unlockedGenerators: number; // 4 initially, up to 8 via Generator Expander
+}
+
+export interface PrestigeEnergyState {
+  unlocked: boolean; // true once points reach 1e154
+  amount: Decimal;
+  multiplier: Decimal; // Generators multiplier (minimum x2)
+  resets: number;
+}
+
+export interface PrestigeUpgradesState {
+  pointScaling: boolean; // Upgrade 1: 2x per 6 OoM points
+  achievementBoost: boolean; // Upgrade 2: 1.05x per achievement (multiplicative)
+  cascadingBoostsLevel: number; // Upgrade 3A: 0 to 20 levels (AD-style non-resetting cascade boosts)
+  generatorUnlockLevel: number; // Upgrade 3B: 0 to 4 levels (unlocks Gen 5, 6, 7, 8)
+  tickspeedDiscount: boolean; // Upgrade 4: 100x lower base tickspeed cost
+  prestigeSynergy: boolean; // Upgrade 5: Points boosted by unspent PP
+  amplifiedDoubling: boolean; // Upgrade 6: Base generator purchase mult increases to 2.25x
+  chronosFlow: boolean; // Upgrade 7: Tickspeed power increased
+  logarithmicCascade: boolean; // Upgrade 8: Points boosted by log10(points)^2
+  cascadeSurge: boolean; // Upgrade 9: Higher generators produce 10x faster
+  cosmicResonance: boolean; // Upgrade 10: Every 10 total generator purchases multiplies points by 1.5x
+}
+
+export interface InfinityState {
+  count: number;
+  points: Decimal; // Infinity Points (IP)
+  unlocked: boolean; // unlocked when reaching 1.79e308
+}
+
+export type PrestigeAutobuyerMode = 'time' | 'targetPP' | 'ppMultiplier';
+
+export interface Autobuyer {
+  id: string;
+  name: string;
+  enabled: boolean;
+  unlocked: boolean;
+  target?: number | string;
+  mode?: PrestigeAutobuyerMode;
+  timeTarget?: number; // Seconds between eligible Prestige resets
+  ratioTarget?: number; // Required multiple of the previous Prestige gain
+  previousPPGain?: Decimal; // PP gained on the last completed Prestige reset
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  desc: string;
+  unlocked: boolean;
+}
+
+export interface GrowthPoint {
+  timestamp: number; // Unix timestamp
+  timePlayed: number; // Seconds of total play time
+  points: number; // Number approximation
+  logPoints: number; // Log10(points), key for exponential scale
+  formattedPoints: string; // Formatted representation (e.g. 1.25e40)
+  rate: number;
+}
+
+export interface GameStats {
+  totalTimePlayed: number; // seconds
+  timeThisPrestige: number; // seconds
+  timeThisInfinity: number; // seconds in current infinity
+  totalPrestiges: number;
+  fastestPrestige: number; // seconds
+  totalInfinities: number;
+  peakPointsRate: Decimal;
+  totalManualClicks: number;
+  highestPointsEver: Decimal;
+  highestPPEver: Decimal;
+  highestIPEver: Decimal;
+  growthHistory?: GrowthPoint[];
+}
+
+export interface GameSettings {
+  language: 'en' | 'ru';
+  notation: 'scientific' | 'engineering' | 'standard' | 'logarithm';
+  soundEnabled: boolean;
+  autoSaveEnabled: boolean;
+  autoSaveInterval: number; // seconds
+}
+
+export interface ToastNotification {
+  id: string;
+  title: string;
+  message: string;
+  description?: string;
+  icon?: string;
+  type?: 'achievement' | 'save' | 'info';
+  timestamp: number;
+}
+
+export interface GameState {
+  version: number;
+  points: Decimal;
+  pointsPerSecond: Decimal;
+  lastUpdate: number;
+
+  generators: GeneratorState[];
+  tickspeed: TickspeedState;
+  prestige: PrestigeState;
+  prestigeEnergy: PrestigeEnergyState;
+  prestigeUpgrades: PrestigeUpgradesState;
+  infinity: InfinityState;
+  infinityTree?: Record<string, boolean>;
+
+  autobuyers: Record<string, Autobuyer>;
+  achievements: Record<string, boolean>;
+
+  stats: GameStats;
+  settings: GameSettings;
+}
+=== END FILE: src/types/game.ts ===
+
+=== FILE: src/utils/gameCalculations.ts ===
+import { Decimal } from './decimal';
+import { GameState } from '../types/game';
+
+// Prestige unlock threshold (1.00e18 Points)
+export const PRESTIGE_REQUIREMENT = new Decimal(1e18);
+
+export function getPrestigeRequirement(_state?: GameState): Decimal {
+  return PRESTIGE_REQUIREMENT;
+}
+
+// Prestige Energy unlock threshold (1.00e154 Points)
+export const PRESTIGE_ENERGY_THRESHOLD = new Decimal(1, 154);
+
+// Infinity threshold (1.79e308 Points)
+export const INFINITY_THRESHOLD = new Decimal(1.7976931348623157, 308);
+
+/**
+ * Returns number of unlocked generators:
+ * Initially 4, unlocked sequentially up to 8 via Generator Expander (Levels 1 to 4)
+ */
+export function getUnlockedGeneratorsCount(state: GameState): number {
+  const unlockLvl = state.prestigeUpgrades?.generatorUnlockLevel || 0;
+  return Math.min(8, Math.max(4, 4 + unlockLvl));
+}
+
+/**
+ * Returns the cost for the next purchase of generator
+ */
+export function getGeneratorCost(baseCost: Decimal, costMult: Decimal, bought: number): Decimal {
+  return baseCost.mul(costMult.pow(bought));
+}
+
+/**
+ * Upgrade 3A: Cascading Boosts
+ * Like Dimensional Boosts in Antimatter Dimensions (without resetting!):
+ * Level 1: doubles Generator 1.
+ * Level 2: doubles Generator 1 again, and doubles Generator 2.
+ * Level 3: doubles Generator 1 again, Generator 2 again, and Generator 3.
+ * Level L: For any generator i (1..8), if L >= i, it gets 2^(L - i + 1).
+ * After level 8 (levels 9..20), each additional level doubles ALL 8 generators!
+ */
+export const MAX_CASCADING_BOOSTS = 20;
+
+export function getCascadingBoostCost(currentLevel: number): Decimal {
+  if (currentLevel <= 8) {
+    return new Decimal(4).pow(currentLevel);
+  }
+  const base8 = new Decimal(4).pow(8);
+  return base8.mul(new Decimal(8).pow(currentLevel - 8));
+}
+
+export function getCascadingBoostMultiplierForGen(genId: number, boostLevel: number): Decimal {
+  if (boostLevel < genId) return Decimal.one();
+  return new Decimal(2).pow(boostLevel - genId + 1);
+}
+
+/**
+ * Upgrade 3B: Generator Expander (Unlocks Generators 5, 6, 7, 8)
+ * Level 1 (Cost 50 PP): Unlocks Generator 5
+ * Level 2 (Cost 750 PP): Unlocks Generator 6
+ * Level 3 (Cost 7,500 PP): Unlocks Generator 7
+ * Level 4 (Cost 125,000 PP): Unlocks Generator 8
+ */
+export const MAX_GENERATOR_UNLOCKS = 4;
+export const GENERATOR_UNLOCK_COSTS: Decimal[] = [
+  new Decimal(50),
+  new Decimal(750),
+  new Decimal(7500),
+  new Decimal(125000),
+];
+
+export function getGeneratorUnlockCost(currentLevel: number): Decimal {
+  if (currentLevel >= MAX_GENERATOR_UNLOCKS) return new Decimal(Infinity);
+  return GENERATOR_UNLOCK_COSTS[currentLevel];
+}
+
+/**
+ * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
+ * and the Infinity Tree Root Node (4^Infinities) + tree branches
+ */
+export function getGeneratorMultiplier(genId: number, state: GameState): Decimal {
+  const gen = state.generators[genId - 1];
+  if (!gen) return Decimal.one();
+
+  // Base purchase doubling: 2x, or 2.25x with Upgrade 6 (Amplified Doubling)
+  const baseDoubling = state.prestigeUpgrades?.amplifiedDoubling ? 2.25 : 2.0;
+  let mult = new Decimal(baseDoubling).pow(gen.bought);
+
+  // Upgrade 3A: Cascading Boosts (AD-style non-resetting dimensional boosts)
+  const boostLevel = state.prestigeUpgrades?.cascadingBoostsLevel || 0;
+  if (boostLevel >= genId) {
+    const boostMult = getCascadingBoostMultiplierForGen(genId, boostLevel);
+    mult = mult.mul(boostMult);
+  }
+
+  // Upgrade 9: Cascade Surge (Higher tiers 5-8 produce 10x faster)
+  if (genId >= 5 && state.prestigeUpgrades?.cascadeSurge) {
+    mult = mult.mul(10);
+  }
+
+  // Upgrade 10: Cosmic Resonance (Every 10 total generator purchases multiplies each generator by 1.1x)
+  if (state.prestigeUpgrades?.cosmicResonance) {
+    const totalPurchases = state.generators.reduce((sum, g) => sum + g.bought, 0);
+    const groupsOf10 = Math.floor(totalPurchases / 10);
+    if (groupsOf10 > 0) {
+      mult = mult.mul(new Decimal(1.1).pow(groupsOf10));
+    }
+  }
+
+  // Prestige Energy Generators Multiplier (applies to ALL generators)
+  if (state.prestigeEnergy?.multiplier && state.prestigeEnergy.multiplier.gt(1)) {
+    mult = mult.mul(state.prestigeEnergy.multiplier);
+  }
+
+  // Infinity Tree - Root Node: 4^Infinities to all generators
+  const totalInfinities = state.infinity?.count || state.stats?.totalInfinities || 0;
+  if (totalInfinities > 0) {
+    mult = mult.mul(new Decimal(4).pow(totalInfinities));
+  }
+
+  // Infinity Tree - Temporal Surge: starts at x1.00 and adds +0.01x per second in the current Infinity.
+  if (state.infinityTree?.pre_1) {
+    const timeInf = state.stats?.timeThisInfinity || 0;
+    const timeMult = 1 + (timeInf * 0.01);
+    mult = mult.mul(new Decimal(timeMult));
+  }
+
+  // Infinity Tree - Pre-Infinity Node 4 (Tickspeed Induction: tickspeed affects generators at reduced rate)
+  if (state.infinityTree?.pre_4) {
+    const tickspeedSpeed = getTotalTickspeedSpeed(state);
+    if (tickspeedSpeed.gt(1)) {
+      mult = mult.mul(tickspeedSpeed.pow(0.5));
+    }
+  }
+
+  return mult;
+}
+
+/**
+ * Tickspeed base cost:
+ * Upgrade 4 reduces initial base cost by 100x (from 1,000 down to 10!)
+ */
+export function getTickspeedBaseCost(state: GameState): Decimal {
+  return state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(10) : new Decimal(1000);
+}
+
+/**
+ * Current tickspeed cost based on purchases
+ */
+export function getTickspeedCost(state: GameState): Decimal {
+  const base = getTickspeedBaseCost(state);
+  return base.mul(state.tickspeed.costMult.pow(state.tickspeed.bought));
+}
+
+/**
+ * Current tickspeed rate multiplier:
+ * Base is 1.10x, upgraded to 1.15x with Upgrade 7 (Chronos Flow)
+ */
+export function getTotalTickspeedSpeed(state: GameState): Decimal {
+  const basePower = state.prestigeUpgrades?.chronosFlow ? 1.15 : state.tickspeed.multiplier;
+  return new Decimal(basePower).pow(state.tickspeed.bought);
+}
+
+/**
+ * Points generation multiplier derived from Prestige Upgrades
+ */
+export function getPointsGenerationMultiplier(state: GameState): Decimal {
+  let mult = Decimal.one();
+
+  // Upgrade 1: 2x per 1e6 (6 OoM) Points
+  if (state.prestigeUpgrades?.pointScaling && state.points.gte(1e6)) {
+    const oom6 = Math.floor(state.points.log10() / 6);
+    if (oom6 > 0) {
+      mult = mult.mul(new Decimal(2).pow(oom6));
+    }
+  }
+
+  // Upgrade 2: 1.05x per achievement unlocked (multiplicative)
+  if (state.prestigeUpgrades?.achievementBoost) {
+    const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
+    if (unlockedCount > 0) {
+      mult = mult.mul(new Decimal(1.05).pow(unlockedCount));
+    }
+  }
+
+  // Upgrade 5: Prestige Synergy (Points boosted by unspent PP without exponent: 1 + PP, hardcapped at 1e10)
+  if (state.prestigeUpgrades?.prestigeSynergy && state.prestige.points.gt(0)) {
+    const rawPpBoost = state.prestige.points.add(1);
+    const ppBoost = rawPpBoost.gt(1e10) ? new Decimal(1e10) : rawPpBoost;
+    mult = mult.mul(ppBoost);
+  }
+
+  // Upgrade 8: Logarithmic Cascade (Points boosted by log10(points)^2)
+  if (state.prestigeUpgrades?.logarithmicCascade && state.points.gte(10)) {
+    const logP = state.points.log10();
+    mult = mult.mul(new Decimal(logP * logP));
+  }
+
+  return mult;
+}
+
+/**
+ * Calculate Prestige Points gained on Prestige reset.
+ * Requirement: 1.00e18 Points.
+ * Buffed curve: 1 PP at requirement, scaling so 1e200 gives about 1.9e7 PP.
+ * Pre-Infinity Node 3 multiplies PP gain by 3x.
+ */
+export function calculatePrestigePointsGain(points: Decimal, state?: GameState): Decimal {
+  if (points.lt(PRESTIGE_REQUIREMENT)) {
+    return Decimal.zero();
+  }
+
+  const logPoints = points.log10();
+  const reqLog = PRESTIGE_REQUIREMENT.log10();
+  const excessLog = Math.max(0, logPoints - reqLog);
+  // Use Decimal exponentiation instead of Math.pow so later layers can safely exceed 1e308.
+  let gain = new Decimal(10).pow(excessLog / 25).floor();
+  if (gain.lt(1)) gain = new Decimal(1);
+
+  if (state?.infinityTree?.pre_3) {
+    gain = gain.mul(3);
+  }
+
+  return gain;
+}
+
+/**
+ * Calculate Prestige Energy Generators multiplier gained on Prestige Energy reset:
+ * Unlocks at 1e154 Points.
+ * Weakened multiplier curve: base x1.50, scaling gently with (points / 1e154)^0.016
+ */
+export function calculatePrestigeEnergyMultiplier(points: Decimal): Decimal {
+  if (points.lt(PRESTIGE_ENERGY_THRESHOLD)) {
+    return Decimal.zero();
+  }
+
+  const excessLog = Math.max(0, points.log10() - 154);
+  const scaledFactor = Math.pow(10, excessLog / 60);
+  const totalMult = 1.5 * Math.max(1, scaledFactor);
+
+  return new Decimal(totalMult);
+}
+=== END FILE: src/utils/gameCalculations.ts ===
+

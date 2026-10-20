@@ -1,0 +1,6 @@
+{
+  "name": "Generators",
+  "description": "Incremental game about generators.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
