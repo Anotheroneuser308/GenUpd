@@ -118,6 +118,8 @@ export interface GameState {
   version: number;
   points: Decimal;
   pointsPerSecond: Decimal;
+  /** Purchase count anchors captured the first time a run reaches 1e100 points. Null until triggered. */
+  generatorCostSoftcapBought: number[] | null;
   lastUpdate: number;
 
   generators: GeneratorState[];

@@ -84,6 +84,7 @@ export const createInitialState = (): GameState => ({
   version: 4,
   points: new Decimal(10),
   pointsPerSecond: Decimal.zero(),
+  generatorCostSoftcapBought: null,
   lastUpdate: Date.now(),
 
   generators: INITIAL_GENERATORS(),
@@ -216,6 +217,11 @@ export const deserializeState = (raw: string): GameState | null => {
         return rawPoints;
       })(),
       pointsPerSecond: parsed.pointsPerSecond instanceof Decimal ? parsed.pointsPerSecond : Decimal.zero(),
+      generatorCostSoftcapBought: Array.isArray(parsed.generatorCostSoftcapBought) &&
+        parsed.generatorCostSoftcapBought.length === initial.generators.length &&
+        parsed.generatorCostSoftcapBought.every((value: unknown) => Number.isInteger(value) && (value as number) >= 0)
+        ? parsed.generatorCostSoftcapBought
+        : null,
       prestige: {
         ...initial.prestige,
         ...(parsed.prestige || {}),

@@ -72,7 +72,7 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
         {state.generators.map((gen, idx) => {
           const genNumber = idx + 1;
           const isUnlocked = genNumber <= unlockedCount;
-          const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id);
+          const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
           const canAfford = state.points.gte(cost);
 
           // Production rate preview

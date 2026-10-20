@@ -23,33 +23,43 @@ export function getUnlockedGeneratorsCount(state: GameState): number {
   return Math.min(8, Math.max(4, 4 + unlockLvl));
 }
 
+/** Threshold is tracked per run; the game UI does not expose this balance rule. */
+export const GENERATOR_COST_SOFTCAP_THRESHOLD = new Decimal(1, 100);
+
 /**
  * Returns the cost for the next generator purchase.
- * After 100 purchases, each tier uses a steeper price progression while keeping
- * the price continuous at the transition. These progression rules are internal
- * balancing mechanics and are intentionally not exposed in the game UI.
+ * Before the run reaches 1e100 points, the original progression is used.
+ * Once reached, each generator keeps its price curve up to its own activation
+ * purchase count, then continues with a steeper tier-specific multiplier.
  */
 export function getGeneratorCost(
   baseCost: Decimal,
   costMult: Decimal,
   bought: number,
   generatorId: number,
+  softcapStartBought?: number | null,
 ): Decimal {
   const purchaseCount = Math.max(0, Math.floor(bought));
-  const earlyPurchases = Math.min(purchaseCount, 100);
-  const acceleratedPurchases = Math.max(0, purchaseCount - 100);
 
-  // Generator 1 accelerates from 10x to 1e3x per purchase.
-  // Each following generator accelerates by one order of magnitude above its
-  // original price multiplier (e.g. 1e2 -> 1e3, 1e3 -> 1e4).
+  // No per-run activation yet: keep the standard generator price progression.
+  if (softcapStartBought === undefined || softcapStartBought === null) {
+    return baseCost.mul(costMult.pow(purchaseCount));
+  }
+
+  const pivot = Math.max(0, Math.floor(softcapStartBought));
+  const normalPurchases = Math.min(purchaseCount, pivot);
+  const acceleratedPurchases = Math.max(0, purchaseCount - pivot);
+
+  // Post-threshold per-purchase growth is strictly tiered. Generator 1 starts
+  // at 1e3; every later tier grows faster, avoiding equal Generator 1/2 rates.
   const originalMagnitude = Math.round(costMult.log10());
   const acceleratedMagnitude = generatorId === 1
     ? 3
-    : Math.max(1, originalMagnitude + 1);
+    : Math.max(generatorId + 2, originalMagnitude + 1);
   const acceleratedCostMult = new Decimal(10).pow(acceleratedMagnitude);
 
   return baseCost
-    .mul(costMult.pow(earlyPurchases))
+    .mul(costMult.pow(normalPurchases))
     .mul(acceleratedCostMult.pow(acceleratedPurchases));
 }
 
