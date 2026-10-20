@@ -24,10 +24,33 @@ export function getUnlockedGeneratorsCount(state: GameState): number {
 }
 
 /**
- * Returns the cost for the next purchase of generator
+ * Returns the cost for the next generator purchase.
+ * After 100 purchases, each tier uses a steeper price progression while keeping
+ * the price continuous at the transition. These progression rules are internal
+ * balancing mechanics and are intentionally not exposed in the game UI.
  */
-export function getGeneratorCost(baseCost: Decimal, costMult: Decimal, bought: number): Decimal {
-  return baseCost.mul(costMult.pow(bought));
+export function getGeneratorCost(
+  baseCost: Decimal,
+  costMult: Decimal,
+  bought: number,
+  generatorId: number,
+): Decimal {
+  const purchaseCount = Math.max(0, Math.floor(bought));
+  const earlyPurchases = Math.min(purchaseCount, 100);
+  const acceleratedPurchases = Math.max(0, purchaseCount - 100);
+
+  // Generator 1 accelerates from 10x to 1e3x per purchase.
+  // Each following generator accelerates by one order of magnitude above its
+  // original price multiplier (e.g. 1e2 -> 1e3, 1e3 -> 1e4).
+  const originalMagnitude = Math.round(costMult.log10());
+  const acceleratedMagnitude = generatorId === 1
+    ? 3
+    : Math.max(1, originalMagnitude + 1);
+  const acceleratedCostMult = new Decimal(10).pow(acceleratedMagnitude);
+
+  return baseCost
+    .mul(costMult.pow(earlyPurchases))
+    .mul(acceleratedCostMult.pow(acceleratedPurchases));
 }
 
 /**
@@ -42,11 +65,12 @@ export function getGeneratorCost(baseCost: Decimal, costMult: Decimal, bought: n
 export const MAX_CASCADING_BOOSTS = 20;
 
 export function getCascadingBoostCost(currentLevel: number): Decimal {
+  // Price scales x10 per purchase through the first 8 levels, then x40 per level.
   if (currentLevel <= 8) {
-    return new Decimal(4).pow(currentLevel);
+    return new Decimal(10).pow(currentLevel);
   }
-  const base8 = new Decimal(4).pow(8);
-  return base8.mul(new Decimal(8).pow(currentLevel - 8));
+  const base8 = new Decimal(10).pow(8);
+  return base8.mul(new Decimal(40).pow(currentLevel - 8));
 }
 
 export function getCascadingBoostMultiplierForGen(genId: number, boostLevel: number): Decimal {
@@ -75,8 +99,23 @@ export function getGeneratorUnlockCost(currentLevel: number): Decimal {
 }
 
 /**
+ * Infinity generator multiplier: 2^Infinities up to 1024 Infinities, then
+ * retains that entire bonus and adds a softer x1.2 multiplier per extra Infinity.
+ */
+export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
+  const count = Math.max(0, Math.floor(Number.isFinite(infinities) ? infinities : 0));
+  const beforeSoftcap = Math.min(count, 1024);
+  const afterSoftcap = Math.max(0, count - 1024);
+
+  const multiplier = new Decimal(2).pow(beforeSoftcap);
+  return afterSoftcap > 0
+    ? multiplier.mul(new Decimal(1.2).pow(afterSoftcap))
+    : multiplier;
+}
+
+/**
  * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
- * and the Infinity Tree Root Node (4^Infinities) + tree branches
+ * and the Infinity Tree Root Node with a softcap after 1024 Infinities.
  */
 export function getGeneratorMultiplier(genId: number, state: GameState): Decimal {
   const gen = state.generators[genId - 1];
@@ -93,17 +132,17 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(boostMult);
   }
 
-  // Upgrade 9: Cascade Surge - x3 production multiplier for every generator.
+  // Upgrade 9: Cascade Surge - x2 production multiplier for every generator.
   if (state.prestigeUpgrades?.cascadeSurge) {
-    mult = mult.mul(3);
+    mult = mult.mul(2);
   }
 
-  // Upgrade 10: Cosmic Resonance (Every 10 total generator purchases multiplies each generator by 1.1x)
+  // Upgrade 10: Cosmic Resonance (every 10 purchases gives x1.05).
   if (state.prestigeUpgrades?.cosmicResonance) {
     const totalPurchases = state.generators.reduce((sum, g) => sum + g.bought, 0);
     const groupsOf10 = Math.floor(totalPurchases / 10);
     if (groupsOf10 > 0) {
-      mult = mult.mul(new Decimal(1.1).pow(groupsOf10));
+      mult = mult.mul(new Decimal(1.05).pow(groupsOf10));
     }
   }
 
@@ -112,10 +151,10 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(state.prestigeEnergy.multiplier);
   }
 
-  // Infinity Tree - Root Node: 4^Infinities to all generators
+  // Infinity Tree - Root Node: 2^Infinities until 1024, then an additional 1.2x per Infinity.
   const totalInfinities = state.infinity?.count || state.stats?.totalInfinities || 0;
   if (totalInfinities > 0) {
-    mult = mult.mul(new Decimal(4).pow(totalInfinities));
+    mult = mult.mul(getInfinityGeneratorMultiplier(totalInfinities));
   }
 
   // Infinity Tree - Temporal Surge: starts at x1.00 and adds +0.01x per second in the current Infinity.

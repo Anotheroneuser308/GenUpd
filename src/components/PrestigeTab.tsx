@@ -72,11 +72,10 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const logVal = Math.max(1, state.points.log10());
   const logCascadeMult = upgs.logarithmicCascade && state.points.gte(10) ? new Decimal(logVal * logVal) : Decimal.one();
 
-  // Upgrade 10 (Cosmic Resonance) - every 10 purchases multiplies each generator by 1.1x (or 1.25x with tree feat_3)
+  // Upgrade 10 (Cosmic Resonance) - every 10 purchases multiplies each generator by 1.05x
   const totalPurchases = state.generators.reduce((sum, g) => sum + g.bought, 0);
   const resonanceGroups = Math.floor(totalPurchases / 10);
-  const perGroup = state.infinityTree?.feat_3 ? 1.25 : 1.1;
-  const cosmicResonanceMult = upgs.cosmicResonance && resonanceGroups > 0 ? new Decimal(perGroup).pow(resonanceGroups) : Decimal.one();
+  const cosmicResonanceMult = upgs.cosmicResonance && resonanceGroups > 0 ? new Decimal(1.05).pow(resonanceGroups) : Decimal.one();
 
   return (
     <div className="space-y-6">
@@ -342,7 +341,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Dimensional boost without reset! Each level multiplies unlocked generators cascadingly by 2x. Price multiplies by 4x for the first 8 purchases, then by 8x per purchase after level 8!
+                    Dimensional boost without reset! Each level multiplies unlocked generators cascadingly by 2x. Price multiplies by 10x per purchase through level 8, then by 40x per purchase!
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
                     {boostLevel === 0 ? (
@@ -728,10 +727,10 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    All generators receive a permanent x3 production multiplier!
+                    All generators receive a permanent x2 production multiplier!
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
-                    Effect: <span className="font-semibold">x3 Output for All Generators</span>
+                    Effect: <span className="font-semibold">x2 Output for All Generators</span>
                   </div>
                 </div>
 
@@ -778,7 +777,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Every 10 total generator purchases multiplies each generator by 1.1x multiplicatively.
+                    Every 10 total generator purchases multiplies each generator by 1.05x multiplicatively.
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
                     Current: <span className="font-semibold">x{cosmicResonanceMult.format(notation)} to each Generator</span> ({totalPurchases} purchases)

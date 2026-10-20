@@ -41,7 +41,7 @@ export interface PrestigeUpgradesState {
   amplifiedDoubling: boolean; // Upgrade 6: Base generator purchase mult increases to 2.25x
   chronosFlow: boolean; // Upgrade 7: Tickspeed power increased
   logarithmicCascade: boolean; // Upgrade 8: Points boosted by log10(points)^2
-  cascadeSurge: boolean; // Upgrade 9: All generators receive x3 production
+  cascadeSurge: boolean; // Upgrade 9: All generators receive x2 production
   cosmicResonance: boolean; // Upgrade 10: Every 10 total generator purchases multiplies points by 1.5x
 }
 

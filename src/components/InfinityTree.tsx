@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GameState } from '../types/game';
 import { INFINITY_TREE_NODES, BRANCH_CONFIG } from '../constants/infinityTree';
 import { Decimal } from '../utils/decimal';
+import { getInfinityGeneratorMultiplier } from '../utils/gameCalculations';
 import {
   Sparkles,
   Layers,
@@ -27,8 +28,8 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
   const tree = state.infinityTree || {};
   const temporalSurgeMultiplier = 1 + ((state.stats?.timeThisInfinity || 0) * 0.01);
 
-  // Root node multiplier: 4^Infinities
-  const rootMultiplier = totalInfinities > 0 ? new Decimal(4).pow(totalInfinities) : Decimal.one();
+  // Root node multiplier: 2^Infinities up to 1024, then x1.2 per additional Infinity.
+  const rootMultiplier = totalInfinities > 0 ? getInfinityGeneratorMultiplier(totalInfinities) : Decimal.one();
   const rootDef = INFINITY_TREE_NODES['root'];
 
   // 3 branches as specified by user
@@ -48,7 +49,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
             <span>Infinity Skill Tree</span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            The root node amplifies all generators by <code className="text-amber-400 font-mono font-semibold">4^Infinities</code>, feeding 3 expansion paths.
+            The root node amplifies all generators by <code className="text-amber-400 font-mono font-semibold">2^Infinities</code> up to 1024 Infinities, then adds a softer <code className="text-amber-400 font-mono font-semibold">x1.2</code> per additional Infinity, feeding 3 expansion paths.
           </p>
         </div>
 
@@ -108,7 +109,9 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
               x{rootMultiplier.format(notation)}
             </strong>
             <span className="text-[10px] text-slate-400">
-              (4^{totalInfinities})
+              ({totalInfinities <= 1024
+                ? `2^${totalInfinities}`
+                : `2^1024 × 1.2^${totalInfinities - 1024}`})
             </span>
           </div>
         </div>

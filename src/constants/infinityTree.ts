@@ -13,7 +13,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'root',
     branch: 'root',
     title: 'Infinity Nexus',
-    desc: 'All generators produce 4^Infinities more. Unlocks all 3 branches.',
+    desc: 'All generators gain a 2^Infinities multiplier up to 1024 Infinities. Beyond that, the full 2^1024 bonus is retained and each extra Infinity adds a x1.2 multiplier. Unlocks all 3 branches.',
     cost: 0, // Unlocked automatically when 1st Infinity is reached
     req: 'none',
     icon: '⚡',

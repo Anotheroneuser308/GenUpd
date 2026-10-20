@@ -369,14 +369,14 @@ export function useGameLoop() {
               if (state.infinityTree?.auto_4) {
                 // Quantum Autobuyer: Buy max available
                 while (true) {
-                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought);
+                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id);
                   if (state.points.lt(cost)) break;
                   state.points = state.points.sub(cost);
                   gen.amount = gen.amount.add(1);
                   gen.bought++;
                 }
               } else {
-                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought);
+                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id);
                 if (state.points.gte(cost)) {
                   state.points = state.points.sub(cost);
                   gen.amount = gen.amount.add(1);
@@ -577,7 +577,7 @@ export function useGameLoop() {
       const gen = prev.generators[genIndex];
       if (!gen) return prev;
 
-      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought);
+      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id);
       if (prev.points.lt(cost)) return prev;
 
       sound.playBuy();
@@ -619,7 +619,7 @@ export function useGameLoop() {
       let purchases = 0;
 
       while (true) {
-        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought);
+        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought, gen.id);
         if (currentPoints.lt(cost) || purchases >= 50) break;
         currentPoints = currentPoints.sub(cost);
         currentAmount = currentAmount.add(1);
@@ -692,7 +692,7 @@ export function useGameLoop() {
       for (let i = unlockedCount - 1; i >= 0; i--) {
         const g = newGenerators[i];
         while (true) {
-          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought);
+          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought, g.id);
           if (currentPoints.lt(cost)) break;
           currentPoints = currentPoints.sub(cost);
           g.amount = g.amount.add(1);
