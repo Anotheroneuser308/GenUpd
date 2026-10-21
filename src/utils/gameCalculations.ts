@@ -109,13 +109,13 @@ export function getGeneratorUnlockCost(currentLevel: number): Decimal {
 }
 
 /**
- * Infinity generator multiplier: 2^Infinities up to 1024 Infinities, then
+ * Infinity generator multiplier: 2^Infinities up to 100 Infinities, then
  * retains that entire bonus and adds a softer x1.2 multiplier per extra Infinity.
  */
 export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
   const count = Math.max(0, Math.floor(Number.isFinite(infinities) ? infinities : 0));
-  const beforeSoftcap = Math.min(count, 1024);
-  const afterSoftcap = Math.max(0, count - 1024);
+  const beforeSoftcap = Math.min(count, 100);
+  const afterSoftcap = Math.max(0, count - 100);
 
   const multiplier = new Decimal(2).pow(beforeSoftcap);
   return afterSoftcap > 0
@@ -210,6 +210,13 @@ export function getTotalTickspeedSpeed(state: GameState): Decimal {
   return new Decimal(basePower).pow(state.tickspeed.bought);
 }
 
+export function getAchievementMasterCompletions(state: GameState): number {
+  if (!state.infinity?.achievementMaster) return 0;
+  const p = state.points;
+  if (!p || p.lte(0) || !p.mantissa) return 0;
+  return Math.floor(Math.max(0, p.log10()));
+}
+
 /**
  * Points generation multiplier derived from Prestige Upgrades
  */
@@ -227,8 +234,10 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
   // Upgrade 2: 1.05x per achievement unlocked (multiplicative)
   if (state.prestigeUpgrades?.achievementBoost) {
     const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
-    if (unlockedCount > 0) {
-      mult = mult.mul(new Decimal(1.05).pow(unlockedCount));
+    const masterBonus = getAchievementMasterCompletions(state);
+    const totalAch = unlockedCount + masterBonus;
+    if (totalAch > 0) {
+      mult = mult.mul(new Decimal(1.05).pow(totalAch));
     }
   }
 

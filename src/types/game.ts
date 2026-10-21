@@ -48,10 +48,15 @@ export interface PrestigeUpgradesState {
 export interface InfinityState {
   count: number;
   points: Decimal; // Infinity Points (IP)
+  skillPoints: number; // Skill Points (SP) - 1 awarded per Infinity
   unlocked: boolean; // unlocked when reaching 1.79e308
+  ipDoublerLevel?: number; // Infinity Upgrade: Doubles IP gain on each Infinity
+  automationExpand?: boolean; // Infinity Upgrade: Unlocks auto_5 and auto_6 in tree
+  achievementMaster?: boolean; // Infinity Upgrade: 15 IP, unlocks infinite achievements per magnitude
 }
 
 export type PrestigeAutobuyerMode = 'time' | 'targetPP' | 'ppMultiplier';
+export type EnergyAutobuyerMode = 'time' | 'target' | 'gainMultiplier';
 
 export interface Autobuyer {
   id: string;
@@ -63,6 +68,17 @@ export interface Autobuyer {
   timeTarget?: number; // Seconds between eligible Prestige resets
   ratioTarget?: number; // Required multiple of the previous Prestige gain
   previousPPGain?: Decimal; // PP gained on the last completed Prestige reset
+
+  // Settings for auto_5 (Auto: Prestige Upgrades)
+  priority?: 'cheapest' | 'order';
+  buyAll?: boolean;
+
+  // Settings for auto_6 (Prestige Energy Autobuyer)
+  energyMode?: EnergyAutobuyerMode;
+  energyTimeTarget?: number;
+  energyTarget?: number;
+  energyRatioTarget?: number;
+  previousEnergyGain?: Decimal;
 }
 
 export interface Achievement {

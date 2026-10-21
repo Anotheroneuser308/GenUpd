@@ -1,14 +1,17 @@
 import React from 'react';
 import { GameState } from '../types/game';
-import { getTotalTickspeedSpeed } from '../utils/gameCalculations';
+import { getTotalTickspeedSpeed, getPointsGenerationMultiplier } from '../utils/gameCalculations';
 
 interface PointsDisplayProps {
   state: GameState;
+  activeTab?: string;
 }
 
-export const PointsDisplay: React.FC<PointsDisplayProps> = ({ state }) => {
+export const PointsDisplay: React.FC<PointsDisplayProps> = ({ state, activeTab }) => {
   const notation = state.settings.notation;
   const tickspeedSpeed = getTotalTickspeedSpeed(state);
+  const pointsMult = getPointsGenerationMultiplier(state);
+  const prestigeResets = state.prestige.count ?? 0;
 
   return (
     <div className="bg-slate-900/90 border-b border-slate-800/80 px-6 py-5">
@@ -23,62 +26,36 @@ export const PointsDisplay: React.FC<PointsDisplayProps> = ({ state }) => {
               Points
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-1 text-xs text-slate-400 font-mono">
+          <div className="flex items-center gap-2 mt-1 text-xs text-slate-400 font-mono flex-wrap">
             <span>+{state.pointsPerSecond.format(notation)} / sec</span>
             <span aria-hidden="true" className="text-slate-600">·</span>
             <span>
               Tickspeed: {tickspeedSpeed.format(notation)}x
             </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span title="Points multiplier from Prestige Upgrades, Achievements, and PP Synergy">
+              Points Mult: <strong className="text-emerald-400 font-semibold">{pointsMult.format(notation)}x</strong>
+            </span>
           </div>
         </div>
 
-        {/* Secondary Prestige Indicators */}
-        <div className="flex flex-wrap items-center gap-6 text-xs text-slate-400 font-mono">
-          <div className="flex flex-col">
-            <span className="text-slate-500 uppercase tracking-wider text-[10px]">
-              Prestige Points
-            </span>
-            <span className="text-amber-400 font-semibold text-base tabular-nums">
-              {state.prestige.points.format(notation)} PP
-            </span>
+        {/* Secondary Prestige Indicators displayed next to points when in Prestige tab */}
+        {activeTab === 'prestige' && (
+          <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+            <div className="bg-slate-950/80 border border-amber-500/30 px-3.5 py-2 rounded-xl shadow-sm flex items-center gap-2">
+              <span className="text-slate-400 uppercase text-[10px] tracking-wider">Prestige Points:</span>
+              <span className="text-amber-400 font-bold text-sm">
+                {state.prestige.points.format(notation)} PP
+              </span>
+            </div>
+            <div className="bg-slate-950/80 border border-indigo-500/30 px-3.5 py-2 rounded-xl shadow-sm flex items-center gap-2">
+              <span className="text-slate-400 uppercase text-[10px] tracking-wider">Prestige Resets:</span>
+              <span className="text-indigo-400 font-bold text-sm">
+                {prestigeResets}
+              </span>
+            </div>
           </div>
-
-          <div className="h-8 w-px bg-slate-800 hidden sm:block" />
-
-          <div className="flex flex-col">
-            <span className="text-slate-500 uppercase tracking-wider text-[10px]">
-              Total Prestiges
-            </span>
-            <span className="text-indigo-400 font-semibold text-base tabular-nums">
-              {state.prestige.count}
-            </span>
-          </div>
-
-          <div className="h-8 w-px bg-slate-800 hidden sm:block" />
-
-          <div className="flex flex-col">
-            <span className="text-slate-500 uppercase tracking-wider text-[10px]">
-              Active Generators
-            </span>
-            <span className="text-emerald-400 font-semibold text-base tabular-nums">
-              {state.prestige.unlockedGenerators} / 8
-            </span>
-          </div>
-
-          {state.prestigeEnergy?.unlocked && (
-            <>
-              <div className="h-8 w-px bg-slate-800 hidden sm:block" />
-              <div className="flex flex-col">
-                <span className="text-slate-500 uppercase tracking-wider text-[10px]">
-                  Generators Mult
-                </span>
-                <span className="text-purple-400 font-semibold text-base tabular-nums">
-                  x{state.prestigeEnergy.multiplier.format(notation)}
-                </span>
-              </div>
-            </>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

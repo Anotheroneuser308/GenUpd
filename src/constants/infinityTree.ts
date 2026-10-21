@@ -3,8 +3,9 @@ export interface InfinityTreeNodeDef {
   branch: 'root' | 'pre' | 'auto' | 'feat';
   title: string;
   desc: string;
-  cost: number; // IP
+  cost: number; // Skill Points (SP)
   req: string; // parent node id ('none' for root)
+  reqUpgrade?: string; // requires an Infinity Upgrade to be unlocked, e.g. 'automationExpand'
   icon?: string;
 }
 
@@ -13,7 +14,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'root',
     branch: 'root',
     title: 'Infinity Nexus',
-    desc: 'All generators gain a 2^Infinities multiplier up to 1024 Infinities. Beyond that, the full 2^1024 bonus is retained and each extra Infinity adds a x1.2 multiplier. Unlocks all 3 branches.',
+    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, the full 2^100 bonus is retained and each extra Infinity adds a x1.2 multiplier. Unlocks all 3 branches.',
     cost: 0, // Unlocked automatically when 1st Infinity is reached
     req: 'none',
     icon: '⚡',
@@ -43,7 +44,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'pre',
     title: 'Prestige Amplification',
     desc: 'Prestige Points gained on Prestige reset are multiplied by 3x.',
-    cost: 4,
+    cost: 2,
     req: 'pre_2',
     icon: '💎',
   },
@@ -52,7 +53,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'pre',
     title: 'Tickspeed Induction',
     desc: 'Tickspeed multiplier also boosts all generators at a reduced power (tickspeed^0.5).',
-    cost: 8,
+    cost: 3,
     req: 'pre_3',
     icon: '⚡',
   },
@@ -81,7 +82,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'auto',
     title: 'Prestige Autobuyer',
     desc: 'Unlocks the Prestige Autobuyer with configurable time, PP-gain, or gain-multiplier conditions.',
-    cost: 5,
+    cost: 3,
     req: 'auto_2',
     icon: '🔄',
   },
@@ -90,9 +91,29 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'auto',
     title: 'Hyper-Speed Automation',
     desc: 'Autobuyers run 5x faster (every 0.05s) and purchase maximum available generators simultaneously.',
-    cost: 12,
+    cost: 5,
     req: 'auto_3',
     icon: '🚀',
+  },
+  auto_5: {
+    id: 'auto_5',
+    branch: 'auto',
+    title: 'Auto: Prestige Upgrades',
+    desc: 'Automatically purchases available unbought Prestige upgrades when there is enough PP in background loop. Configurable on/off, buy all, and priority.',
+    cost: 15,
+    req: 'auto_4',
+    reqUpgrade: 'automationExpand',
+    icon: '✨',
+  },
+  auto_6: {
+    id: 'auto_6',
+    branch: 'auto',
+    title: 'Prestige Energy Autobuyer',
+    desc: 'Automates Prestige Energy reset with Timer, Target gain, or Gain multiplier modes, tracking previous reset gain.',
+    cost: 30,
+    req: 'auto_5',
+    reqUpgrade: 'automationExpand',
+    icon: '⚡',
   },
 
   // Branch 3: New Features
@@ -110,7 +131,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'feat',
     title: 'Prestige Transcendence',
     desc: 'Unlocks a new upgrade tier in the Prestige tab.',
-    cost: 10,
+    cost: 3,
     req: 'feat_1',
     icon: '🔮',
   },
@@ -119,7 +140,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'feat',
     title: 'Infinity Milestones',
     desc: 'Unlocks Milestone progression rewards in the Infinity tab.',
-    cost: 50,
+    cost: 5,
     req: 'feat_2',
     icon: '🏆',
   },
@@ -128,7 +149,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'feat',
     title: 'Break Infinity',
     desc: 'Shatters the 1.79e308 boundary, allowing points and production to scale endlessly.',
-    cost: 10000,
+    cost: 10,
     req: 'feat_3',
     icon: '🌌',
   },

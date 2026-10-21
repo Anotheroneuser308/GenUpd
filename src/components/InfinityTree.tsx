@@ -24,18 +24,19 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
 
   const notation = state.settings.notation;
   const currentIP = state.infinity.points;
+  const currentSP = state.infinity.skillPoints ?? 0;
   const totalInfinities = state.infinity.count || state.stats.totalInfinities || 0;
   const tree = state.infinityTree || {};
   const temporalSurgeMultiplier = 1 + ((state.stats?.timeThisInfinity || 0) * 0.01);
 
-  // Root node multiplier: 2^Infinities up to 1024, then x1.2 per additional Infinity.
+  // Root node multiplier: 2^Infinities up to 100, then x1.2 per additional Infinity.
   const rootMultiplier = totalInfinities > 0 ? getInfinityGeneratorMultiplier(totalInfinities) : Decimal.one();
   const rootDef = INFINITY_TREE_NODES['root'];
 
   // 3 branches as specified by user
   const branches = [
     { key: 'pre' as const, title: 'Pre-Infinity', nodes: ['pre_1', 'pre_2', 'pre_3', 'pre_4'] },
-    { key: 'auto' as const, title: 'Automation', nodes: ['auto_1', 'auto_2', 'auto_3', 'auto_4'] },
+    { key: 'auto' as const, title: 'Automation', nodes: ['auto_1', 'auto_2', 'auto_3', 'auto_4', 'auto_5', 'auto_6'] },
     { key: 'feat' as const, title: 'New Features', nodes: ['feat_1', 'feat_2', 'feat_3', 'feat_4'] },
   ];
 
@@ -49,12 +50,18 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
             <span>Infinity Skill Tree</span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            The root node amplifies all generators by <code className="text-amber-400 font-mono font-semibold">2^Infinities</code> up to 1024 Infinities, then adds a softer <code className="text-amber-400 font-mono font-semibold">x1.2</code> per additional Infinity, feeding 3 expansion paths.
+            The root node amplifies all generators by <code className="text-amber-400 font-mono font-semibold">2^Infinities</code> up to 100 Infinities, then adds <code className="text-amber-400 font-mono font-semibold">x1.2</code> per extra Infinity. Nodes cost <strong>Skill Points (SP)</strong>, earned at 1 SP per Infinity.
           </p>
         </div>
 
-        {/* Branch Filter Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-medium">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-950 border border-amber-500/30 px-3.5 py-1.5 rounded-xl font-mono text-xs flex items-center gap-2">
+            <span className="text-slate-400">Balance:</span>
+            <span className="text-amber-400 font-bold text-sm">{currentSP} SP</span>
+          </div>
+
+          {/* Branch Filter Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-medium">
           <button
             type="button"
             onClick={() => setSelectedBranch('all')}
@@ -80,6 +87,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
               {b.title}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -109,9 +117,9 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
               x{rootMultiplier.format(notation)}
             </strong>
             <span className="text-[10px] text-slate-400">
-              ({totalInfinities <= 1024
+              ({totalInfinities <= 100
                 ? `2^${totalInfinities}`
-                : `2^1024 × 1.2^${totalInfinities - 1024}`})
+                : `2^100 × 1.2^${totalInfinities - 100}`})
             </span>
           </div>
         </div>
@@ -145,7 +153,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                   </span>
                 </div>
                 <span className="text-xs font-mono font-bold">
-                  {branch.nodes.filter((id) => tree[id]).length}/4
+                  {branch.nodes.filter((id) => tree[id]).length}/{branch.nodes.length}
                 </span>
               </div>
 
@@ -157,9 +165,10 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
 
                   const isBought = !!tree[nodeId];
                   const parentBought = node.req === 'root' || !!tree[node.req];
-                  const canAfford = currentIP.gte(node.cost);
-                  const canBuy = !isBought && parentBought && canAfford;
-                  const isLocked = !isBought && !parentBought;
+                  const upgradeSatisfied = !node.reqUpgrade || !!state.infinity[node.reqUpgrade as keyof typeof state.infinity];
+                  const canAfford = currentSP >= node.cost;
+                  const canBuy = !isBought && parentBought && upgradeSatisfied && canAfford;
+                  const isLocked = !isBought && (!parentBought || !upgradeSatisfied);
 
                   return (
                     <div key={nodeId} className="relative">
@@ -197,6 +206,11 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                           <p className="text-[11px] text-slate-300 leading-tight">
                             {node.desc}
                           </p>
+                          {node.reqUpgrade === 'automationExpand' && !state.infinity.automationExpand && (
+                            <p className="text-[10px] text-amber-400 font-mono mt-1">
+                              Requires &quot;Automation Expand&quot; in Infinity Upgrades
+                            </p>
+                          )}
                           {nodeId === 'pre_1' && isBought && (
                             <div className="mt-2 rounded-lg bg-slate-950/80 border border-amber-500/20 p-2 space-y-1 text-[10px] font-mono">
                               <div className="flex justify-between gap-2"><span className="text-slate-500">Base bonus</span><span className="text-slate-300">x1.00</span></div>
@@ -210,7 +224,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                           <span className="text-slate-400">
                             Cost:{' '}
                             <strong className={isBought ? 'text-emerald-400' : 'text-amber-400'}>
-                              {node.cost.toLocaleString()} IP
+                              {node.cost} SP
                             </strong>
                           </span>
 
@@ -229,7 +243,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                               }`}
                             >
-                              {isLocked ? 'Locked' : canAfford ? 'Buy' : 'Need IP'}
+                              {isLocked ? (node.reqUpgrade && !upgradeSatisfied ? 'Need Expand' : 'Locked') : canAfford ? 'Buy' : 'Need SP'}
                             </button>
                           )}
                         </div>

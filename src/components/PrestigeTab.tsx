@@ -19,6 +19,7 @@ interface PrestigeTabProps {
   onPrestige: () => void;
   onPrestigeEnergy: () => void;
   onBuyUpgrade: (upgradeId: string) => void;
+  onBuyMaxUpgrades?: () => void;
 }
 
 export const PrestigeTab: React.FC<PrestigeTabProps> = ({
@@ -26,6 +27,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   onPrestige,
   onPrestigeEnergy,
   onBuyUpgrade,
+  onBuyMaxUpgrades,
 }) => {
   const [subTab, setSubTab] = useState<'main' | 'energy'>('main');
 
@@ -132,6 +134,30 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
               </p>
             </div>
 
+            {/* Prestige Summary Stats */}
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-mono">
+              <div className="bg-slate-950/70 border border-amber-500/40 px-4 py-3 rounded-xl min-w-[150px]">
+                <span className="text-slate-500 uppercase text-[10px] block">Prestige Points (PP)</span>
+                <span className="text-lg font-bold text-amber-400 mt-0.5 block">
+                  {currentPP.format(notation)} PP
+                </span>
+              </div>
+
+              <div className="bg-slate-950/70 border border-indigo-500/40 px-4 py-3 rounded-xl min-w-[150px]">
+                <span className="text-slate-500 uppercase text-[10px] block">Prestige Resets</span>
+                <span className="text-lg font-bold text-indigo-300 mt-0.5 block">
+                  {state.prestige.count ?? 0}
+                </span>
+              </div>
+
+              <div className="bg-slate-950/70 border border-slate-800 px-4 py-3 rounded-xl min-w-[150px]">
+                <span className="text-slate-500 uppercase text-[10px] block">Current Points</span>
+                <span className="text-lg font-bold text-white mt-0.5 block">
+                  {state.points.format(notation)}
+                </span>
+              </div>
+            </div>
+
             {/* Progress Bar towards Prestige Requirement */}
             <div className="w-full max-w-lg space-y-2">
               <div className="flex items-center justify-between text-xs font-mono text-slate-400">
@@ -215,8 +241,24 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   Permanent enhancements that accelerate your path towards 1e154 Points and Prestige Energy.
                 </p>
               </div>
-              <div className="font-mono text-xs text-amber-400 shrink-0 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
-                Balance: {currentPP.format(notation)} PP
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="font-mono text-xs text-amber-400 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+                  Balance: {currentPP.format(notation)} PP
+                </div>
+                {onBuyMaxUpgrades && (
+                  <button
+                    type="button"
+                    onClick={onBuyMaxUpgrades}
+                    disabled={currentPP.lt(1)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer shadow-sm ${
+                      currentPP.gte(1)
+                        ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/30'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Max all upgrades
+                  </button>
+                )}
               </div>
             </div>
 

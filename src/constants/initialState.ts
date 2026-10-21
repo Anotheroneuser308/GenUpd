@@ -127,7 +127,11 @@ export const createInitialState = (): GameState => ({
   infinity: {
     count: 0,
     points: Decimal.zero(),
+    skillPoints: 0,
     unlocked: false,
+    ipDoublerLevel: 0,
+    automationExpand: false,
+    achievementMaster: false,
   },
 
   infinityTree: {},
@@ -143,6 +147,8 @@ export const createInitialState = (): GameState => ({
     gen8: { id: 'gen8', name: 'Auto: Generator 8', enabled: false, unlocked: false },
     tickspeed: { id: 'tickspeed', name: 'Auto: Tickspeed', enabled: false, unlocked: false },
     prestige: { id: 'prestige', name: 'Auto: Prestige', enabled: false, unlocked: false, target: 1, mode: 'targetPP', timeTarget: 60, ratioTarget: 2, previousPPGain: Decimal.zero() },
+    autoPrestigeUpgrades: { id: 'autoPrestigeUpgrades', name: 'Auto: Prestige Upgrades', enabled: false, unlocked: false, priority: 'cheapest', buyAll: true },
+    autoPrestigeEnergy: { id: 'autoPrestigeEnergy', name: 'Auto: Prestige Energy', enabled: false, unlocked: false, energyMode: 'target', energyTimeTarget: 60, energyTarget: 2, energyRatioTarget: 2, previousEnergyGain: Decimal.zero() },
   },
 
   achievements: {},
@@ -263,6 +269,12 @@ export const deserializeState = (raw: string): GameState | null => {
         ...initial.infinity,
         ...(parsed.infinity || {}),
         points: parsed.infinity?.points instanceof Decimal ? parsed.infinity.points : Decimal.zero(),
+        skillPoints: typeof parsed.infinity?.skillPoints === 'number'
+          ? parsed.infinity.skillPoints
+          : (typeof parsed.infinity?.count === 'number' ? parsed.infinity.count : 0),
+        ipDoublerLevel: typeof parsed.infinity?.ipDoublerLevel === 'number' ? parsed.infinity.ipDoublerLevel : 0,
+        automationExpand: !!parsed.infinity?.automationExpand,
+        achievementMaster: !!parsed.infinity?.achievementMaster,
       },
       infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
       autobuyers: {
@@ -283,6 +295,33 @@ export const deserializeState = (raw: string): GameState | null => {
             : 2,
           previousPPGain: parsed.autobuyers?.prestige?.previousPPGain instanceof Decimal
             ? parsed.autobuyers.prestige.previousPPGain
+            : Decimal.zero(),
+        },
+        autoPrestigeUpgrades: {
+          ...initial.autobuyers.autoPrestigeUpgrades,
+          ...(parsed.autobuyers?.autoPrestigeUpgrades || {}),
+          priority: ['cheapest', 'order'].includes(parsed.autobuyers?.autoPrestigeUpgrades?.priority)
+            ? parsed.autobuyers.autoPrestigeUpgrades.priority
+            : 'cheapest',
+          buyAll: parsed.autobuyers?.autoPrestigeUpgrades?.buyAll !== false,
+        },
+        autoPrestigeEnergy: {
+          ...initial.autobuyers.autoPrestigeEnergy,
+          ...(parsed.autobuyers?.autoPrestigeEnergy || {}),
+          energyMode: ['time', 'target', 'gainMultiplier'].includes(parsed.autobuyers?.autoPrestigeEnergy?.energyMode)
+            ? parsed.autobuyers.autoPrestigeEnergy.energyMode
+            : 'target',
+          energyTimeTarget: typeof parsed.autobuyers?.autoPrestigeEnergy?.energyTimeTarget === 'number'
+            ? parsed.autobuyers.autoPrestigeEnergy.energyTimeTarget
+            : 60,
+          energyTarget: typeof parsed.autobuyers?.autoPrestigeEnergy?.energyTarget === 'number'
+            ? parsed.autobuyers.autoPrestigeEnergy.energyTarget
+            : 2,
+          energyRatioTarget: typeof parsed.autobuyers?.autoPrestigeEnergy?.energyRatioTarget === 'number'
+            ? parsed.autobuyers.autoPrestigeEnergy.energyRatioTarget
+            : 2,
+          previousEnergyGain: parsed.autobuyers?.autoPrestigeEnergy?.previousEnergyGain instanceof Decimal
+            ? parsed.autobuyers.autoPrestigeEnergy.previousEnergyGain
             : Decimal.zero(),
         },
       },

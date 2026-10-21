@@ -1,6 +1,7 @@
 import React from 'react';
 import { GameState } from '../types/game';
 import { ACHIEVEMENTS } from '../constants/achievements';
+import { getAchievementMasterCompletions } from '../utils/gameCalculations';
 
 interface AchievementsTabProps {
   state: GameState;
@@ -8,6 +9,7 @@ interface AchievementsTabProps {
 
 export const AchievementsTab: React.FC<AchievementsTabProps> = ({ state }) => {
   const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
+  const masterBonus = getAchievementMasterCompletions(state);
 
   return (
     <div className="space-y-6">
@@ -25,8 +27,13 @@ export const AchievementsTab: React.FC<AchievementsTabProps> = ({ state }) => {
           <div className="text-xs text-slate-500 uppercase tracking-wider font-mono">
             Completed
           </div>
-          <div className="text-xl font-bold font-mono text-emerald-400">
-            {unlockedCount} / {ACHIEVEMENTS.length}
+          <div className="text-xl font-bold font-mono text-emerald-400 flex items-center justify-end gap-1.5 flex-wrap">
+            <span>{unlockedCount} / {ACHIEVEMENTS.length}</span>
+            {masterBonus > 0 && (
+              <span className="text-amber-400 text-sm font-semibold">
+                +{masterBonus} from upgrade
+              </span>
+            )}
           </div>
         </div>
       </div>

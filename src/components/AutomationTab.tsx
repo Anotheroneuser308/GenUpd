@@ -7,6 +7,8 @@ interface AutomationTabProps {
   onToggleAutobuyer: (id: string) => void;
   onSetAutobuyerTarget: (id: string, target: number) => void;
   onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
+  onSetAutoPrestigeUpgradesSettings?: (settings: Partial<{ priority: 'cheapest' | 'order'; buyAll: boolean }>) => void;
+  onSetAutoPrestigeEnergySettings?: (settings: Partial<{ energyMode: 'time' | 'target' | 'gainMultiplier'; energyTimeTarget: number; energyTarget: number; energyRatioTarget: number }>) => void;
 }
 
 export const AutomationTab: React.FC<AutomationTabProps> = ({
@@ -14,6 +16,8 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
   onToggleAutobuyer,
   onSetAutobuyerTarget,
   onSetPrestigeAutobuyerSettings,
+  onSetAutoPrestigeUpgradesSettings,
+  onSetAutoPrestigeEnergySettings,
 }) => {
 
   const tree = state.infinityTree || {};
@@ -24,6 +28,13 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
   const [prestigeInput, setPrestigeInput] = useState(() => String(prestigeBuyer?.target ?? 1));
   const [timeInput, setTimeInput] = useState(() => String(prestigeBuyer?.timeTarget ?? 60));
   const [ratioInput, setRatioInput] = useState(() => String(prestigeBuyer?.ratioTarget ?? 2));
+
+  // Energy Autobuyer states
+  const energyBuyer = state.autobuyers?.autoPrestigeEnergy;
+  const [energyTimeInput, setEnergyTimeInput] = useState(() => String(energyBuyer?.energyTimeTarget ?? 60));
+  const [energyTargetInput, setEnergyTargetInput] = useState(() => String(energyBuyer?.energyTarget ?? 2));
+  const [energyRatioInput, setEnergyRatioInput] = useState(() => String(energyBuyer?.energyRatioTarget ?? 2));
+
   const commitNumber = (field: 'target' | 'timeTarget' | 'ratioTarget') => {
     const raw = field === 'target' ? prestigeInput : field === 'timeTarget' ? timeInput : ratioInput;
     const value = Number(raw);
@@ -68,6 +79,8 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
     { key: 'gen7', name: 'Auto: Generator 7', desc: 'Automatically purchases Generator 7 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
     { key: 'gen8', name: 'Auto: Generator 8', desc: 'Automatically purchases Generator 8 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
     { key: 'prestige', name: 'Prestige Autobuyer', desc: 'Automatically triggers Prestige using the selected reset condition', reqNode: 'Prestige Autobuyer (auto_3)' },
+    { key: 'autoPrestigeUpgrades', name: 'Auto: Prestige Upgrades', desc: 'Automatically purchases unbought Prestige upgrades when PP is sufficient in background', reqNode: 'Auto: Prestige Upgrades (auto_5)' },
+    { key: 'autoPrestigeEnergy', name: 'Prestige Energy Autobuyer', desc: 'Automatically resets Prestige Energy with configurable timer, target gain, or gain multiplier', reqNode: 'Prestige Energy Autobuyer (auto_6)' },
   ];
 
   return (
@@ -221,6 +234,120 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                         <span className="text-slate-400">× previous PP</span>
                       </div>
                       <span className="block mt-1 text-slate-500">Previous reset gain: {prestigeBuyer?.previousPPGain?.format(state.settings.notation) ?? '0'} PP</span>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* Auto: Prestige Upgrades Settings */}
+              {item.key === 'autoPrestigeUpgrades' && isUnlocked && (
+                <div className="pt-3 border-t border-slate-800 space-y-3 text-xs font-mono">
+                  <label className="block text-slate-400 text-[11px]">
+                    Purchase Priority
+                    <select
+                      value={state.autobuyers?.autoPrestigeUpgrades?.priority || 'cheapest'}
+                      onChange={(e) => onSetAutoPrestigeUpgradesSettings?.({ priority: e.target.value as 'cheapest' | 'order' })}
+                      className="mt-1 w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="cheapest">Cheapest Available First</option>
+                      <option value="order">Prestige Tier Order</option>
+                    </select>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-300 text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={state.autobuyers?.autoPrestigeUpgrades?.buyAll !== false}
+                      onChange={(e) => onSetAutoPrestigeUpgradesSettings?.({ buyAll: e.target.checked })}
+                      className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0"
+                    />
+                    <span>Buy all affordable upgrades</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Prestige Energy Autobuyer Settings */}
+              {item.key === 'autoPrestigeEnergy' && isUnlocked && (
+                <div className="pt-3 border-t border-slate-800 space-y-3 text-xs font-mono">
+                  <label className="block text-slate-400 text-[11px]">
+                    Reset Condition
+                    <select
+                      value={state.autobuyers?.autoPrestigeEnergy?.energyMode || 'target'}
+                      onChange={(e) => onSetAutoPrestigeEnergySettings?.({ energyMode: e.target.value as 'time' | 'target' | 'gainMultiplier' })}
+                      className="mt-1 w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="time">Timer (after set seconds)</option>
+                      <option value="target">Target Multiplier Gain</option>
+                      <option value="gainMultiplier">Multiplier vs Previous Reset</option>
+                    </select>
+                  </label>
+
+                  {(state.autobuyers?.autoPrestigeEnergy?.energyMode === 'time') && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset after
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={energyTimeInput}
+                          onChange={(e) => setEnergyTimeInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1, Number(energyTimeInput) || 60);
+                            onSetAutoPrestigeEnergySettings?.({ energyTimeTarget: val });
+                            setEnergyTimeInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-purple-300 focus:border-purple-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">seconds</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {((!state.autobuyers?.autoPrestigeEnergy?.energyMode || state.autobuyers?.autoPrestigeEnergy?.energyMode === 'target')) && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset when Energy reward is at least
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="2"
+                          step="1"
+                          value={energyTargetInput}
+                          onChange={(e) => setEnergyTargetInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(2, Number(energyTargetInput) || 2);
+                            onSetAutoPrestigeEnergySettings?.({ energyTarget: val });
+                            setEnergyTargetInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-purple-300 focus:border-purple-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">x Multiplier</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {(state.autobuyers?.autoPrestigeEnergy?.energyMode === 'gainMultiplier') && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Reset when reward is at least this many times previous
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1.01"
+                          step="0.1"
+                          value={energyRatioInput}
+                          onChange={(e) => setEnergyRatioInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1.01, Number(energyRatioInput) || 2);
+                            onSetAutoPrestigeEnergySettings?.({ energyRatioTarget: val });
+                            setEnergyRatioInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-purple-300 focus:border-purple-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">× previous</span>
+                      </div>
+                      <span className="block mt-1 text-slate-500">
+                        Previous reward: x{state.autobuyers?.autoPrestigeEnergy?.previousEnergyGain?.format(state.settings.notation) ?? '1'}
+                      </span>
                     </label>
                   )}
                 </div>

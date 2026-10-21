@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useGameLoop } from './hooks/useGameLoop';
 import { Header } from './components/Header';
 import { PointsDisplay } from './components/PointsDisplay';
@@ -31,9 +31,15 @@ export default function App() {
     performPrestige,
     performPrestigeEnergy,
     buyPrestigeUpgrade,
+    buyMaxPrestigeUpgrades,
     buyInfinityTreeNode,
+    buyIpDoubler,
+    buyAutomationExpand,
+    buyAchievementMaster,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
+    setAutoPrestigeUpgradesSettings,
+    setAutoPrestigeEnergySettings,
     restoreBackup,
     toggleAutobuyer,
     toggleSound,
@@ -52,9 +58,9 @@ export default function App() {
     'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats'
   >('generators');
 
-  const handleProceedInfinity = () => {
+  const handleProceedInfinity = useCallback(() => {
     proceedInfinity();
-  };
+  }, [proceedInfinity]);
 
   // Keyboard Shortcuts (supporting both Latin and Cyrillic keyboard layouts)
   useEffect(() => {
@@ -113,7 +119,7 @@ export default function App() {
       />
 
       {/* Hero Points & Status Bar */}
-      <PointsDisplay state={gameState} />
+      <PointsDisplay state={gameState} activeTab={activeTab} />
 
       {/* Offline Catch-up Notification Banner */}
       {offlineMessage && (
@@ -149,6 +155,7 @@ export default function App() {
             onPrestige={performPrestige}
             onPrestigeEnergy={performPrestigeEnergy}
             onBuyUpgrade={buyPrestigeUpgrade}
+            onBuyMaxUpgrades={buyMaxPrestigeUpgrades}
           />
         )}
 
@@ -156,9 +163,14 @@ export default function App() {
           <InfinityTab
             state={gameState}
             onBuyInfinityTreeNode={buyInfinityTreeNode}
+            onBuyIpDoubler={buyIpDoubler}
+            onBuyAutomationExpand={buyAutomationExpand}
+            onBuyAchievementMaster={buyAchievementMaster}
             onToggleAutobuyer={toggleAutobuyer}
             onSetAutobuyerTarget={setAutobuyerTarget}
             onSetPrestigeAutobuyerSettings={setPrestigeAutobuyerSettings}
+            onSetAutoPrestigeUpgradesSettings={setAutoPrestigeUpgradesSettings}
+            onSetAutoPrestigeEnergySettings={setAutoPrestigeEnergySettings}
           />
         )}
 

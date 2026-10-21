@@ -6,12 +6,16 @@ interface InfinityOverlayProps {
 
 export const InfinityOverlay: React.FC<InfinityOverlayProps> = ({ onProceed }) => {
   const [countdown, setCountdown] = useState(4);
+  const [isProcessing, setIsProcessing] = useState(false);
   const clickedRef = useRef(false);
+  const onProceedRef = useRef(onProceed);
+  onProceedRef.current = onProceed;
 
   const handleProceed = () => {
     if (clickedRef.current) return;
     clickedRef.current = true;
-    onProceed();
+    setIsProcessing(true);
+    onProceedRef.current();
   };
 
   useEffect(() => {
@@ -21,7 +25,8 @@ export const InfinityOverlay: React.FC<InfinityOverlayProps> = ({ onProceed }) =
           clearInterval(timer);
           if (!clickedRef.current) {
             clickedRef.current = true;
-            onProceed();
+            setIsProcessing(true);
+            onProceedRef.current();
           }
           return 0;
         }
@@ -30,7 +35,7 @@ export const InfinityOverlay: React.FC<InfinityOverlayProps> = ({ onProceed }) =
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [onProceed]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-gradient-to-br from-amber-500 via-orange-600 to-amber-700 text-slate-950 animate-fade-in select-none">
@@ -51,8 +56,10 @@ export const InfinityOverlay: React.FC<InfinityOverlayProps> = ({ onProceed }) =
           <p>
             All lower generators, points, and prestige currencies have collapsed into a pure cosmic singularity.
           </p>
-          <div className="text-2xl font-black font-mono text-amber-200">
-            +1 Infinity Point (IP) Awarded
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-2xl font-black font-mono text-amber-200">
+            <span>+1 Skill Point (SP)</span>
+            <span className="hidden sm:inline text-amber-400">·</span>
+            <span>+1 Infinity Point (IP)</span>
           </div>
           <p className="text-xs text-amber-100/90 font-mono">
             ★ The Infinity Dimension Tab is now permanently unlocked in your navigation.
@@ -63,12 +70,12 @@ export const InfinityOverlay: React.FC<InfinityOverlayProps> = ({ onProceed }) =
           <button
             type="button"
             onClick={handleProceed}
-            disabled={clickedRef.current}
+            disabled={isProcessing || clickedRef.current}
             className={`px-8 py-3.5 bg-slate-950 hover:bg-slate-900 text-amber-400 font-bold font-mono text-sm rounded-xl shadow-2xl transition-transform active:scale-95 cursor-pointer border border-amber-400/30 ${
-              clickedRef.current ? 'opacity-50 pointer-events-none' : ''
+              isProcessing || clickedRef.current ? 'opacity-50 pointer-events-none' : ''
             }`}
           >
-            Proceed ({countdown}s)
+            {isProcessing ? 'Proceeding...' : `Proceed (${countdown}s)`}
           </button>
         </div>
       </div>
