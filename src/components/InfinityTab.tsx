@@ -11,6 +11,7 @@ interface InfinityTabProps {
   state: GameState;
   onBuyInfinityTreeNode: (nodeId: string) => void;
   onBuyIpDoubler?: () => void;
+  onBuyMaxIpDoubler?: () => void;
   onBuyAutomationExpand?: () => void;
   onBuyAchievementMaster?: () => void;
   onBuyIpGeneratorBoost?: () => void;
@@ -28,6 +29,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   state,
   onBuyInfinityTreeNode,
   onBuyIpDoubler,
+  onBuyMaxIpDoubler,
   onBuyAutomationExpand,
   onBuyAchievementMaster,
   onBuyIpGeneratorBoost,
@@ -197,7 +199,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             <div className="text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-amber-300">{totalInfinities} Infinities</div>
           </div>
           <div className="space-y-3">
-            <p className="text-xs text-slate-400">Milestones now use combined conditions. The first one requires <strong className="text-amber-300">30 lifetime IP earned</strong>; later milestones also check PE history, total playtime, or highest-ever Points. Spent IP still counts as earned.</p>
+            <p className="text-xs text-slate-400">Milestones now use combined conditions. The first one requires <strong className="text-amber-300">30 lifetime IP earned</strong>; later milestones also check PE earned in the current Infinity, total playtime, or highest-ever Points. Spent IP still counts as earned.</p>
             {INFINITY_MILESTONES.map((milestone) => {
               const unlocked = isInfinityMilestoneUnlocked(state, milestone.id);
               const requirementProgress = getInfinityMilestoneRequirementProgress(state, milestone.id);
@@ -274,22 +276,37 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
                         <span className="text-xs font-mono text-slate-400">
                           Cost: <strong className="text-amber-400">{cost.format(notation)} IP</strong>
                         </span>
-                        <button
-                          type="button"
-                          onClick={onBuyIpDoubler}
-                          disabled={!canAfford}
-                          className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                            canAfford
-                              ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
-                              : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                          }`}
-                        >
-                          Buy Upgrade
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={onBuyIpDoubler}
+                            disabled={!canAfford}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                              canAfford
+                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }`}
+                          >
+                            Buy Upgrade
+                          </button>
+                          <button
+                            type="button"
+                            onClick={onBuyMaxIpDoubler}
+                            disabled={!canAfford}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                              canAfford
+                                ? 'bg-amber-800/80 hover:bg-amber-700 text-white border border-amber-500/40'
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }`}
+                            title="Buy as many IP Doubler levels as possible"
+                          >
+                            MAX
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -471,52 +488,6 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 })()}
               </div>
 
-              {/* Advanced System Tiers */}
-              <div className="border-t border-slate-800 pt-4">
-                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider font-mono mb-3">
-                  Transcendental Systems
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider">Tier 2</span>
-                      <h5 className="font-semibold text-xs text-slate-200 mt-1">Prestige Transcendence</h5>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Unlocked via New Features Node 2 (feat_2) on the Infinity Tree.
-                      </p>
-                    </div>
-                    <div className="mt-3 text-[10px] font-mono text-purple-400">
-                      {state.infinityTree?.feat_2 ? 'Unlocked' : 'Requires Node feat_2'}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider">Tier 3</span>
-                      <h5 className="font-semibold text-xs text-slate-200 mt-1">Infinity Milestones</h5>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Unlocked via New Features Node 3 (feat_3) on the Infinity Tree.
-                      </p>
-                    </div>
-                    <div className="mt-3 text-[10px] font-mono text-purple-400">
-                      {state.infinityTree?.feat_3 ? 'Unlocked' : 'Requires Node feat_3'}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] font-mono text-purple-400 uppercase tracking-wider">Tier 4</span>
-                      <h5 className="font-semibold text-xs text-slate-200 mt-1">Break Infinity</h5>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Unlocked via Break Infinity (feat_4) on the Infinity Tree.
-                      </p>
-                    </div>
-                    <div className="mt-3 text-[10px] font-mono text-purple-400">
-                      {state.infinityTree?.feat_4 ? 'Active (Uncapped!)' : 'Requires Node feat_4'}
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>

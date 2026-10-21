@@ -27,7 +27,7 @@ export interface PrestigeState {
 export interface PrestigeEnergyState {
   unlocked: boolean; // true once points reach 1e154
   amount: Decimal;
-  /** Total PE ever generated, including currency later spent or reset by Infinity. */
+  /** PE earned during the current Infinity run; reset to zero on Big Crunch. */
   totalEarned: Decimal;
   /** @deprecated Legacy saved value; new runs use generatorUpgradeLevel instead. */
   multiplier: Decimal;
@@ -107,7 +107,10 @@ export interface GrowthPoint {
 }
 
 export interface GameStats {
-  totalTimePlayed: number; // seconds
+  totalTimePlayed: number; // online + offline accumulated playtime, seconds
+  onlineTimePlayed: number; // seconds while the game is open and running
+  offlineTimePlayed: number; // seconds simulated while the game was closed
+  sessionTimePlayed: number; // seconds since the current page/app session started
   timeThisPrestige: number; // seconds
   timeThisInfinity: number; // seconds in current infinity
   totalPrestiges: number;

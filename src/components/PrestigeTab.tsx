@@ -20,7 +20,9 @@ interface PrestigeTabProps {
   onPrestige: () => void;
   onPrestigeEnergy: () => void;
   onBuyPrestigeEnergyUpgrade: () => void;
+  onBuyMaxPrestigeEnergyUpgrade: () => void;
   onBuyUpgrade: (upgradeId: string) => void;
+  onBuyMaxUpgrade?: (upgradeId: 'cascadingBoosts' | 'generatorUnlock') => void;
   onBuyMaxUpgrades?: () => void;
 }
 
@@ -29,7 +31,9 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   onPrestige,
   onPrestigeEnergy,
   onBuyPrestigeEnergyUpgrade,
+  onBuyMaxPrestigeEnergyUpgrade,
   onBuyUpgrade,
+  onBuyMaxUpgrade,
   onBuyMaxUpgrades,
 }) => {
   const [subTab, setSubTab] = useState<'main' | 'energy'>('main');
@@ -43,7 +47,9 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
 
   // Progress towards 1.00e18 Points (or 1.00e16 with pre_3) for Prestige
   const currentLog = Math.max(0, state.points.log10());
-  const prestigeTargetLog = prestigeReq.log10();
+  const prestigeTargetLog = Math.max(1, prestigeReq.log10());
+  // Recompute directly from the live GameState every render; the bar uses a transform
+  // so its fill updates smoothly even while this tab remains open.
   const prestigeProgressPercent = Math.min(100, Math.max(0, (currentLog / prestigeTargetLog) * 100));
 
   // Progress towards 1.00e154 Points for Prestige Energy
@@ -175,10 +181,17 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 <span>Progress to Prestige</span>
                 <span className="text-indigo-400 font-semibold">{prestigeProgressPercent.toFixed(1)}%</span>
               </div>
-              <div className="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700/60 p-0.5">
+              <div
+                className="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700/60 p-0.5"
+                role="progressbar"
+                aria-label="Progress to Prestige"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Number(prestigeProgressPercent.toFixed(1))}
+              >
                 <div
-                  className="bg-indigo-500 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${prestigeProgressPercent}%` }}
+                  className="bg-indigo-500 h-full w-full rounded-full transition-transform duration-150 ease-linear origin-left"
+                  style={{ transform: `scaleX(${prestigeProgressPercent / 100})` }}
                 />
               </div>
               <div className="flex items-center justify-between text-[11px] font-mono text-slate-500">
@@ -422,20 +435,35 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                       <span className="text-emerald-400 font-semibold">Max Level Reached</span>
                     )}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onBuyUpgrade('cascadingBoosts')}
-                    disabled={!canAffordBoost || boostLevel >= MAX_CASCADING_BOOSTS}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${
-                      boostLevel >= MAX_CASCADING_BOOSTS
-                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                        : canAffordBoost
-                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white font-semibold'
-                        : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                    }`}
-                  >
-                    {boostLevel >= MAX_CASCADING_BOOSTS ? 'Maxed' : `Lvl ${boostLevel + 1}`}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onBuyUpgrade('cascadingBoosts')}
+                      disabled={!canAffordBoost || boostLevel >= MAX_CASCADING_BOOSTS}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${
+                        boostLevel >= MAX_CASCADING_BOOSTS
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : canAffordBoost
+                          ? 'bg-indigo-600 hover:bg-indigo-500 text-white font-semibold'
+                          : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                      }`}
+                    >
+                      {boostLevel >= MAX_CASCADING_BOOSTS ? 'Maxed' : `Lvl ${boostLevel + 1}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onBuyMaxUpgrade?.('cascadingBoosts')}
+                      disabled={!canAffordBoost || boostLevel >= MAX_CASCADING_BOOSTS}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
+                        canAffordBoost && boostLevel < MAX_CASCADING_BOOSTS
+                          ? 'bg-indigo-800/80 hover:bg-indigo-700 text-white border border-indigo-500/40'
+                          : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                      }`}
+                      title="Buy as many Cascading Boosts levels as possible"
+                    >
+                      MAX
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -482,20 +510,35 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                       <span className="text-emerald-400 font-semibold">All 8 Gens Unlocked</span>
                     )}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => onBuyUpgrade('generatorUnlock')}
-                    disabled={!canAffordUnlock || unlockLevel >= MAX_GENERATOR_UNLOCKS}
-                    className={`px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${
-                      unlockLevel >= MAX_GENERATOR_UNLOCKS
-                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                        : canAffordUnlock
-                        ? 'bg-purple-600 hover:bg-purple-500 text-white font-semibold'
-                        : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                    }`}
-                  >
-                    {unlockLevel >= MAX_GENERATOR_UNLOCKS ? 'Maxed' : `Unlock Gen ${5 + unlockLevel}`}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onBuyUpgrade('generatorUnlock')}
+                      disabled={!canAffordUnlock || unlockLevel >= MAX_GENERATOR_UNLOCKS}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${
+                        unlockLevel >= MAX_GENERATOR_UNLOCKS
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                          : canAffordUnlock
+                          ? 'bg-purple-600 hover:bg-purple-500 text-white font-semibold'
+                          : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                      }`}
+                    >
+                      {unlockLevel >= MAX_GENERATOR_UNLOCKS ? 'Maxed' : `Unlock Gen ${5 + unlockLevel}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onBuyMaxUpgrade?.('generatorUnlock')}
+                      disabled={!canAffordUnlock || unlockLevel >= MAX_GENERATOR_UNLOCKS}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
+                        canAffordUnlock && unlockLevel < MAX_GENERATOR_UNLOCKS
+                          ? 'bg-purple-800/80 hover:bg-purple-700 text-white border border-purple-500/40'
+                          : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                      }`}
+                      title="Buy as many Generator Expander levels as possible"
+                    >
+                      MAX
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -898,7 +941,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 Prestige Energy
               </h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE based on your Points. PE now has two separate generator bonuses: a purchased amplifier and a passive multiplier based on all PE ever generated.
+                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE based on your Points. Purchased amplifier levels and the passive PE generator bonus both reset when you Big Crunch into Infinity.
               </p>
             </div>
 
@@ -949,11 +992,11 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 </span>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-400">
-                  Lifetime PE Generator Bonus: <span className="text-emerald-300">x{passiveEnergyGeneratorMult.format(notation)}</span>
+                  PE Generator Bonus This Infinity: <span className="text-emerald-300">x{passiveEnergyGeneratorMult.format(notation)}</span>
                 </span>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-400">
-                  Lifetime PE: <span className="text-slate-200">{lifetimePE.format(notation)}</span>
+                  PE Earned This Infinity: <span className="text-slate-200">{lifetimePE.format(notation)}</span>
                 </span>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-400">
@@ -968,10 +1011,13 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 <h3 className="text-sm font-semibold text-slate-100">Generator Energy Amplifier</h3>
                 <span className="text-[10px] font-mono rounded border border-purple-500/30 bg-purple-950/50 px-2 py-1 text-purple-300">LEVEL {energyUpgradeLevel}</span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. Separately, all lifetime PE earned grants a passive generator multiplier that remains after spending PE: 1 PE gives ×2, 2 gives about ×2.55, 3 gives ×3.54, and 4 gives ×5.21. Growth softcaps after 10 lifetime PE.</p>
+              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. PE earned during the current Infinity also grants a passive generator multiplier, doubled: 1 PE gives ×4, 2 gives about ×5.10, 3 gives ×7.07, and 4 gives ×10.4. This passive bonus resets on Big Crunch and growth softcaps after 10 PE.</p>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
                 <div className="text-xs font-mono text-slate-400">Next level: <strong className="text-purple-300">x{new Decimal(2).pow(energyUpgradeLevel + 1).format(notation)}</strong> all generators · Cost: <strong className="text-amber-400">{energyUpgradeCost.format(notation)} PE</strong></div>
-                <button type="button" onClick={onBuyPrestigeEnergyUpgrade} disabled={state.prestigeEnergy.amount.lt(energyUpgradeCost)} className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold ${state.prestigeEnergy.amount.gte(energyUpgradeCost) ? 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Level</button>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={onBuyPrestigeEnergyUpgrade} disabled={state.prestigeEnergy.amount.lt(energyUpgradeCost)} className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold ${state.prestigeEnergy.amount.gte(energyUpgradeCost) ? 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Level</button>
+                  <button type="button" onClick={onBuyMaxPrestigeEnergyUpgrade} disabled={state.prestigeEnergy.amount.lt(energyUpgradeCost)} className={`px-4 py-2 rounded-lg text-xs font-mono font-bold ${state.prestigeEnergy.amount.gte(energyUpgradeCost) ? 'bg-purple-800/80 hover:bg-purple-700 text-white border border-purple-500/40 cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`} title="Buy as many Generator Energy Amplifier levels as possible">MAX</button>
+                </div>
               </div>
             </div>
 

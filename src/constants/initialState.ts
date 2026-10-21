@@ -162,6 +162,9 @@ export const createInitialState = (): GameState => ({
 
   stats: {
     totalTimePlayed: 0,
+    onlineTimePlayed: 0,
+    offlineTimePlayed: 0,
+    sessionTimePlayed: 0,
     timeThisPrestige: 0,
     timeThisInfinity: 0,
     totalPrestiges: 0,
@@ -359,6 +362,18 @@ export const deserializeState = (raw: string): GameState | null => {
       stats: {
         ...initial.stats,
         ...(parsed.stats || {}),
+        totalTimePlayed: typeof parsed.stats?.totalTimePlayed === 'number' && Number.isFinite(parsed.stats.totalTimePlayed)
+          ? Math.max(0, parsed.stats.totalTimePlayed)
+          : 0,
+        // Legacy saves did not split online/offline time. Preserve their existing total as online time.
+        onlineTimePlayed: typeof parsed.stats?.onlineTimePlayed === 'number' && Number.isFinite(parsed.stats.onlineTimePlayed)
+          ? Math.max(0, parsed.stats.onlineTimePlayed)
+          : Math.max(0, typeof parsed.stats?.totalTimePlayed === 'number' ? parsed.stats.totalTimePlayed : 0),
+        offlineTimePlayed: typeof parsed.stats?.offlineTimePlayed === 'number' && Number.isFinite(parsed.stats.offlineTimePlayed)
+          ? Math.max(0, parsed.stats.offlineTimePlayed)
+          : 0,
+        // A reload starts a new session rather than restoring the previous session's counter.
+        sessionTimePlayed: 0,
         timeThisInfinity: typeof parsed.stats?.timeThisInfinity === 'number' ? parsed.stats.timeThisInfinity : 0,
         peakPointsRate: parsed.stats?.peakPointsRate instanceof Decimal ? parsed.stats.peakPointsRate : Decimal.zero(),
         highestPointsEver: parsed.stats?.highestPointsEver instanceof Decimal ? parsed.stats.highestPointsEver : Decimal.zero(),

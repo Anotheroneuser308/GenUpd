@@ -396,6 +396,27 @@ export const StatsTab: React.FC<StatsTabProps> = ({
           </div>
 
           <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <span className="text-slate-500 uppercase text-[10px]">Online Playtime</span>
+            <div className="text-emerald-300 font-semibold text-sm mt-1">
+              {formatDuration(state.stats.onlineTimePlayed || 0)}
+            </div>
+          </div>
+
+          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <span className="text-slate-500 uppercase text-[10px]">Offline Playtime</span>
+            <div className="text-sky-300 font-semibold text-sm mt-1">
+              {formatDuration(state.stats.offlineTimePlayed || 0)}
+            </div>
+          </div>
+
+          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+            <span className="text-slate-500 uppercase text-[10px]">Playtime This Session</span>
+            <div className="text-amber-300 font-semibold text-sm mt-1">
+              {formatDuration(state.stats.sessionTimePlayed || 0)}
+            </div>
+          </div>
+
+          <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
             <span className="text-slate-500 uppercase text-[10px]">Current Run Time</span>
             <div className="text-slate-200 font-semibold text-sm mt-1">
               {formatDuration(state.stats.timeThisPrestige)}

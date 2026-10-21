@@ -39,7 +39,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     title: 'Energy Well',
     icon: '⚡',
     reward: 'Prestige Energy gained from Energy resets is multiplied by ×2.',
-    requirement: '5 Infinities and 10 lifetime PE earned',
+    requirement: '5 Infinities and 10 PE earned in the current Infinity',
   },
   {
     id: 'time_fracture',
@@ -60,7 +60,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     title: 'Skill Cycle',
     icon: '🧠',
     reward: 'Every third Infinity grants +1 additional Skill Point.',
-    requirement: '15 Infinities and 50 lifetime PE earned',
+    requirement: '15 Infinities and 50 PE earned in the current Infinity',
   },
   {
     id: 'cascade_memory',
@@ -99,8 +99,8 @@ export function getTotalInfinities(state: GameState, override?: number): number 
 
 /**
  * Milestones are active only after the Infinity Milestones tree node is purchased.
- * Every criterion is historical/monotonic, so buying upgrades or resetting a layer
- * cannot cause an already-earned milestone to disappear.
+ * Infinity count and IP history are persistent; PE requirements intentionally use PE
+ * earned in the current Infinity run because PE progress resets on Big Crunch.
  */
 export function isInfinityMilestoneUnlocked(
   state: GameState,
@@ -152,7 +152,7 @@ export function getInfinityMilestoneRequirementProgress(
     : Decimal.zero();
   const notation = state.settings?.notation;
   const fmtIP = (target: number) => `${lifetimeIP.format(notation)} / ${target} lifetime IP`;
-  const fmtPE = (target: number) => `${lifetimePE.format(notation)} / ${target} lifetime PE`;
+  const fmtPE = (target: number) => `${lifetimePE.format(notation)} / ${target} PE this Infinity`;
   const fmtInfinities = (target: number) => `${infinities} / ${target} Infinities`;
   const fmtTime = (targetSeconds: number) => `${Math.floor(totalTime / 60)} / ${Math.floor(targetSeconds / 60)} minutes total playtime`;
 
@@ -197,5 +197,7 @@ export function getPassivePEGeneratorMultiplier(state: GameState): Decimal {
 
   const extraPower = Math.max(0, effectivePE - 1);
   const exponent = 1 + 0.2 * extraPower + 0.15 * Math.pow(extraPower, 1.5);
-  return new Decimal(2).pow(Math.min(1e300, exponent));
+  // Double the resulting passive generator multiplier while preserving its original growth curve.
+  // At 1 PE, this changes x2 to x4; all later values are also exactly 2x their former value.
+  return new Decimal(2).pow(Math.min(1e300, exponent)).mul(2);
 }

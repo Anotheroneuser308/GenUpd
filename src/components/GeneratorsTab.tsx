@@ -10,6 +10,7 @@ interface GeneratorsTabProps {
   onBuyGenerator: (id: number) => void;
   onBuyMaxGenerator: (id: number) => void;
   onBuyTickspeed: () => void;
+  onBuyMaxTickspeed: () => void;
 }
 
 export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
@@ -17,6 +18,7 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
   onBuyGenerator,
   onBuyMaxGenerator,
   onBuyTickspeed,
+  onBuyMaxTickspeed,
 }) => {
   const notation = state.settings.notation;
   const totalTickspeed = getTotalTickspeedSpeed(state);
@@ -47,18 +49,33 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onBuyTickspeed}
-          disabled={!canAffordTickspeed}
-          className={`px-4 py-2 rounded-lg text-xs font-mono font-medium transition-colors whitespace-nowrap shrink-0 ${
-            canAffordTickspeed
-              ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 cursor-pointer'
-              : 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed'
-          }`}
-        >
-          Buy Tickspeed ({state.tickspeed.cost.format(notation)})
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onBuyTickspeed}
+            disabled={!canAffordTickspeed}
+            className={`px-4 py-2 rounded-lg text-xs font-mono font-medium transition-colors whitespace-nowrap ${
+              canAffordTickspeed
+                ? 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 cursor-pointer'
+                : 'bg-slate-900 text-slate-600 border border-slate-800 cursor-not-allowed'
+            }`}
+          >
+            Buy Tickspeed ({state.tickspeed.cost.format(notation)})
+          </button>
+          <button
+            type="button"
+            onClick={onBuyMaxTickspeed}
+            disabled={!canAffordTickspeed}
+            className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-colors whitespace-nowrap ${
+              canAffordTickspeed
+                ? 'bg-cyan-700/80 hover:bg-cyan-600 text-white border border-cyan-500/40 cursor-pointer'
+                : 'bg-slate-900 text-slate-700 border border-slate-800 cursor-not-allowed'
+            }`}
+            title="Buy as many Tickspeed levels as possible"
+          >
+            MAX
+          </button>
+        </div>
       </div>
 
       {/* Mechanics Banner: 2x multiplier rule */}
@@ -160,7 +177,7 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
                       : 'bg-slate-900 text-slate-700 border border-slate-800 cursor-not-allowed'
                   }`}
                 >
-                  Max
+                  MAX
                 </button>
               </div>
             </div>

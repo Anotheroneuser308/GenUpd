@@ -156,8 +156,9 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     }
   }
 
-  // Purchased PE amplifier levels are one source of power; lifetime PE also
-  // grants a separate passive multiplier that remains after spending PE.
+  // Purchased PE amplifier levels are one source of power; PE earned in this
+  // Infinity grants a separate passive multiplier that remains after spending PE
+  // but resets when the player advances through Big Crunch.
   const energyUpgradeLevel = Math.max(0, Math.floor(state.prestigeEnergy?.generatorUpgradeLevel || 0));
   if (energyUpgradeLevel > 0) {
     mult = mult.mul(new Decimal(2).pow(energyUpgradeLevel));

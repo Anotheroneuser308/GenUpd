@@ -27,14 +27,18 @@ export default function App() {
     buyGenerator,
     buyMaxGenerator,
     buyTickspeed,
+    buyMaxTickspeed,
     buyMaxAll,
     performPrestige,
     performPrestigeEnergy,
     buyPrestigeEnergyUpgrade,
+    buyMaxPrestigeEnergyUpgrade,
     buyPrestigeUpgrade,
+    buyMaxPrestigeUpgrade,
     buyMaxPrestigeUpgrades,
     buyInfinityTreeNode,
     buyIpDoubler,
+    buyMaxIpDoubler,
     buyAutomationExpand,
     buyAchievementMaster,
     buyIpGeneratorBoost,
@@ -150,6 +154,7 @@ export default function App() {
             onBuyGenerator={buyGenerator}
             onBuyMaxGenerator={buyMaxGenerator}
             onBuyTickspeed={buyTickspeed}
+            onBuyMaxTickspeed={buyMaxTickspeed}
           />
         )}
 
@@ -159,7 +164,9 @@ export default function App() {
             onPrestige={performPrestige}
             onPrestigeEnergy={performPrestigeEnergy}
             onBuyPrestigeEnergyUpgrade={buyPrestigeEnergyUpgrade}
+            onBuyMaxPrestigeEnergyUpgrade={buyMaxPrestigeEnergyUpgrade}
             onBuyUpgrade={buyPrestigeUpgrade}
+            onBuyMaxUpgrade={buyMaxPrestigeUpgrade}
             onBuyMaxUpgrades={buyMaxPrestigeUpgrades}
           />
         )}
@@ -169,6 +176,7 @@ export default function App() {
             state={gameState}
             onBuyInfinityTreeNode={buyInfinityTreeNode}
             onBuyIpDoubler={buyIpDoubler}
+            onBuyMaxIpDoubler={buyMaxIpDoubler}
             onBuyAutomationExpand={buyAutomationExpand}
             onBuyAchievementMaster={buyAchievementMaster}
             onBuyIpGeneratorBoost={buyIpGeneratorBoost}

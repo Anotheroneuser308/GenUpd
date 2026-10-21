@@ -130,7 +130,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'feat_2',
     branch: 'feat',
     title: 'Prestige Transcendence',
-    desc: 'Unlocks Prestige Skill Synergy in the Prestige tab. Lifetime PE earned also grants a passive multiplier to all generator production.',
+    desc: 'Unlocks Prestige Skill Synergy in the Prestige tab. PE earned during the current Infinity run grants a passive multiplier to all generator production; it resets on Big Crunch.',
     cost: 3,
     req: 'feat_1',
     icon: '🔮',

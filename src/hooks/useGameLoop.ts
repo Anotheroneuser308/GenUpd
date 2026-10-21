@@ -37,6 +37,54 @@ import {
   getInfinityMilestoneExtraSP,
 } from '../utils/gameCalculations';
 
+
+/**
+ * Calculates the maximum number of consecutive geometric-cost purchases affordable
+ * with a Decimal balance, without iterating once per level. Costs are firstCost,
+ * firstCost * ratio, firstCost * ratio^2, and so on.
+ */
+function getMaxGeometricPurchases(
+  balance: Decimal,
+  firstCost: Decimal,
+  ratio: Decimal,
+): { count: number; totalCost: Decimal } {
+  if (balance.lt(firstCost) || firstCost.lte(0)) {
+    return { count: 0, totalCost: Decimal.zero() };
+  }
+
+  const ratioMinusOne = ratio.sub(1);
+  if (ratio.lte(1) || ratioMinusOne.mantissa === 0) {
+    // All repeatable upgrade costs in this game grow; keep a safe fallback for
+    // malformed/legacy saves rather than trying to handle a non-growing series.
+    let remaining = balance;
+    let cost = firstCost;
+    let count = 0;
+    while (remaining.gte(cost) && count < 100000) {
+      remaining = remaining.sub(cost);
+      count += 1;
+      cost = cost.mul(ratio);
+    }
+    return { count, totalCost: balance.sub(remaining) };
+  }
+
+  const estimateArgument = balance.div(firstCost).mul(ratioMinusOne).add(1);
+  let count = Math.max(0, Math.floor(estimateArgument.log10() / ratio.log10()));
+  const totalFor = (n: number) => firstCost.mul(ratio.pow(n).sub(1)).div(ratioMinusOne);
+
+  // Correct for floating-point logarithm and Decimal rounding at the affordability boundary.
+  let corrections = 0;
+  while (count > 0 && totalFor(count).gt(balance) && corrections < 10000) {
+    count -= 1;
+    corrections += 1;
+  }
+  while (totalFor(count + 1).lte(balance) && corrections < 20000) {
+    count += 1;
+    corrections += 1;
+  }
+
+  return { count, totalCost: count > 0 ? totalFor(count) : Decimal.zero() };
+}
+
 export function useGameLoop() {
   const [gameState, setGameState] = useState<GameState>(() => {
     return loadStateSafe();
@@ -113,15 +161,17 @@ export function useGameLoop() {
 
       const pointsGained = state.points.sub(initialPoints);
       state.stats.totalTimePlayed += simulatedSeconds;
+      state.stats.offlineTimePlayed = (state.stats.offlineTimePlayed || 0) + simulatedSeconds;
       state.stats.timeThisPrestige += simulatedSeconds;
       state.lastUpdate = now;
 
       if (pointsGained.gt(0)) {
         const msg = `Welcome back! While you were away (${Math.floor(simulatedSeconds)}s), all active generators worked in cascade, producing ${pointsGained.format(state.settings.notation)} Points.`;
         setOfflineMessage(msg);
-        setGameState(state);
-        saveStateWithBackup(state);
       }
+      // Always persist the elapsed offline time and new lastUpdate, even when no generators produced Points.
+      setGameState(state);
+      saveStateWithBackup(state);
     }
   }, []);
 
@@ -332,6 +382,8 @@ export function useGameLoop() {
 
         // Stats tracking
         state.stats.totalTimePlayed += dt;
+        state.stats.onlineTimePlayed = (state.stats.onlineTimePlayed || 0) + dt;
+        state.stats.sessionTimePlayed = (state.stats.sessionTimePlayed || 0) + dt;
         state.stats.timeThisPrestige += dt;
         state.stats.timeThisInfinity = (state.stats.timeThisInfinity || 0) + dt;
         if (pointsRate.gt(state.stats.peakPointsRate)) {
@@ -828,6 +880,27 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Buy as many Tickspeed levels as the current Points balance allows.
+  const buyMaxTickspeed = useCallback(() => {
+    setGameState((prev) => {
+      const boughtNow = getMaxGeometricPurchases(
+        prev.points,
+        prev.tickspeed.cost,
+        prev.tickspeed.costMult,
+      );
+      if (boughtNow.count === 0) return prev;
+
+      sound.playBuy();
+      const bought = prev.tickspeed.bought + boughtNow.count;
+      const cost = getTickspeedBaseCost(prev).mul(prev.tickspeed.costMult.pow(bought));
+      return {
+        ...prev,
+        points: prev.points.sub(boughtNow.totalCost),
+        tickspeed: { ...prev.tickspeed, bought, cost },
+      };
+    });
+  }, []);
+
   const buyMaxAll = useCallback(() => {
     setGameState((prev) => {
       let currentPoints = prev.points;
@@ -1000,6 +1073,29 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Buy the maximum number of affordable Prestige Energy amplifier levels.
+  const buyMaxPrestigeEnergyUpgrade = useCallback(() => {
+    setGameState((prev) => {
+      const level = Math.max(0, Math.floor(prev.prestigeEnergy.generatorUpgradeLevel || 0));
+      const firstCost = new Decimal(2).pow(level);
+      const boughtNow = getMaxGeometricPurchases(prev.prestigeEnergy.amount, firstCost, new Decimal(2));
+      if (boughtNow.count === 0) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        prestigeEnergy: {
+          ...prev.prestigeEnergy,
+          amount: prev.prestigeEnergy.amount.sub(boughtNow.totalCost),
+          multiplier: Decimal.one(),
+          generatorUpgradeLevel: level + boughtNow.count,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   // Buy any Prestige Upgrade
   const buyPrestigeUpgrade = useCallback((upgradeId: string) => {
     setGameState((prev) => {
@@ -1155,7 +1251,8 @@ export function useGameLoop() {
         prestigeEnergy: {
           unlocked: false,
           amount: Decimal.zero(),
-          totalEarned: prev.prestigeEnergy?.totalEarned instanceof Decimal ? prev.prestigeEnergy.totalEarned : Decimal.zero(),
+          // PE progress and its passive generator bonus belong to the current Infinity run.
+          totalEarned: Decimal.zero(),
           multiplier: Decimal.one(),
           generatorUpgradeLevel: 0,
           resets: 0,
@@ -1278,6 +1375,28 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Buy as many levels of the repeatable IP Doubler as current IP allows.
+  const buyMaxIpDoubler = useCallback(() => {
+    setGameState((prev) => {
+      const level = prev.infinity.ipDoublerLevel || 0;
+      const firstCost = new Decimal(10).mul(new Decimal(10).pow(level));
+      const boughtNow = getMaxGeometricPurchases(prev.infinity.points, firstCost, new Decimal(10));
+      if (boughtNow.count === 0) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        infinity: {
+          ...prev.infinity,
+          points: prev.infinity.points.sub(boughtNow.totalCost),
+          ipDoublerLevel: level + boughtNow.count,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   // Infinity Upgrade 2: Automation Expand (Unlocks auto_5 and auto_6 in tree)
   const buyAutomationExpand = useCallback(() => {
     setGameState((prev) => {
@@ -1356,6 +1475,52 @@ export function useGameLoop() {
       const nextState: GameState = {
         ...prev,
         infinity: { ...prev.infinity, points: prev.infinity.points.sub(8), energySPBoost: true },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Buy maximum affordable levels of one repeatable Prestige upgrade.
+  const buyMaxPrestigeUpgrade = useCallback((upgradeId: 'cascadingBoosts' | 'generatorUnlock') => {
+    setGameState((prev) => {
+      let currentPP = prev.prestige.points;
+      const upgs = { ...prev.prestigeUpgrades };
+      let purchases = 0;
+
+      if (upgradeId === 'cascadingBoosts') {
+        let level = Math.max(0, upgs.cascadingBoostsLevel || 0);
+        while (level < MAX_CASCADING_BOOSTS && purchases < MAX_CASCADING_BOOSTS) {
+          const cost = getCascadingBoostCost(level);
+          if (currentPP.lt(cost)) break;
+          currentPP = currentPP.sub(cost);
+          level += 1;
+          purchases += 1;
+        }
+        if (purchases === 0) return prev;
+        upgs.cascadingBoostsLevel = level;
+      } else {
+        let level = Math.max(0, upgs.generatorUnlockLevel || 0);
+        while (level < MAX_GENERATOR_UNLOCKS && purchases < MAX_GENERATOR_UNLOCKS) {
+          const cost = getGeneratorUnlockCost(level);
+          if (currentPP.lt(cost)) break;
+          currentPP = currentPP.sub(cost);
+          level += 1;
+          purchases += 1;
+        }
+        if (purchases === 0) return prev;
+        upgs.generatorUnlockLevel = level;
+      }
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        prestige: {
+          ...prev.prestige,
+          points: currentPP,
+          unlockedGenerators: 4 + (upgs.generatorUnlockLevel || 0),
+        },
+        prestigeUpgrades: upgs,
       };
       saveStateWithBackup(nextState);
       return nextState;
@@ -1733,14 +1898,18 @@ export function useGameLoop() {
     buyGenerator,
     buyMaxGenerator,
     buyTickspeed,
+    buyMaxTickspeed,
     buyMaxAll,
     performPrestige,
     performPrestigeEnergy,
     buyPrestigeEnergyUpgrade,
+    buyMaxPrestigeEnergyUpgrade,
     buyPrestigeUpgrade,
+    buyMaxPrestigeUpgrade,
     buyMaxPrestigeUpgrades,
     buyInfinityTreeNode,
     buyIpDoubler,
+    buyMaxIpDoubler,
     buyAutomationExpand,
     buyAchievementMaster,
     buyIpGeneratorBoost,
