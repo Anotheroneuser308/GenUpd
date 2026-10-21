@@ -6,7 +6,8 @@ import {
   getPrestigeRequirement,
   PRESTIGE_ENERGY_THRESHOLD,
   calculatePrestigePointsGain,
-  calculatePrestigeEnergyMultiplier,
+  calculatePrestigeEnergyGain,
+  getPassivePrestigeEnergyGeneratorMultiplier,
   getCascadingBoostCost,
   MAX_CASCADING_BOOSTS,
   getCascadingBoostMultiplierForGen,
@@ -18,6 +19,7 @@ interface PrestigeTabProps {
   state: GameState;
   onPrestige: () => void;
   onPrestigeEnergy: () => void;
+  onBuyPrestigeEnergyUpgrade: () => void;
   onBuyUpgrade: (upgradeId: string) => void;
   onBuyMaxUpgrades?: () => void;
 }
@@ -26,6 +28,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   state,
   onPrestige,
   onPrestigeEnergy,
+  onBuyPrestigeEnergyUpgrade,
   onBuyUpgrade,
   onBuyMaxUpgrades,
 }) => {
@@ -47,7 +50,15 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const energyTargetLog = 154; // 1e154
   const energyProgressPercent = Math.min(100, Math.max(0, (currentLog / energyTargetLog) * 100));
   const isEnergyUnlocked = state.prestigeEnergy?.unlocked || state.points.gte(PRESTIGE_ENERGY_THRESHOLD);
-  const energyMultGain = calculatePrestigeEnergyMultiplier(state.points);
+  const energyGain = calculatePrestigeEnergyGain(state.points, state);
+  const energyUpgradeLevel = state.prestigeEnergy.generatorUpgradeLevel || 0;
+  const energyGeneratorMult = new Decimal(2).pow(energyUpgradeLevel);
+  const passiveEnergyGeneratorMult = getPassivePrestigeEnergyGeneratorMultiplier(state);
+  const lifetimePE = state.prestigeEnergy.totalEarned || state.prestigeEnergy.amount;
+  const energyUpgradeCost = new Decimal(2).pow(energyUpgradeLevel);
+  const prestigeSkillSynergyBonus = upgs.prestigeSkillSynergy && state.prestige.count >= 10
+    ? Math.floor(Math.log10(Math.max(1, state.prestige.count)))
+    : 0;
   const canPrestigeEnergy = state.points.gte(PRESTIGE_ENERGY_THRESHOLD);
 
   // Live effect previews
@@ -224,7 +235,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   <li>• All purchased Prestige Upgrades (Permanent)</li>
                   <li>• Unlocked Generators (Tiers 5–8 unlocked via Generator Expander)</li>
                   <li>• Prestige Points (PP) balance</li>
-                  <li>• Prestige Energy Generators multiplier and resets</li>
+                  <li>• Prestige Energy balance, purchased Energy upgrades, and resets</li>
                 </ul>
               </div>
             </div>
@@ -846,6 +857,32 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   </button>
                 </div>
               </div>
+              {state.infinityTree?.feat_2 && (
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                  upgs.prestigeSkillSynergy
+                    ? 'bg-purple-950/20 border-purple-500/40'
+                    : currentPP.gte(1e8)
+                    ? 'bg-slate-950/80 border-purple-500/30 hover:border-purple-500/60'
+                    : 'bg-slate-950/40 border-slate-800 opacity-70'
+                }`}>
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">11. Prestige Skill Synergy</h4>
+                      {upgs.prestigeSkillSynergy && <span className="text-[10px] font-mono text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30">BOUGHT</span>}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Unlocks after purchasing Prestige Transcendence (feat_2). When you Infinity, grants extra SP based on Prestige resets in this run: +1 SP at 10 Prestiges, +2 at 100, +3 at 1,000, and so on.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-purple-300">Current bonus on next Infinity: <strong>+{prestigeSkillSynergyBonus} SP</strong> ({state.prestige.count} Prestige resets)</div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                    <span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">1e8 PP</strong></span>
+                    {upgs.prestigeSkillSynergy ? <span className="text-xs font-mono text-emerald-400 font-semibold">Active</span> : (
+                      <button type="button" onClick={() => onBuyUpgrade('prestigeSkillSynergy')} disabled={currentPP.lt(1e8)} className={`px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${currentPP.gte(1e8) ? 'bg-purple-600 hover:bg-purple-500 text-white font-semibold' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Upgrade</button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
@@ -861,9 +898,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 Prestige Energy
               </h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets everything up to its moment
-                (including Points, Generators, Tickspeed, Prestige Points, and all Prestige Upgrades) in exchange for a permanent
-                Generators multiplier applied to ALL generators (minimum x2.00, scaling with points).
+                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE based on your Points. PE now has two separate generator bonuses: a purchased amplifier and a passive multiplier based on all PE ever generated.
               </p>
             </div>
 
@@ -898,20 +933,45 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 }`}
               >
                 {canPrestigeEnergy
-                  ? `Channel Energy (Multiply All Gens by x${energyMultGain.format(notation)})`
+                  ? `Channel Energy (+${energyGain.format(notation)} PE)`
                   : `Requires ${PRESTIGE_ENERGY_THRESHOLD.format(notation)} Points`}
               </button>
               <div className="flex items-center gap-4 text-xs font-mono">
                 <span className="text-slate-400">
-                  Current Generators Multiplier:{' '}
+                  Prestige Energy Balance:{' '}
                   <span className="text-purple-300 font-bold">
-                    x{state.prestigeEnergy.multiplier.format(notation)}
+                    {state.prestigeEnergy.amount.format(notation)} PE
                   </span>
+                </span>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-400">
+                  Bought Upgrade: <span className="text-slate-200">Lv. {energyUpgradeLevel} (x{energyGeneratorMult.format(notation)})</span>
+                </span>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-400">
+                  Lifetime PE Generator Bonus: <span className="text-emerald-300">x{passiveEnergyGeneratorMult.format(notation)}</span>
+                </span>
+                <span className="text-slate-600">·</span>
+                <span className="text-slate-400">
+                  Lifetime PE: <span className="text-slate-200">{lifetimePE.format(notation)}</span>
                 </span>
                 <span className="text-slate-600">·</span>
                 <span className="text-slate-400">
                   Total Energy Resets: <span className="text-slate-200">{state.prestigeEnergy.resets}</span>
                 </span>
+              </div>
+            </div>
+
+            {/* Prestige Energy currency upgrade */}
+            <div className="w-full max-w-xl rounded-xl border border-purple-500/30 bg-slate-950/70 p-5 text-left space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-100">Generator Energy Amplifier</h3>
+                <span className="text-[10px] font-mono rounded border border-purple-500/30 bg-purple-950/50 px-2 py-1 text-purple-300">LEVEL {energyUpgradeLevel}</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. Separately, all lifetime PE earned grants a passive generator multiplier that remains after spending PE: 1 PE gives ×2, 2 gives about ×2.55, 3 gives ×3.54, and 4 gives ×5.21. Growth softcaps after 10 lifetime PE.</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                <div className="text-xs font-mono text-slate-400">Next level: <strong className="text-purple-300">x{new Decimal(2).pow(energyUpgradeLevel + 1).format(notation)}</strong> all generators · Cost: <strong className="text-amber-400">{energyUpgradeCost.format(notation)} PE</strong></div>
+                <button type="button" onClick={onBuyPrestigeEnergyUpgrade} disabled={state.prestigeEnergy.amount.lt(energyUpgradeCost)} className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold ${state.prestigeEnergy.amount.gte(energyUpgradeCost) ? 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Level</button>
               </div>
             </div>
 
@@ -936,7 +996,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   Retained on Energy Channel
                 </span>
                 <ul className="space-y-1 text-slate-400">
-                  <li>• Compounded Generators Multiplier (applies to ALL generators)</li>
+                  <li>• Unspent Prestige Energy and purchased Energy Amplifier levels</li>
                   <li>• Total Energy Resets count</li>
                   <li>• Permanent Achievements and Lifetime Statistics</li>
                 </ul>

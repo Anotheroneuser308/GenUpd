@@ -27,7 +27,11 @@ export interface PrestigeState {
 export interface PrestigeEnergyState {
   unlocked: boolean; // true once points reach 1e154
   amount: Decimal;
-  multiplier: Decimal; // Generators multiplier (minimum x2)
+  /** Total PE ever generated, including currency later spent or reset by Infinity. */
+  totalEarned: Decimal;
+  /** @deprecated Legacy saved value; new runs use generatorUpgradeLevel instead. */
+  multiplier: Decimal;
+  generatorUpgradeLevel: number; // Purchased generator boosts bought with Prestige Energy
   resets: number;
 }
 
@@ -43,6 +47,7 @@ export interface PrestigeUpgradesState {
   logarithmicCascade: boolean; // Upgrade 8: Points boosted by log10(points)^2
   cascadeSurge: boolean; // Upgrade 9: All generators receive x2 production
   cosmicResonance: boolean; // Upgrade 10: Every 10 total generator purchases multiplies points by 1.5x
+  prestigeSkillSynergy: boolean; // Unlocked by Infinity Tree feat_2; boosts SP gain from Prestige resets
 }
 
 export interface InfinityState {
@@ -53,6 +58,10 @@ export interface InfinityState {
   ipDoublerLevel?: number; // Infinity Upgrade: Doubles IP gain on each Infinity
   automationExpand?: boolean; // Infinity Upgrade: Unlocks auto_5 and auto_6 in tree
   achievementMaster?: boolean; // Infinity Upgrade: 15 IP, unlocks infinite achievements per magnitude
+  ipGeneratorBoost: boolean; // All generators scale with lifetime IP: 3^log10(total IP earned)
+  timeIPBoost: boolean; // Big Crunch IP gain scales with time spent in current Infinity
+  energySPBoost: boolean; // Prestige Energy gain scales with unspent SP + 1
+  totalEarnedIP: Decimal; // Lifetime IP earned, including IP later spent on upgrades
 }
 
 export type PrestigeAutobuyerMode = 'time' | 'targetPP' | 'ppMultiplier';

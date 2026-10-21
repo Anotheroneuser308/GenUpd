@@ -32,7 +32,9 @@ import {
   MAX_GENERATOR_UNLOCKS,
   getUnlockedGeneratorsCount,
   calculatePrestigePointsGain,
-  calculatePrestigeEnergyMultiplier,
+  calculatePrestigeEnergyGain,
+  calculateInfinityPointGain,
+  getInfinityMilestoneExtraSP,
 } from '../utils/gameCalculations';
 
 export function useGameLoop() {
@@ -107,11 +109,6 @@ export function useGameLoop() {
           state.generatorCostSoftcapBought = state.generators.map((generator) => generator.bought);
         }
 
-        // Tree Node feat_2: Passive Prestige Energy accumulation
-        if (state.infinityTree?.feat_2 && state.prestigeEnergy?.unlocked) {
-          const passiveEnergy = calculatePrestigeEnergyMultiplier(state.points).mul(0.005 * subDt);
-          state.prestigeEnergy.multiplier = state.prestigeEnergy.multiplier.add(passiveEnergy);
-        }
       }
 
       const pointsGained = state.points.sub(initialPoints);
@@ -199,7 +196,7 @@ export function useGameLoop() {
       (state.prestigeUpgrades.generatorUnlockLevel || 0);
     check('upgrade_architect', countPrestigeUpgs >= 5);
 
-    check('charged_core', !!state.prestigeEnergy?.multiplier && state.prestigeEnergy.multiplier.gte(10));
+    check('charged_core', !!state.prestigeEnergy?.amount && state.prestigeEnergy.amount.gte(10));
     check('triple_digit', state.points.gte(new Decimal(1, 100)));
     check('second_infinity', state.infinity.count >= 2 || state.stats.totalInfinities >= 2);
     check('return_ticket', state.infinity.count >= 10 || state.stats.totalInfinities >= 10);
@@ -331,6 +328,7 @@ export function useGameLoop() {
         if (state.points.gte(PRESTIGE_ENERGY_THRESHOLD)) {
           state.prestigeEnergy.unlocked = true;
         }
+
 
         // Stats tracking
         state.stats.totalTimePlayed += dt;
@@ -575,8 +573,8 @@ export function useGameLoop() {
           // Auto: Prestige Energy (Branch 2 Node 6)
           const autoEnergy = state.autobuyers['autoPrestigeEnergy'];
           if (autoEnergy && autoEnergy.unlocked && autoEnergy.enabled && state.points.gte(PRESTIGE_ENERGY_THRESHOLD)) {
-            const gainedMult = calculatePrestigeEnergyMultiplier(state.points);
-            if (gainedMult.gte(2)) {
+            const gainedEnergy = calculatePrestigeEnergyGain(state.points, state);
+            if (gainedEnergy.gte(1)) {
               const eMode = autoEnergy.energyMode || 'target';
               const eTimeTarget = Math.max(1, autoEnergy.energyTimeTarget || 60);
               const eTarget = Math.max(2, autoEnergy.energyTarget || 2);
@@ -586,14 +584,14 @@ export function useGameLoop() {
               if (eMode === 'time') {
                 shouldResetEnergy = state.stats.timeThisPrestige >= eTimeTarget;
               } else if (eMode === 'gainMultiplier') {
-                shouldResetEnergy = prevGain.gt(0) ? gainedMult.gte(prevGain.mul(eRatioTarget)) : true;
+                shouldResetEnergy = prevGain.gt(0) ? gainedEnergy.gte(prevGain.mul(eRatioTarget)) : true;
               } else {
-                shouldResetEnergy = gainedMult.gte(eTarget);
+                shouldResetEnergy = gainedEnergy.gte(eTarget);
               }
 
               if (shouldResetEnergy) {
-                const newMultiplier = state.prestigeEnergy.multiplier.mul(gainedMult);
-                const newAmount = state.prestigeEnergy.amount.add(gainedMult);
+                const newAmount = state.prestigeEnergy.amount.add(gainedEnergy);
+                const newTotalEarned = (state.prestigeEnergy.totalEarned || state.prestigeEnergy.amount).add(gainedEnergy);
                 const initial = createInitialState();
                 state.points = new Decimal(10);
                 state.generatorCostSoftcapBought = null;
@@ -604,13 +602,15 @@ export function useGameLoop() {
                 state.prestigeEnergy = {
                   unlocked: true,
                   amount: newAmount,
-                  multiplier: newMultiplier,
+                  totalEarned: newTotalEarned,
+                  multiplier: Decimal.one(),
+                  generatorUpgradeLevel: state.prestigeEnergy.generatorUpgradeLevel || 0,
                   resets: state.prestigeEnergy.resets + 1,
                 };
                 state.stats.timeThisPrestige = 0;
                 state.autobuyers['autoPrestigeEnergy'] = {
                   ...autoEnergy,
-                  previousEnergyGain: gainedMult,
+                  previousEnergyGain: gainedEnergy,
                 };
               }
             }
@@ -931,18 +931,18 @@ export function useGameLoop() {
 
   // Mini-reset: Prestige Energy
   // Resets everything prior to Prestige Energy (including prestige points, prestige count, and ALL prestige upgrades)
-  // in exchange for a permanent compounded Generators multiplier!
+  // in exchange for Prestige Energy currency; generator boosts are purchased separately.
   const performPrestigeEnergy = useCallback(() => {
     setGameState((prev) => {
       if (prev.points.lt(PRESTIGE_ENERGY_THRESHOLD)) return prev;
 
-      const gainedMult = calculatePrestigeEnergyMultiplier(prev.points);
-      if (gainedMult.lt(2)) return prev;
+      const gainedEnergy = calculatePrestigeEnergyGain(prev.points, prev);
+      if (gainedEnergy.lt(1)) return prev;
 
       sound.playBoost();
 
-      const newMultiplier = prev.prestigeEnergy.multiplier.mul(gainedMult);
-      const newAmount = prev.prestigeEnergy.amount.add(gainedMult);
+      const newAmount = prev.prestigeEnergy.amount.add(gainedEnergy);
+      const newTotalEarned = (prev.prestigeEnergy.totalEarned || prev.prestigeEnergy.amount).add(gainedEnergy);
       const initial = createInitialState();
 
       return {
@@ -964,7 +964,9 @@ export function useGameLoop() {
         prestigeEnergy: {
           unlocked: true,
           amount: newAmount,
-          multiplier: newMultiplier,
+          totalEarned: newTotalEarned,
+          multiplier: Decimal.one(),
+          generatorUpgradeLevel: prev.prestigeEnergy.generatorUpgradeLevel || 0,
           resets: prev.prestigeEnergy.resets + 1,
         },
         stats: {
@@ -972,6 +974,29 @@ export function useGameLoop() {
           timeThisPrestige: 0,
         },
       };
+    });
+  }, []);
+
+  // Purchase a Prestige Energy upgrade: each level doubles all generator production.
+  // Unlike the old reset-based multiplier, these levels only increase when PE is spent.
+  const buyPrestigeEnergyUpgrade = useCallback(() => {
+    setGameState((prev) => {
+      const level = Math.max(0, Math.floor(prev.prestigeEnergy.generatorUpgradeLevel || 0));
+      const cost = new Decimal(2).pow(level);
+      if (prev.prestigeEnergy.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        prestigeEnergy: {
+          ...prev.prestigeEnergy,
+          amount: prev.prestigeEnergy.amount.sub(cost),
+          multiplier: Decimal.one(),
+          generatorUpgradeLevel: level + 1,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
     });
   }, []);
 
@@ -991,6 +1016,7 @@ export function useGameLoop() {
         logarithmicCascade: new Decimal(50),
         cascadeSurge: new Decimal(100),
         cosmicResonance: new Decimal(50),
+        prestigeSkillSynergy: new Decimal(1e8),
       };
 
       // Upgrade 3A: Cascading Boosts (up to 20 levels)
@@ -1041,6 +1067,7 @@ export function useGameLoop() {
 
       const cost = costs[upgradeId];
       if (!cost || currentPP.lt(cost)) return prev;
+      if (upgradeId === 'prestigeSkillSynergy' && !prev.infinityTree?.feat_2) return prev;
 
       // Check if already bought boolean upgrade
       if ((upgs as unknown as Record<string, boolean>)[upgradeId]) return prev;
@@ -1079,16 +1106,15 @@ export function useGameLoop() {
     showInfinityOverlayRef.current = false;
 
     setGameState((prev) => {
+      if (prev.points.lt(INFINITY_THRESHOLD)) return prev;
       const newCount = prev.infinity.count + 1;
-      const newSP = (prev.infinity.skillPoints || 0) + 1;
-      let ipGain = 1;
-      if (prev.infinityTree?.feat_4 && prev.points.gte(INFINITY_THRESHOLD)) {
-        const excess = Math.max(0, prev.points.log10() - 308);
-        ipGain += Math.floor(excess / 10);
-      }
-      const ipDoublerMult = Math.pow(2, prev.infinity.ipDoublerLevel || 0);
-      const totalIpGain = Math.max(1, Math.floor(ipGain * ipDoublerMult));
+      const prestigeSPBonus = prev.prestigeUpgrades?.prestigeSkillSynergy && prev.prestige.count >= 10
+        ? Math.max(0, Math.floor(Math.log10(Math.max(1, prev.prestige.count))))
+        : 0;
+      const newSP = (prev.infinity.skillPoints || 0) + 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(prev, newCount);
+      const totalIpGain = calculateInfinityPointGain(prev.points, prev, newCount);
       const newIP = prev.infinity.points.add(totalIpGain);
+      const totalEarnedIP = (prev.infinity.totalEarnedIP instanceof Decimal ? prev.infinity.totalEarnedIP : prev.infinity.points).add(totalIpGain);
 
       const resetGenerators = INITIAL_GENERATORS();
       let startingPoints = new Decimal(10);
@@ -1129,7 +1155,9 @@ export function useGameLoop() {
         prestigeEnergy: {
           unlocked: false,
           amount: Decimal.zero(),
+          totalEarned: prev.prestigeEnergy?.totalEarned instanceof Decimal ? prev.prestigeEnergy.totalEarned : Decimal.zero(),
           multiplier: Decimal.one(),
+          generatorUpgradeLevel: 0,
           resets: 0,
         },
         prestigeUpgrades: {
@@ -1140,6 +1168,7 @@ export function useGameLoop() {
           count: newCount,
           points: newIP,
           skillPoints: newSP,
+          totalEarnedIP,
           unlocked: true,
         },
         infinityTree: nextTree,
@@ -1152,6 +1181,14 @@ export function useGameLoop() {
           highestIPEver: highestIP,
         },
       };
+
+      // First Echo requires both the Infinity Milestones node and 30 lifetime IP.
+      // Check the post-crunch state, so crossing 30 IP on this Crunch counts immediately.
+      if (nextState.infinityTree?.feat_3 && nextState.infinity.totalEarnedIP.gte(30) && newCount >= 1) {
+        nextState.points = new Decimal(1000);
+        nextState.generators[0].amount = Decimal.one();
+        nextState.generators[0].bought = 1;
+      }
 
       infinityTriggeredRef.current = false;
       saveStateWithBackup(nextState);
@@ -1283,6 +1320,48 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Infinity Upgrade: generator output scales with lifetime IP (3^log10(total IP earned)).
+  const buyIpGeneratorBoost = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.infinity.ipGeneratorBoost || prev.infinity.points.lt(1)) return prev;
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        infinity: { ...prev.infinity, points: prev.infinity.points.sub(1), ipGeneratorBoost: true },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Infinity Upgrade: IP gain multiplier is based on time spent in the current Infinity.
+  const buyTimeIPBoost = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.infinity.timeIPBoost || prev.infinity.points.lt(5)) return prev;
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        infinity: { ...prev.infinity, points: prev.infinity.points.sub(5), timeIPBoost: true },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).
+  const buyEnergySPBoost = useCallback(() => {
+    setGameState((prev) => {
+      if (prev.infinity.energySPBoost || prev.infinity.points.lt(8)) return prev;
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        infinity: { ...prev.infinity, points: prev.infinity.points.sub(8), energySPBoost: true },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   // Max All Prestige Upgrades
   const buyMaxPrestigeUpgrades = useCallback(() => {
     setGameState((prev) => {
@@ -1300,9 +1379,11 @@ export function useGameLoop() {
         logarithmicCascade: 50,
         cascadeSurge: 100,
         cosmicResonance: 50,
+        prestigeSkillSynergy: 1e8,
       };
 
       for (const [id, costNum] of Object.entries(singleCosts)) {
+        if (id === 'prestigeSkillSynergy' && !prev.infinityTree?.feat_2) continue;
         if (!upgs[id as keyof typeof upgs]) {
           const cost = new Decimal(costNum);
           if (currentPP.gte(cost)) {
@@ -1655,12 +1736,16 @@ export function useGameLoop() {
     buyMaxAll,
     performPrestige,
     performPrestigeEnergy,
+    buyPrestigeEnergyUpgrade,
     buyPrestigeUpgrade,
     buyMaxPrestigeUpgrades,
     buyInfinityTreeNode,
     buyIpDoubler,
     buyAutomationExpand,
     buyAchievementMaster,
+    buyIpGeneratorBoost,
+    buyTimeIPBoost,
+    buyEnergySPBoost,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
     setAutoPrestigeUpgradesSettings,

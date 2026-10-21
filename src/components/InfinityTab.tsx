@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Decimal } from '../utils/decimal';
 import { GameState, PrestigeAutobuyerMode } from '../types/game';
-import { INFINITY_THRESHOLD } from '../utils/gameCalculations';
+import { INFINITY_THRESHOLD, calculateInfinityPointGain, getInfinityMilestoneExtraSP } from '../utils/gameCalculations';
+import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { InfinityTree } from './InfinityTree';
 import { Layers, Atom, Cpu } from 'lucide-react';
 import { AutomationTab } from './AutomationTab';
@@ -12,6 +13,10 @@ interface InfinityTabProps {
   onBuyIpDoubler?: () => void;
   onBuyAutomationExpand?: () => void;
   onBuyAchievementMaster?: () => void;
+  onBuyIpGeneratorBoost?: () => void;
+  onBuyTimeIPBoost?: () => void;
+  onBuyEnergySPBoost?: () => void;
+  onInfinityReset?: () => void;
   onToggleAutobuyer: (id: string) => void;
   onSetAutobuyerTarget: (id: string, target: number) => void;
   onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
@@ -25,14 +30,25 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyIpDoubler,
   onBuyAutomationExpand,
   onBuyAchievementMaster,
+  onBuyIpGeneratorBoost,
+  onBuyTimeIPBoost,
+  onBuyEnergySPBoost,
+  onInfinityReset,
   onToggleAutobuyer,
   onSetAutobuyerTarget,
   onSetPrestigeAutobuyerSettings,
   onSetAutoPrestigeUpgradesSettings,
   onSetAutoPrestigeEnergySettings,
 }) => {
-  const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation'>('tree');
+  const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation' | 'milestones'>('tree');
   const notation = state.settings.notation;
+  const canCrunch = !!state.infinityTree?.feat_4 && state.points.gte(INFINITY_THRESHOLD);
+  const crunchIPGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
+  const prestigeSPBonus = state.prestigeUpgrades?.prestigeSkillSynergy && state.prestige.count >= 10
+    ? Math.max(0, Math.floor(Math.log10(Math.max(1, state.prestige.count))))
+    : 0;
+  const crunchSPGain = 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(state, state.infinity.count + 1);
+  const totalInfinities = Math.max(state.infinity.count || 0, state.stats.totalInfinities || 0);
 
   return (
     <div className="space-y-6">
@@ -121,7 +137,40 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             <Atom className="w-3.5 h-3.5" />
             <span>Infinity Upgrades</span>
           </button>
+          {state.infinityTree?.feat_3 && (
+            <button
+              type="button"
+              onClick={() => setSubTab('milestones')}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                subTab === 'milestones'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
+              }`}
+            >
+              <span>🏆</span>
+              <span>Milestones</span>
+            </button>
+          )}
         </div>
+        {state.infinityTree?.feat_4 && (
+          <div className="flex flex-col items-center gap-2 border-t border-slate-800/80 pt-4 w-full">
+            <button
+              type="button"
+              onClick={onInfinityReset}
+              disabled={!canCrunch}
+              className={`px-8 py-3 rounded-xl text-sm font-bold font-mono transition-all ${
+                canCrunch
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20 active:scale-95 cursor-pointer'
+                  : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+              }`}
+            >
+              Big Crunch — +{crunchIPGain.format(notation)} IP · +{crunchSPGain} SP
+            </button>
+            <p className="text-[11px] text-slate-500 font-mono">
+              {canCrunch ? 'Reset your current run to gain IP and Skill Points.' : `Reach ${INFINITY_THRESHOLD.format(notation)} Points to Crunch.`}
+            </p>
+          </div>
+        )}
       </div>
 
       {subTab === 'tree' ? (
@@ -138,6 +187,37 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
           onSetAutoPrestigeUpgradesSettings={onSetAutoPrestigeUpgradesSettings}
           onSetAutoPrestigeEnergySettings={onSetAutoPrestigeEnergySettings}
         />
+      ) : subTab === 'milestones' ? (
+        <div className="bg-slate-900 border border-amber-500/20 rounded-2xl p-6 space-y-5">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="font-semibold text-base text-slate-100 flex items-center gap-2"><span>🏆</span> Infinity Milestones</h3>
+              <p className="text-xs text-slate-400 mt-1">Rewards unlock after meeting a combination of Infinity count and run-history requirements.</p>
+            </div>
+            <div className="text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-amber-300">{totalInfinities} Infinities</div>
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs text-slate-400">Milestones now use combined conditions. The first one requires <strong className="text-amber-300">30 lifetime IP earned</strong>; later milestones also check PE history, total playtime, or highest-ever Points. Spent IP still counts as earned.</p>
+            {INFINITY_MILESTONES.map((milestone) => {
+              const unlocked = isInfinityMilestoneUnlocked(state, milestone.id);
+              const requirementProgress = getInfinityMilestoneRequirementProgress(state, milestone.id);
+              return (
+                <div key={milestone.id} className={`flex gap-4 p-4 rounded-xl border ${unlocked ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-slate-950/50 border-slate-800'}`}>
+                  <div className={`w-12 h-12 shrink-0 rounded-xl flex items-center justify-center text-2xl ${unlocked ? 'bg-emerald-900/40' : 'bg-slate-900 grayscale opacity-70'}`}>{milestone.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-semibold text-slate-100">{milestone.title}</h4><span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${unlocked ? 'text-emerald-300 border-emerald-500/30 bg-emerald-950/30' : 'text-slate-500 border-slate-700 bg-slate-900'}`}>{unlocked ? 'UNLOCKED' : 'LOCKED'}</span></div>
+                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">{milestone.reward}</p>
+                    <p className="text-[11px] text-slate-500 mt-2">Requirements: {milestone.requirement}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+                      {requirementProgress.map((progress, index) => <span key={`${milestone.id}-${index}`} className={`text-[10px] font-mono ${unlocked ? 'text-emerald-400/80' : 'text-slate-500'}`}>{progress}</span>)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-500">Additional Skill Points from Skill Cycle and Endless Momentum are included in the Big Crunch reward preview.</p>
+        </div>
       ) : (
         /* Infinity Chamber Protocols */
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
@@ -334,6 +414,58 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           </button>
                         )}
                       </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Upgrade 4: IP-scaled Generator Boost */}
+                {(() => {
+                  const isBought = !!state.infinity.ipGeneratorBoost;
+                  const lifetimeIP = state.infinity.totalEarnedIP || state.infinity.points;
+                  const currentMult = lifetimeIP.gt(0) ? new Decimal(3).pow(Math.max(0, lifetimeIP.log10())) : Decimal.one();
+                  const canAfford = state.infinity.points.gte(1);
+                  return (
+                    <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${isBought ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-950/80 border-slate-700'}`}>
+                      <div>
+                        <div className="flex items-center justify-between gap-2"><h4 className="font-semibold text-sm text-slate-100">IP Resonance</h4><span className="text-[10px] font-mono text-amber-400">ONE-TIME</span></div>
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">All generators are boosted by 3^log10(total IP ever earned). Spent IP still counts toward this effect.</p>
+                        <div className="mt-3 text-xs font-mono text-amber-300">Current generator bonus: <strong>x{currentMult.format(notation)}</strong></div>
+                      </div>
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between"><span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">1 IP</strong></span>{isBought ? <span className="text-xs text-emerald-400 font-semibold">Active</span> : <button type="button" onClick={onBuyIpGeneratorBoost} disabled={!canAfford} className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold ${canAfford ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Upgrade</button>}</div>
+                    </div>
+                  );
+                })()}
+
+                {/* Upgrade 5: Time-based IP gain */}
+                {(() => {
+                  const isBought = !!state.infinity.timeIPBoost;
+                  const currentMult = 1 + 0.002 * Math.max(0, state.stats.timeThisInfinity || 0);
+                  const canAfford = state.infinity.points.gte(5);
+                  return (
+                    <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${isBought ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-950/80 border-slate-700'}`}>
+                      <div>
+                        <div className="flex items-center justify-between gap-2"><h4 className="font-semibold text-sm text-slate-100">Temporal Infinity</h4><span className="text-[10px] font-mono text-amber-400">ONE-TIME</span></div>
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">Infinity Point gain is multiplied by 1 + 0.002 × seconds spent in the current Infinity.</p>
+                        <div className="mt-3 text-xs font-mono text-amber-300">Current time bonus: <strong>x{currentMult.toFixed(2)}</strong></div>
+                      </div>
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between"><span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">5 IP</strong></span>{isBought ? <span className="text-xs text-emerald-400 font-semibold">Active</span> : <button type="button" onClick={onBuyTimeIPBoost} disabled={!canAfford} className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold ${canAfford ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Upgrade</button>}</div>
+                    </div>
+                  );
+                })()}
+
+                {/* Upgrade 6: SP-based Prestige Energy gain */}
+                {(() => {
+                  const isBought = !!state.infinity.energySPBoost;
+                  const currentMult = Math.max(1, (state.infinity.skillPoints || 0) + 1);
+                  const canAfford = state.infinity.points.gte(8);
+                  return (
+                    <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${isBought ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-950/80 border-slate-700'}`}>
+                      <div>
+                        <div className="flex items-center justify-between gap-2"><h4 className="font-semibold text-sm text-slate-100">Skill-Powered Energy</h4><span className="text-[10px] font-mono text-amber-400">ONE-TIME</span></div>
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">Prestige Energy gain is multiplied by (unspent SP + 1). Spending SP on the tree lowers this bonus.</p>
+                        <div className="mt-3 text-xs font-mono text-amber-300">Current PE bonus: <strong>x{currentMult}</strong></div>
+                      </div>
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between"><span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">8 IP</strong></span>{isBought ? <span className="text-xs text-emerald-400 font-semibold">Active</span> : <button type="button" onClick={onBuyEnergySPBoost} disabled={!canAfford} className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold ${canAfford ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Upgrade</button>}</div>
                     </div>
                   );
                 })()}

@@ -1,5 +1,6 @@
 import { Decimal } from './decimal';
 import { GameState } from '../types/game';
+import { getPassivePEGeneratorMultiplier, isInfinityMilestoneUnlocked } from './infinityMilestones';
 
 // Prestige unlock threshold (1.00e18 Points)
 export const PRESTIGE_REQUIREMENT = new Decimal(1e18);
@@ -75,12 +76,11 @@ export function getGeneratorCost(
 export const MAX_CASCADING_BOOSTS = 20;
 
 export function getCascadingBoostCost(currentLevel: number): Decimal {
-  // Price scales x10 per purchase through the first 8 levels, then x40 per level.
-  if (currentLevel <= 8) {
-    return new Decimal(10).pow(currentLevel);
-  }
-  const base8 = new Decimal(10).pow(8);
-  return base8.mul(new Decimal(40).pow(currentLevel - 8));
+  // The first 8 bought levels cost 1, 10, ..., 1e7 PP. Level 9 onward scales by x40.
+  const level = Math.max(0, Math.floor(currentLevel));
+  if (level < 8) return new Decimal(10).pow(level);
+  const level8Cost = new Decimal(10).pow(7);
+  return level8Cost.mul(new Decimal(40).pow(level - 7));
 }
 
 export function getCascadingBoostMultiplierForGen(genId: number, boostLevel: number): Decimal {
@@ -156,9 +156,23 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     }
   }
 
-  // Prestige Energy Generators Multiplier (applies to ALL generators)
-  if (state.prestigeEnergy?.multiplier && state.prestigeEnergy.multiplier.gt(1)) {
-    mult = mult.mul(state.prestigeEnergy.multiplier);
+  // Purchased PE amplifier levels are one source of power; lifetime PE also
+  // grants a separate passive multiplier that remains after spending PE.
+  const energyUpgradeLevel = Math.max(0, Math.floor(state.prestigeEnergy?.generatorUpgradeLevel || 0));
+  if (energyUpgradeLevel > 0) {
+    mult = mult.mul(new Decimal(2).pow(energyUpgradeLevel));
+  }
+  mult = mult.mul(getPassivePEGeneratorMultiplier(state));
+
+  // Infinity Upgrade: generator boost based on lifetime IP earned (including IP already spent).
+  if (state.infinity?.ipGeneratorBoost && state.infinity.totalEarnedIP?.gt(0)) {
+    const lifetimeIPLog = Math.max(0, state.infinity.totalEarnedIP.log10());
+    mult = mult.mul(new Decimal(3).pow(lifetimeIPLog));
+  }
+
+  // Cascade Memory is earned through the Infinity Milestone system, not count alone.
+  if (isInfinityMilestoneUnlocked(state, 'cascade_memory')) {
+    mult = mult.mul(5);
   }
 
   // Infinity Tree - Root Node: 2^Infinities until 1024, then an additional 1.2x per Infinity.
@@ -281,23 +295,84 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
   if (state?.infinityTree?.pre_3) {
     gain = gain.mul(3);
   }
+  if (state && isInfinityMilestoneUnlocked(state, 'prestige_echo')) {
+    gain = gain.mul(2);
+  }
 
   return gain;
 }
 
 /**
- * Calculate Prestige Energy Generators multiplier gained on Prestige Energy reset:
- * Unlocks at 1e154 Points.
- * Weakened multiplier curve: base x1.50, scaling gently with (points / 1e154)^0.016
+ * Calculate Prestige Energy currency gained on an Energy reset.
+ * Starts at 1 PE at 1e154 Points and scales by 10x per 40 additional orders of magnitude.
+ * It is a currency reward only; it no longer directly multiplies existing generator power.
  */
-export function calculatePrestigeEnergyMultiplier(points: Decimal): Decimal {
-  if (points.lt(PRESTIGE_ENERGY_THRESHOLD)) {
-    return Decimal.zero();
-  }
+export function calculatePrestigeEnergyGain(points: Decimal, state?: GameState): Decimal {
+  if (points.lt(PRESTIGE_ENERGY_THRESHOLD)) return Decimal.zero();
 
   const excessLog = Math.max(0, points.log10() - 154);
-  const scaledFactor = Math.pow(10, excessLog / 60);
-  const totalMult = 1.5 * Math.max(1, scaledFactor);
+  let gain = new Decimal(10).pow(excessLog / 40);
 
-  return new Decimal(totalMult);
+  if (state && isInfinityMilestoneUnlocked(state, 'energy_well')) {
+    gain = gain.mul(2);
+  }
+  if (state && isInfinityMilestoneUnlocked(state, 'time_fracture')) {
+    gain = gain.mul(1.5);
+  }
+
+  // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).
+  if (state?.infinity?.energySPBoost) {
+    gain = gain.mul(Math.max(1, (state.infinity.skillPoints || 0) + 1));
+  }
+
+  return gain;
 }
+
+/**
+ * Calculate Infinity Points granted by a Big Crunch / Infinity reset.
+ * Before Break Infinity, a reset grants 1 IP (then upgrade/milestone multipliers apply).
+ * After Break Infinity, each additional 10 orders of magnitude of Points grants 10x more IP.
+ */
+export function calculateInfinityPointGain(
+  points: Decimal,
+  state: GameState,
+  infinityCount: number = state.infinity.count,
+): Decimal {
+  let gain = Decimal.one();
+
+  if (state.infinityTree?.feat_4 && points.gte(INFINITY_THRESHOLD)) {
+    const excessLog = Math.max(0, points.log10() - INFINITY_THRESHOLD.log10());
+    gain = new Decimal(10).pow(excessLog / 10).floor();
+    if (gain.lt(1)) gain = Decimal.one();
+  }
+
+  if (isInfinityMilestoneUnlocked(state, 'ip_resonance', infinityCount)) gain = gain.mul(1.5);
+  if (state.infinity.timeIPBoost) {
+    gain = gain.mul(1 + 0.002 * Math.max(0, state.stats?.timeThisInfinity || 0));
+  }
+  gain = gain.mul(new Decimal(2).pow(state.infinity.ipDoublerLevel || 0)).floor();
+  return gain.lt(1) ? Decimal.one() : gain;
+}
+
+/** Extra Skill Points granted by the requirement-based Infinity Milestones. */
+export function getInfinityMilestoneExtraSP(state: GameState, infinityCount: number = state.infinity.count): number {
+  if (!state.infinityTree?.feat_3) return 0;
+  const count = Math.max(0, Math.floor(infinityCount));
+  let extra = 0;
+
+  // Skill Cycle: +1 SP every third Infinity, once its conditions have been met.
+  if (count > 0 && count % 3 === 0 && isInfinityMilestoneUnlocked(state, 'skill_cycle', count)) {
+    extra += 1;
+  }
+  // Endless Momentum: +1 SP on every Infinity after this milestone is unlocked.
+  if (isInfinityMilestoneUnlocked(state, 'endless_momentum', count)) {
+    extra += 1;
+  }
+  return extra;
+}
+
+/** Convenience export for UI previews of the new passive PE generator bonus. */
+export function getPassivePrestigeEnergyGeneratorMultiplier(state: GameState): Decimal {
+  return getPassivePEGeneratorMultiplier(state);
+}
+

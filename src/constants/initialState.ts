@@ -81,7 +81,7 @@ export const INITIAL_GENERATORS: () => GeneratorState[] = () => [
 ];
 
 export const createInitialState = (): GameState => ({
-  version: 4,
+  version: 5,
   points: new Decimal(10),
   pointsPerSecond: Decimal.zero(),
   generatorCostSoftcapBought: null,
@@ -106,7 +106,9 @@ export const createInitialState = (): GameState => ({
   prestigeEnergy: {
     unlocked: false,
     amount: Decimal.zero(),
+    totalEarned: Decimal.zero(),
     multiplier: Decimal.one(),
+    generatorUpgradeLevel: 0,
     resets: 0,
   },
 
@@ -122,6 +124,7 @@ export const createInitialState = (): GameState => ({
     logarithmicCascade: false,
     cascadeSurge: false,
     cosmicResonance: false,
+    prestigeSkillSynergy: false,
   },
 
   infinity: {
@@ -132,6 +135,10 @@ export const createInitialState = (): GameState => ({
     ipDoublerLevel: 0,
     automationExpand: false,
     achievementMaster: false,
+    ipGeneratorBoost: false,
+    timeIPBoost: false,
+    energySPBoost: false,
+    totalEarnedIP: Decimal.zero(),
   },
 
   infinityTree: {},
@@ -199,6 +206,7 @@ export const deserializeState = (raw: string): GameState | null => {
     return {
       ...initial,
       ...parsed,
+      version: 5,
       generators: initial.generators.map((g, i) => {
         const saved = parsed.generators?.[i];
         if (!saved) return g;
@@ -248,7 +256,19 @@ export const deserializeState = (raw: string): GameState | null => {
         ...initial.prestigeEnergy,
         ...(parsed.prestigeEnergy || {}),
         amount: parsed.prestigeEnergy?.amount instanceof Decimal ? parsed.prestigeEnergy.amount : Decimal.zero(),
+        totalEarned: parsed.prestigeEnergy?.totalEarned instanceof Decimal
+          ? parsed.prestigeEnergy.totalEarned
+          : (parsed.prestigeEnergy?.amount instanceof Decimal ? parsed.prestigeEnergy.amount : Decimal.zero()).add(
+              new Decimal(2).pow(
+                typeof parsed.prestigeEnergy?.generatorUpgradeLevel === 'number'
+                  ? Math.max(0, Math.min(50, Math.floor(parsed.prestigeEnergy.generatorUpgradeLevel)))
+                  : Math.max(0, Math.min(50, Math.floor(Math.max(0, (parsed.prestigeEnergy?.multiplier instanceof Decimal ? parsed.prestigeEnergy.multiplier.log10() : 0) / Math.log10(2))))),
+              ).sub(1),
+            ),
         multiplier: parsed.prestigeEnergy?.multiplier instanceof Decimal ? parsed.prestigeEnergy.multiplier : Decimal.one(),
+        generatorUpgradeLevel: typeof parsed.prestigeEnergy?.generatorUpgradeLevel === 'number'
+          ? Math.max(0, Math.min(50, Math.floor(parsed.prestigeEnergy.generatorUpgradeLevel)))
+          : Math.max(0, Math.min(50, Math.floor(Math.max(0, (parsed.prestigeEnergy?.multiplier instanceof Decimal ? parsed.prestigeEnergy.multiplier.log10() : 0) / Math.log10(2))))),
       },
       prestigeUpgrades: {
         ...initial.prestigeUpgrades,
@@ -275,6 +295,12 @@ export const deserializeState = (raw: string): GameState | null => {
         ipDoublerLevel: typeof parsed.infinity?.ipDoublerLevel === 'number' ? parsed.infinity.ipDoublerLevel : 0,
         automationExpand: !!parsed.infinity?.automationExpand,
         achievementMaster: !!parsed.infinity?.achievementMaster,
+        ipGeneratorBoost: !!parsed.infinity?.ipGeneratorBoost,
+        timeIPBoost: !!parsed.infinity?.timeIPBoost,
+        energySPBoost: !!parsed.infinity?.energySPBoost,
+        totalEarnedIP: parsed.infinity?.totalEarnedIP instanceof Decimal
+          ? parsed.infinity.totalEarnedIP
+          : (parsed.infinity?.points instanceof Decimal ? parsed.infinity.points : Decimal.zero()),
       },
       infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
       autobuyers: {

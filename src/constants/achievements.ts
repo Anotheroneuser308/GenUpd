@@ -130,7 +130,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   {
     id: 'charged_core',
     name: 'Charged Core',
-    desc: 'Reach a ×10 Prestige Energy multiplier',
+    desc: 'Accumulate 10 Prestige Energy',
     unlocked: false,
   },
   {

@@ -30,12 +30,16 @@ export default function App() {
     buyMaxAll,
     performPrestige,
     performPrestigeEnergy,
+    buyPrestigeEnergyUpgrade,
     buyPrestigeUpgrade,
     buyMaxPrestigeUpgrades,
     buyInfinityTreeNode,
     buyIpDoubler,
     buyAutomationExpand,
     buyAchievementMaster,
+    buyIpGeneratorBoost,
+    buyTimeIPBoost,
+    buyEnergySPBoost,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
     setAutoPrestigeUpgradesSettings,
@@ -154,6 +158,7 @@ export default function App() {
             state={gameState}
             onPrestige={performPrestige}
             onPrestigeEnergy={performPrestigeEnergy}
+            onBuyPrestigeEnergyUpgrade={buyPrestigeEnergyUpgrade}
             onBuyUpgrade={buyPrestigeUpgrade}
             onBuyMaxUpgrades={buyMaxPrestigeUpgrades}
           />
@@ -166,6 +171,10 @@ export default function App() {
             onBuyIpDoubler={buyIpDoubler}
             onBuyAutomationExpand={buyAutomationExpand}
             onBuyAchievementMaster={buyAchievementMaster}
+            onBuyIpGeneratorBoost={buyIpGeneratorBoost}
+            onBuyTimeIPBoost={buyTimeIPBoost}
+            onBuyEnergySPBoost={buyEnergySPBoost}
+            onInfinityReset={proceedInfinity}
             onToggleAutobuyer={toggleAutobuyer}
             onSetAutobuyerTarget={setAutobuyerTarget}
             onSetPrestigeAutobuyerSettings={setPrestigeAutobuyerSettings}
