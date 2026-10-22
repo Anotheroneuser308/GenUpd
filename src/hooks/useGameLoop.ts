@@ -26,6 +26,7 @@ import {
   getPointsGenerationMultiplier,
   getTickspeedBaseCost,
   getTickspeedCost,
+  getTickspeedCostMult,
   getCascadingBoostCost,
   MAX_CASCADING_BOOSTS,
   getGeneratorUnlockCost,
@@ -35,7 +36,10 @@ import {
   calculatePrestigeEnergyGain,
   calculateInfinityPointGain,
   getInfinityMilestoneExtraSP,
+  calculateSkillPointsGain,
+  calculateInfinitiesGain,
 } from '../utils/gameCalculations';
+import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 
 
 /**
@@ -104,6 +108,15 @@ export function useGameLoop() {
   useEffect(() => {
     sound.enabled = gameState.settings.soundEnabled;
   }, [gameState.settings.soundEnabled]);
+
+  // Automatically trigger the dramatic Infinity Collapse Overlay when 1.79e308 is reached (for first 10 Infinities)
+  useEffect(() => {
+    if (gameState.points.gte(INFINITY_THRESHOLD) && gameState.infinity.count < 10 && !showInfinityOverlay) {
+      setShowInfinityOverlay(true);
+      showInfinityOverlayRef.current = true;
+      sound.playCollapse();
+    }
+  }, [gameState.points, gameState.infinity.count, showInfinityOverlay]);
 
   // Handle Offline Progress on Mount (Simulate ALL unlocked generators cascading downward)
   useEffect(() => {
@@ -450,24 +463,16 @@ export function useGameLoop() {
             state.autobuyers['autoPrestigeEnergy'].unlocked = true;
           }
         }
+        if (state.infinityTree?.auto_7) {
+          if (state.autobuyers['autoInfinity'] && !state.autobuyers['autoInfinity'].unlocked) {
+            state.autobuyers['autoInfinity'].unlocked = true;
+          }
+        }
 
         // Check Infinity Threshold (1.79e308 Points)
-        // If Break Infinity (feat_4) is NOT active, trigger forced collapse
+        // If Break Infinity (feat_4) is NOT active, cap at 1.79e308
         if (!state.infinityTree?.feat_4 && state.points.gte(INFINITY_THRESHOLD)) {
           state.points = INFINITY_THRESHOLD;
-          if (!infinityTriggeredRef.current && !showInfinityOverlayRef.current) {
-            infinityTriggeredRef.current = true;
-            if (state.infinity.count < 10) {
-              setShowInfinityOverlay(true);
-              showInfinityOverlayRef.current = true;
-              sound.playCollapse();
-            } else {
-              // After 10 infinities, the "YOU REACHED INFINITY" overlay no longer appears
-              setTimeout(() => {
-                proceedInfinityRef.current();
-              }, 0);
-            }
-          }
         }
 
         // Autobuyers execution (every ~0.25s, or 0.05s with auto_4)
@@ -475,6 +480,9 @@ export function useGameLoop() {
         autoAccumulator += dt;
         if (autoAccumulator >= autoInterval) {
           autoAccumulator = 0;
+
+          // Branch 2 Node 9: Free Automation Matrix - autobuyers do not consume currency!
+          const isFreeAuto = !!state.infinityTree?.auto_9;
 
           // Auto Generators (only unlocked tiers)
           for (let i = 0; i < unlockedCount; i++) {
@@ -487,14 +495,18 @@ export function useGameLoop() {
                 while (true) {
                   const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
                   if (state.points.lt(cost)) break;
-                  state.points = state.points.sub(cost);
+                  if (!isFreeAuto) {
+                    state.points = state.points.sub(cost);
+                  }
                   gen.amount = gen.amount.add(1);
                   gen.bought++;
                 }
               } else {
                 const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
                 if (state.points.gte(cost)) {
-                  state.points = state.points.sub(cost);
+                  if (!isFreeAuto) {
+                    state.points = state.points.sub(cost);
+                  }
                   gen.amount = gen.amount.add(1);
                   gen.bought++;
                 }
@@ -505,19 +517,28 @@ export function useGameLoop() {
           // Auto Tickspeed
           const autoTick = state.autobuyers['tickspeed'];
           if (autoTick && autoTick.unlocked && autoTick.enabled) {
-            const baseTick = getTickspeedBaseCost(state);
+            const tickMult = getTickspeedCostMult(state);
+            state.tickspeed.costMult = tickMult;
             if (state.infinityTree?.auto_4) {
               while (state.points.gte(state.tickspeed.cost)) {
-                state.points = state.points.sub(state.tickspeed.cost);
+                if (!isFreeAuto) {
+                  state.points = state.points.sub(state.tickspeed.cost);
+                }
                 state.tickspeed.bought++;
-                state.tickspeed.cost = baseTick.mul(state.tickspeed.costMult.pow(state.tickspeed.bought));
+                const curMult = getTickspeedCostMult(state);
+                state.tickspeed.costMult = curMult;
+                state.tickspeed.cost = state.tickspeed.cost.mul(curMult);
               }
             } else {
               const tickCost = state.tickspeed.cost;
               if (state.points.gte(tickCost)) {
-                state.points = state.points.sub(tickCost);
+                if (!isFreeAuto) {
+                  state.points = state.points.sub(tickCost);
+                }
                 state.tickspeed.bought++;
-                state.tickspeed.cost = getTickspeedCost(state);
+                const curMult = getTickspeedCostMult(state);
+                state.tickspeed.costMult = curMult;
+                state.tickspeed.cost = tickCost.mul(curMult);
               }
             }
           }
@@ -579,7 +600,7 @@ export function useGameLoop() {
           if (autoPresUpg && autoPresUpg.unlocked && autoPresUpg.enabled) {
             const singleCosts: Record<string, number> = {
               pointScaling: 1,
-              achievementBoost: 2,
+              achievementBoost: 12,
               tickspeedDiscount: 2,
               prestigeSynergy: 5,
               amplifiedDoubling: 15,
@@ -596,7 +617,9 @@ export function useGameLoop() {
               if (!state.prestigeUpgrades[id as keyof typeof state.prestigeUpgrades]) {
                 const cost = new Decimal(costNum);
                 if (state.prestige.points.gte(cost)) {
-                  state.prestige.points = state.prestige.points.sub(cost);
+                  if (!isFreeAuto) {
+                    state.prestige.points = state.prestige.points.sub(cost);
+                  }
                   (state.prestigeUpgrades as unknown as Record<string, unknown>)[id] = true;
                 }
               }
@@ -606,7 +629,9 @@ export function useGameLoop() {
               while (bLvl < MAX_CASCADING_BOOSTS) {
                 const cost = getCascadingBoostCost(bLvl);
                 if (state.prestige.points.lt(cost)) break;
-                state.prestige.points = state.prestige.points.sub(cost);
+                if (!isFreeAuto) {
+                  state.prestige.points = state.prestige.points.sub(cost);
+                }
                 bLvl++;
               }
               state.prestigeUpgrades.cascadingBoostsLevel = bLvl;
@@ -615,10 +640,27 @@ export function useGameLoop() {
               while (uLvl < MAX_GENERATOR_UNLOCKS) {
                 const cost = getGeneratorUnlockCost(uLvl);
                 if (state.prestige.points.lt(cost)) break;
-                state.prestige.points = state.prestige.points.sub(cost);
+                if (!isFreeAuto) {
+                  state.prestige.points = state.prestige.points.sub(cost);
+                }
                 uLvl++;
               }
               state.prestigeUpgrades.generatorUnlockLevel = uLvl;
+            }
+          }
+
+          // Auto: PE Upgrades (Branch 2 Node 8, unlocked via Milestone 100 IP, cost: 50 SP)
+          if (state.infinityTree?.auto_8 && state.prestigeEnergy?.unlocked) {
+            let pLvl = Math.max(0, Math.floor(state.prestigeEnergy.generatorUpgradeLevel || 0));
+            while (true) {
+              const cost = new Decimal(2).pow(pLvl);
+              if (state.prestigeEnergy.amount.lt(cost)) break;
+              if (!isFreeAuto) {
+                state.prestigeEnergy.amount = state.prestigeEnergy.amount.sub(cost);
+              }
+              pLvl++;
+              state.prestigeEnergy.generatorUpgradeLevel = pLvl;
+              if (!state.infinityTree?.auto_4) break;
             }
           }
 
@@ -665,6 +707,36 @@ export function useGameLoop() {
                   previousEnergyGain: gainedEnergy,
                 };
               }
+            }
+          }
+
+          // Auto: Infinity (Branch 2 Node 7, unlocked via Milestone 1500)
+          const autoInf = state.autobuyers['autoInfinity'];
+          if (autoInf && autoInf.unlocked && autoInf.enabled && state.points.gte(INFINITY_THRESHOLD)) {
+            const ipGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
+            const infTarget = typeof autoInf.infinityTarget === 'number' ? autoInf.infinityTarget : 1;
+            const infMode = autoInf.infinityMode || 'targetIP';
+            const prevIPGain = autoInf.previousIPGain instanceof Decimal ? autoInf.previousIPGain : Decimal.zero();
+            const infTimeTarget = Math.max(1, autoInf.infinityTimeTarget || 60);
+            const infRatioTarget = Math.max(1.01, autoInf.infinityRatioTarget || 2);
+            let shouldCrunch = false;
+
+            if (infMode === 'time') {
+              shouldCrunch = (state.stats.timeThisInfinity || 0) >= infTimeTarget;
+            } else if (infMode === 'ipMultiplier') {
+              shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : true;
+            } else {
+              shouldCrunch = ipGain.gte(infTarget);
+            }
+
+            if (shouldCrunch) {
+              state.autobuyers['autoInfinity'] = {
+                ...autoInf,
+                previousIPGain: ipGain,
+              };
+              setTimeout(() => {
+                proceedInfinityRef.current();
+              }, 0);
             }
           }
         }
@@ -861,8 +933,9 @@ export function useGameLoop() {
       if (prev.points.lt(cost)) return prev;
 
       sound.playBuy();
+      const mult = getTickspeedCostMult(prev);
       const newBought = prev.tickspeed.bought + 1;
-      const nextCost = getTickspeedBaseCost(prev).mul(prev.tickspeed.costMult.pow(newBought));
+      const nextCost = cost.mul(mult);
 
       return {
         ...prev,
@@ -870,6 +943,7 @@ export function useGameLoop() {
         tickspeed: {
           ...prev.tickspeed,
           bought: newBought,
+          costMult: mult,
           cost: nextCost,
         },
         stats: {
@@ -883,20 +957,21 @@ export function useGameLoop() {
   // Buy as many Tickspeed levels as the current Points balance allows.
   const buyMaxTickspeed = useCallback(() => {
     setGameState((prev) => {
+      const mult = getTickspeedCostMult(prev);
       const boughtNow = getMaxGeometricPurchases(
         prev.points,
         prev.tickspeed.cost,
-        prev.tickspeed.costMult,
+        mult,
       );
       if (boughtNow.count === 0) return prev;
 
       sound.playBuy();
       const bought = prev.tickspeed.bought + boughtNow.count;
-      const cost = getTickspeedBaseCost(prev).mul(prev.tickspeed.costMult.pow(bought));
+      const cost = prev.tickspeed.cost.mul(mult.pow(boughtNow.count));
       return {
         ...prev,
         points: prev.points.sub(boughtNow.totalCost),
-        tickspeed: { ...prev.tickspeed, bought, cost },
+        tickspeed: { ...prev.tickspeed, bought, costMult: mult, cost },
       };
     });
   }, []);
@@ -911,11 +986,14 @@ export function useGameLoop() {
       // Buy Tickspeed
       let tickBought = prev.tickspeed.bought;
       let tickCost = prev.tickspeed.cost;
-      const baseTick = getTickspeedBaseCost(prev);
+      let tickMult = getTickspeedCostMult(prev);
       while (currentPoints.gte(tickCost)) {
         currentPoints = currentPoints.sub(tickCost);
         tickBought++;
-        tickCost = baseTick.mul(prev.tickspeed.costMult.pow(tickBought));
+        tickMult = (currentPoints.gte(new Decimal(1, 308)) || tickCost.gte(new Decimal(1, 308)))
+          ? new Decimal(300)
+          : new Decimal(15);
+        tickCost = tickCost.mul(tickMult);
         didBuy = true;
       }
 
@@ -1104,7 +1182,7 @@ export function useGameLoop() {
 
       const costs: Record<string, Decimal> = {
         pointScaling: new Decimal(1),
-        achievementBoost: new Decimal(2),
+        achievementBoost: new Decimal(12),
         tickspeedDiscount: new Decimal(2),
         prestigeSynergy: new Decimal(5),
         amplifiedDoubling: new Decimal(15),
@@ -1203,11 +1281,10 @@ export function useGameLoop() {
 
     setGameState((prev) => {
       if (prev.points.lt(INFINITY_THRESHOLD)) return prev;
-      const newCount = prev.infinity.count + 1;
-      const prestigeSPBonus = prev.prestigeUpgrades?.prestigeSkillSynergy && prev.prestige.count >= 10
-        ? Math.max(0, Math.floor(Math.log10(Math.max(1, prev.prestige.count))))
-        : 0;
-      const newSP = (prev.infinity.skillPoints || 0) + 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(prev, newCount);
+      const infGain = calculateInfinitiesGain(prev);
+      const newCount = prev.infinity.count + infGain;
+      const spGain = calculateSkillPointsGain(prev, newCount);
+      const newSP = (prev.infinity.skillPoints || 0) + spGain;
       const totalIpGain = calculateInfinityPointGain(prev.points, prev, newCount);
       const newIP = prev.infinity.points.add(totalIpGain);
       const totalEarnedIP = (prev.infinity.totalEarnedIP instanceof Decimal ? prev.infinity.totalEarnedIP : prev.infinity.points).add(totalIpGain);
@@ -1222,10 +1299,9 @@ export function useGameLoop() {
         }
       }
 
-      // Root node auto-unlocks upon first Infinity
+      // Root node is now purchasable for 1 SP in the Infinity Tree map
       const nextTree = {
         ...(prev.infinityTree || {}),
-        root: true,
       };
 
       const prevHighestIP = prev.stats?.highestIPEver instanceof Decimal
@@ -1241,7 +1317,8 @@ export function useGameLoop() {
         tickspeed: {
           ...prev.tickspeed,
           bought: 0,
-          cost: new Decimal(1000),
+          costMult: new Decimal(15),
+          cost: getTickspeedBaseCost(prev),
         },
         prestige: {
           count: 0,
@@ -1311,6 +1388,11 @@ export function useGameLoop() {
         return prev;
       }
 
+      // Check Milestone requirement (e.g. milestone_1500_auto_infinity, milestone_2250_post_infinity)
+      if (def.reqMilestone && !isInfinityMilestoneUnlocked(prev, def.reqMilestone as any)) {
+        return prev;
+      }
+
       const costSP = def.cost;
       const currentSP = prev.infinity.skillPoints ?? 0;
       if (currentSP < costSP) {
@@ -1337,6 +1419,8 @@ export function useGameLoop() {
         if (nextAutobuyers['autoPrestigeUpgrades']) nextAutobuyers['autoPrestigeUpgrades'] = { ...nextAutobuyers['autoPrestigeUpgrades'], unlocked: true };
       } else if (nodeId === 'auto_6') {
         if (nextAutobuyers['autoPrestigeEnergy']) nextAutobuyers['autoPrestigeEnergy'] = { ...nextAutobuyers['autoPrestigeEnergy'], unlocked: true };
+      } else if (nodeId === 'auto_7') {
+        if (nextAutobuyers['autoInfinity']) nextAutobuyers['autoInfinity'] = { ...nextAutobuyers['autoInfinity'], unlocked: true };
       }
 
       const nextState: GameState = {
@@ -1617,6 +1701,24 @@ export function useGameLoop() {
         ...prev.autobuyers,
         autoPrestigeEnergy: {
           ...prev.autobuyers.autoPrestigeEnergy,
+          ...settings,
+        },
+      },
+    }));
+  }, []);
+
+  const setAutoInfinitySettings = useCallback((settings: Partial<{
+    infinityMode: 'time' | 'targetIP' | 'ipMultiplier';
+    infinityTimeTarget: number;
+    infinityTarget: number;
+    infinityRatioTarget: number;
+  }>) => {
+    setGameState((prev) => ({
+      ...prev,
+      autobuyers: {
+        ...prev.autobuyers,
+        autoInfinity: {
+          ...prev.autobuyers.autoInfinity,
           ...settings,
         },
       },
@@ -1919,6 +2021,7 @@ export function useGameLoop() {
     setPrestigeAutobuyerSettings,
     setAutoPrestigeUpgradesSettings,
     setAutoPrestigeEnergySettings,
+    setAutoInfinitySettings,
     restoreBackup,
     toggleAutobuyer,
     toggleSound,

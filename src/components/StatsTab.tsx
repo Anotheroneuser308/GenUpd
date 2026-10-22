@@ -12,6 +12,8 @@ import {
   Volume2,
   VolumeX,
   ShieldCheck,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { GameState } from '../types/game';
 import { GrowthHistoryChart } from './GrowthHistoryChart';
@@ -67,7 +69,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const [copyFeedback, setCopyFeedback] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [showWipeModal, setShowWipeModal] = useState(false);
 
   const handleManualSave = () => {
     onSaveGame();
@@ -257,38 +259,15 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               <span>{copyFeedback ? '✓ Copied Text!' : 'Copy Save Code'}</span>
             </button>
 
-            {/* Hard Reset */}
-            {!confirmReset ? (
-              <button
-                type="button"
-                onClick={() => setConfirmReset(true)}
-                className="flex items-center gap-1 px-3 py-2 bg-slate-900 hover:bg-rose-950/40 text-slate-500 hover:text-rose-400 rounded-lg text-xs font-medium border border-slate-800 hover:border-rose-900/60 transition-colors cursor-pointer ml-auto"
-              >
-                <Trash2 className="w-3 h-3" />
-                <span>Hard Reset</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-2 ml-auto bg-rose-950/40 border border-rose-500/40 px-3 py-1.5 rounded-lg">
-                <span className="text-xs text-rose-300 font-medium">Confirm reset?</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onHardReset();
-                    setConfirmReset(false);
-                  }}
-                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded cursor-pointer"
-                >
-                  Wipe All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmReset(false)}
-                  className="px-2.5 py-1 bg-slate-800 text-slate-300 text-xs rounded cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+            {/* Wipe Save Button */}
+            <button
+              type="button"
+              onClick={() => setShowWipeModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-rose-950/50 text-slate-400 hover:text-rose-300 rounded-lg text-xs font-medium border border-slate-800 hover:border-rose-900/60 transition-colors cursor-pointer ml-auto"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Wipe Save</span>
+            </button>
           </div>
 
           {/* Import Code Input String */}
@@ -375,6 +354,27 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                   <span>Audio: MUTED</span>
                 </>
               )}
+            </button>
+          </div>
+
+          {/* Danger Zone: Wipe Button */}
+          <div className="md:col-span-2 pt-3 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                <span>Опасная зона / Danger Zone</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Полный сброс всех данных игры (Wipe Save). Стирает весь прогресс и резервные копии.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowWipeModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg text-xs font-bold border border-rose-500/40 transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Wipe / Стереть всё</span>
             </button>
           </div>
         </div>
@@ -466,6 +466,75 @@ export const StatsTab: React.FC<StatsTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Wipe Confirmation Modal Window (окно с выбором да или нет) */}
+      {showWipeModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowWipeModal(false)}
+        >
+          <div
+            className="bg-slate-900 border-2 border-rose-600/70 rounded-2xl max-w-md w-full p-6 shadow-2xl shadow-rose-950/60 space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center justify-center text-rose-400 shrink-0">
+                <AlertTriangle className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-white flex items-center justify-between">
+                  <span>Стереть сохранение (Wipe)?</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowWipeModal(false)}
+                    className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </h3>
+                <p className="text-xs text-rose-300 font-medium mt-1">
+                  Внимание: это действие необратимо!
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-4 text-xs text-slate-300 space-y-2.5 leading-relaxed">
+              <p className="font-semibold text-rose-200">
+                Вы действительно хотите полностью стереть весь прогресс игры?
+              </p>
+              <ul className="list-disc list-inside text-slate-400 text-[11px] space-y-1">
+                <li>Будут удалены все Очки, Генераторы и Ускорители</li>
+                <li>Будут сброшены очки Престижа (PP) и уровни энергии</li>
+                <li>Будут удалены очки Бесконечности (IP), рубежи и ветки</li>
+                <li>Все резервные копии будут очищены</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowWipeModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
+              >
+                Нет, отмена (No)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onHardReset();
+                  setShowWipeModal(false);
+                }}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-rose-600/30 transition-all cursor-pointer active:scale-95 flex items-center gap-2"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Да, стереть всё (Yes, Wipe)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

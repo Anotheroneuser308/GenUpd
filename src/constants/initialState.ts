@@ -156,6 +156,7 @@ export const createInitialState = (): GameState => ({
     prestige: { id: 'prestige', name: 'Auto: Prestige', enabled: false, unlocked: false, target: 1, mode: 'targetPP', timeTarget: 60, ratioTarget: 2, previousPPGain: Decimal.zero() },
     autoPrestigeUpgrades: { id: 'autoPrestigeUpgrades', name: 'Auto: Prestige Upgrades', enabled: false, unlocked: false, priority: 'cheapest', buyAll: true },
     autoPrestigeEnergy: { id: 'autoPrestigeEnergy', name: 'Auto: Prestige Energy', enabled: false, unlocked: false, energyMode: 'target', energyTimeTarget: 60, energyTarget: 2, energyRatioTarget: 2, previousEnergyGain: Decimal.zero() },
+    autoInfinity: { id: 'autoInfinity', name: 'Auto: Infinity', enabled: false, unlocked: false, infinityMode: 'targetIP', infinityTimeTarget: 60, infinityTarget: 1, infinityRatioTarget: 2, previousIPGain: Decimal.zero() },
   },
 
   achievements: {},
@@ -351,6 +352,25 @@ export const deserializeState = (raw: string): GameState | null => {
             : 2,
           previousEnergyGain: parsed.autobuyers?.autoPrestigeEnergy?.previousEnergyGain instanceof Decimal
             ? parsed.autobuyers.autoPrestigeEnergy.previousEnergyGain
+            : Decimal.zero(),
+        },
+        autoInfinity: {
+          ...initial.autobuyers.autoInfinity,
+          ...(parsed.autobuyers?.autoInfinity || {}),
+          infinityMode: ['time', 'targetIP', 'ipMultiplier'].includes(parsed.autobuyers?.autoInfinity?.infinityMode)
+            ? parsed.autobuyers.autoInfinity.infinityMode
+            : 'targetIP',
+          infinityTimeTarget: typeof parsed.autobuyers?.autoInfinity?.infinityTimeTarget === 'number'
+            ? parsed.autobuyers.autoInfinity.infinityTimeTarget
+            : 60,
+          infinityTarget: typeof parsed.autobuyers?.autoInfinity?.infinityTarget === 'number'
+            ? parsed.autobuyers.autoInfinity.infinityTarget
+            : 1,
+          infinityRatioTarget: typeof parsed.autobuyers?.autoInfinity?.infinityRatioTarget === 'number'
+            ? parsed.autobuyers.autoInfinity.infinityRatioTarget
+            : 2,
+          previousIPGain: parsed.autobuyers?.autoInfinity?.previousIPGain instanceof Decimal
+            ? parsed.autobuyers.autoInfinity.previousIPGain
             : Decimal.zero(),
         },
       },

@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { Decimal } from '../utils/decimal';
-import { GameState, PrestigeAutobuyerMode } from '../types/game';
-import { INFINITY_THRESHOLD, calculateInfinityPointGain, getInfinityMilestoneExtraSP } from '../utils/gameCalculations';
+import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode } from '../types/game';
+import {
+  INFINITY_THRESHOLD,
+  calculateInfinityPointGain,
+  calculateSkillPointsGain,
+  getInfinityMilestoneExtraSP,
+  getTemporalInfinityMultiplier,
+} from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { InfinityTree } from './InfinityTree';
 import { Layers, Atom, Cpu } from 'lucide-react';
@@ -23,6 +29,7 @@ interface InfinityTabProps {
   onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
   onSetAutoPrestigeUpgradesSettings?: (settings: Partial<{ priority: 'cheapest' | 'order'; buyAll: boolean }>) => void;
   onSetAutoPrestigeEnergySettings?: (settings: Partial<{ energyMode: 'time' | 'target' | 'gainMultiplier'; energyTimeTarget: number; energyTarget: number; energyRatioTarget: number }>) => void;
+  onSetAutoInfinitySettings?: (settings: Partial<{ infinityMode: InfinityAutobuyerMode; infinityTimeTarget: number; infinityTarget: number; infinityRatioTarget: number }>) => void;
 }
 
 export const InfinityTab: React.FC<InfinityTabProps> = ({
@@ -41,15 +48,13 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onSetPrestigeAutobuyerSettings,
   onSetAutoPrestigeUpgradesSettings,
   onSetAutoPrestigeEnergySettings,
+  onSetAutoInfinitySettings,
 }) => {
   const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation' | 'milestones'>('tree');
   const notation = state.settings.notation;
-  const canCrunch = !!state.infinityTree?.feat_4 && state.points.gte(INFINITY_THRESHOLD);
+  const canCrunch = state.points.gte(INFINITY_THRESHOLD);
   const crunchIPGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
-  const prestigeSPBonus = state.prestigeUpgrades?.prestigeSkillSynergy && state.prestige.count >= 10
-    ? Math.max(0, Math.floor(Math.log10(Math.max(1, state.prestige.count))))
-    : 0;
-  const crunchSPGain = 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(state, state.infinity.count + 1);
+  const crunchSPGain = calculateSkillPointsGain(state, state.infinity.count + 1);
   const totalInfinities = Math.max(state.infinity.count || 0, state.stats.totalInfinities || 0);
 
   return (
@@ -154,7 +159,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             </button>
           )}
         </div>
-        {state.infinityTree?.feat_4 && (
+        {(state.infinityTree?.feat_4 || totalInfinities >= 10 || state.points.gte(INFINITY_THRESHOLD)) && (
           <div className="flex flex-col items-center gap-2 border-t border-slate-800/80 pt-4 w-full">
             <button
               type="button"
@@ -162,7 +167,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               disabled={!canCrunch}
               className={`px-8 py-3 rounded-xl text-sm font-bold font-mono transition-all ${
                 canCrunch
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20 active:scale-95 cursor-pointer'
+                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 active:scale-95 cursor-pointer animate-pulse'
                   : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
               }`}
             >
@@ -188,6 +193,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
           onSetPrestigeAutobuyerSettings={onSetPrestigeAutobuyerSettings}
           onSetAutoPrestigeUpgradesSettings={onSetAutoPrestigeUpgradesSettings}
           onSetAutoPrestigeEnergySettings={onSetAutoPrestigeEnergySettings}
+          onSetAutoInfinitySettings={onSetAutoInfinitySettings}
         />
       ) : subTab === 'milestones' ? (
         <div className="bg-slate-900 border border-amber-500/20 rounded-2xl p-6 space-y-5">
@@ -456,14 +462,24 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 {/* Upgrade 5: Time-based IP gain */}
                 {(() => {
                   const isBought = !!state.infinity.timeIPBoost;
-                  const currentMult = 1 + 0.002 * Math.max(0, state.stats.timeThisInfinity || 0);
+                  const currentMult = getTemporalInfinityMultiplier(state);
+                  const has400 = isInfinityMilestoneUnlocked(state, 'milestone_400_temporal_boost');
                   const canAfford = state.infinity.points.gte(5);
                   return (
                     <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${isBought ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-950/80 border-slate-700'}`}>
                       <div>
-                        <div className="flex items-center justify-between gap-2"><h4 className="font-semibold text-sm text-slate-100">Temporal Infinity</h4><span className="text-[10px] font-mono text-amber-400">ONE-TIME</span></div>
-                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">Infinity Point gain is multiplied by 1 + 0.002 × seconds spent in the current Infinity.</p>
-                        <div className="mt-3 text-xs font-mono text-amber-300">Current time bonus: <strong>x{currentMult.toFixed(2)}</strong></div>
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-semibold text-sm text-slate-100">Temporal Infinity</h4>
+                          <span className="text-[10px] font-mono text-amber-400">ONE-TIME</span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                          Infinity Point gain is multiplied by 1 + 0.002 × seconds spent in the current Infinity
+                          {has400 ? ' (strengthened by 5x from Milestone 400!)' : '.'}
+                        </p>
+                        <div className="mt-3 text-xs font-mono text-amber-300">
+                          Current time bonus: <strong>x{currentMult.toFixed(2)}</strong>
+                          {has400 && <span className="ml-2 text-emerald-400 font-bold">(5x Boosted)</span>}
+                        </div>
                       </div>
                       <div className="pt-3 border-t border-slate-800 flex items-center justify-between"><span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">5 IP</strong></span>{isBought ? <span className="text-xs text-emerald-400 font-semibold">Active</span> : <button type="button" onClick={onBuyTimeIPBoost} disabled={!canAfford} className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold ${canAfford ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Upgrade</button>}</div>
                     </div>

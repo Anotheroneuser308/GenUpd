@@ -14,6 +14,11 @@ import { InfinityOverlay } from './components/InfinityOverlay';
 import { AchievementsTab } from './components/AchievementsTab';
 import { StatsTab } from './components/StatsTab';
 import { ToastContainer } from './components/ToastContainer';
+import {
+  INFINITY_THRESHOLD,
+  calculateInfinityPointGain,
+  calculateSkillPointsGain,
+} from './utils/gameCalculations';
 
 export default function App() {
   const {
@@ -48,6 +53,7 @@ export default function App() {
     setPrestigeAutobuyerSettings,
     setAutoPrestigeUpgradesSettings,
     setAutoPrestigeEnergySettings,
+    setAutoInfinitySettings,
     restoreBackup,
     toggleAutobuyer,
     toggleSound,
@@ -65,6 +71,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<
     'generators' | 'prestige' | 'infinity' | 'achievements' | 'stats'
   >('generators');
+
+  const notation = gameState.settings.notation;
+  const canCrunch = gameState.points.gte(INFINITY_THRESHOLD);
+  const crunchIPGain = calculateInfinityPointGain(
+    gameState.points,
+    gameState,
+    gameState.infinity.count + 1
+  );
+  const crunchSPGain = calculateSkillPointsGain(
+    gameState,
+    gameState.infinity.count + 1
+  );
 
   const handleProceedInfinity = useCallback(() => {
     proceedInfinity();
@@ -129,6 +147,55 @@ export default function App() {
       {/* Hero Points & Status Bar */}
       <PointsDisplay state={gameState} activeTab={activeTab} />
 
+      {/* Global Big Crunch Banner (shown when >= 1.79e308 and >= 10 Infinities or crunch unlocked) */}
+      {canCrunch && (gameState.infinity.count >= 10 || !!gameState.infinityTree?.feat_4) && (
+        <div className="bg-gradient-to-r from-amber-950 via-orange-950 to-amber-950 border-b-2 border-amber-500/80 px-6 py-3.5 shadow-xl shadow-orange-950/40 animate-pulse">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🌌</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-amber-200 text-sm tracking-wide uppercase">
+                    Big Crunch Available
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Limit Reached
+                  </span>
+                </div>
+                <div className="text-xs text-amber-300/90 font-mono mt-0.5 flex items-center gap-2.5">
+                  <span>
+                    Gain: <strong className="text-amber-400 font-bold">+{crunchIPGain.format(notation)} IP</strong>
+                  </span>
+                  <span>·</span>
+                  <span>
+                    SP: <strong className="text-orange-300 font-bold">+{crunchSPGain} SP</strong>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              {activeTab !== 'infinity' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('infinity')}
+                  className="px-3.5 py-2 text-xs font-semibold text-amber-200 hover:text-white bg-amber-900/40 hover:bg-amber-800/60 rounded-xl border border-amber-500/30 transition-all cursor-pointer"
+                >
+                  Infinity Tab
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleProceedInfinity}
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-amber-500/30 transition-all transform hover:scale-105 active:scale-95 cursor-pointer uppercase tracking-wider"
+              >
+                Big Crunch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Offline Catch-up Notification Banner */}
       {offlineMessage && (
         <div className="bg-indigo-950/80 border-b border-indigo-500/30 px-6 py-3 flex items-center justify-between text-xs text-indigo-200">
@@ -188,6 +255,7 @@ export default function App() {
             onSetPrestigeAutobuyerSettings={setPrestigeAutobuyerSettings}
             onSetAutoPrestigeUpgradesSettings={setAutoPrestigeUpgradesSettings}
             onSetAutoPrestigeEnergySettings={setAutoPrestigeEnergySettings}
+            onSetAutoInfinitySettings={setAutoInfinitySettings}
           />
         )}
 

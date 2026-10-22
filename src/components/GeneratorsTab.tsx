@@ -1,8 +1,10 @@
 import React from 'react';
 import { GameState } from '../types/game';
+import { Decimal } from '../utils/decimal';
 import {
   getGeneratorCost,
   getTotalTickspeedSpeed,
+  getPointsGenerationMultiplier,
 } from '../utils/gameCalculations';
 
 interface GeneratorsTabProps {
@@ -22,6 +24,8 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
 }) => {
   const notation = state.settings.notation;
   const totalTickspeed = getTotalTickspeedSpeed(state);
+  const pointsMult = getPointsGenerationMultiplier(state);
+  const costScaling = state.points.gte(new Decimal(1, 308)) || state.tickspeed.cost.gte(new Decimal(1, 308)) ? '300x' : '15x';
   const canAffordTickspeed = state.points.gte(state.tickspeed.cost);
   const unlockedCount = state.prestige.unlockedGenerators;
 
@@ -38,13 +42,21 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
               [Hotkey: T]
             </span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
             <span>
-              Speed: {totalTickspeed.format(notation)}x
+              Speed: <strong className="text-cyan-300">{totalTickspeed.format(notation)}x</strong>
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>
+              Points Mult: <strong className="text-emerald-300">{pointsMult.format(notation)}x</strong>
             </span>
             <span aria-hidden="true" className="text-slate-600">·</span>
             <span>
               Bought: {state.tickspeed.bought}
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span className={state.points.gte(new Decimal(1, 308)) ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
+              Cost Scale: {costScaling}
             </span>
           </div>
         </div>

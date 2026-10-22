@@ -153,6 +153,20 @@ export class Decimal {
     return new Decimal(Math.floor(num), 0);
   }
 
+  ceil(): Decimal {
+    if (this.exponent < 0) return this.mantissa > 0 ? Decimal.one() : Decimal.zero();
+    if (this.exponent >= 16) return new Decimal(this.mantissa, this.exponent);
+    const num = this.toNumber();
+    return new Decimal(Math.ceil(num), 0);
+  }
+
+  round(): Decimal {
+    if (this.exponent < 0) return Decimal.zero();
+    if (this.exponent >= 16) return new Decimal(this.mantissa, this.exponent);
+    const num = this.toNumber();
+    return new Decimal(Math.round(num), 0);
+  }
+
   toNumber(): number {
     if (this.exponent > 308) return Infinity;
     if (this.exponent < -308) return 0;

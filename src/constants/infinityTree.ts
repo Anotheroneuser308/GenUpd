@@ -1,11 +1,12 @@
 export interface InfinityTreeNodeDef {
   id: string;
-  branch: 'root' | 'pre' | 'auto' | 'feat';
+  branch: 'root' | 'pre' | 'auto' | 'feat' | 'post';
   title: string;
   desc: string;
   cost: number; // Skill Points (SP)
   req: string; // parent node id ('none' for root)
   reqUpgrade?: string; // requires an Infinity Upgrade to be unlocked, e.g. 'automationExpand'
+  reqMilestone?: string; // requires a milestone to be unlocked
   icon?: string;
 }
 
@@ -14,8 +15,8 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'root',
     branch: 'root',
     title: 'Infinity Nexus',
-    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, the full 2^100 bonus is retained and each extra Infinity adds a x1.2 multiplier. Unlocks all 3 branches.',
-    cost: 0, // Unlocked automatically when 1st Infinity is reached
+    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, the full 2^100 bonus is retained and each extra Infinity adds a x1.2 multiplier. Unlocks all branches.',
+    cost: 1, // Purchasable for 1 SP
     req: 'none',
     icon: '⚡',
   },
@@ -115,6 +116,35 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     reqUpgrade: 'automationExpand',
     icon: '⚡',
   },
+  auto_8: {
+    id: 'auto_8',
+    branch: 'auto',
+    title: 'Auto: PE Upgrades',
+    desc: 'Automatically purchases available Prestige Energy (PE) amplifier upgrades when affordable, without resetting progress.',
+    cost: 50,
+    req: 'auto_6',
+    reqMilestone: 'milestone_100_ip_auto_pe',
+    icon: '⚡',
+  },
+  auto_9: {
+    id: 'auto_9',
+    branch: 'auto',
+    title: 'Free Automation Matrix',
+    desc: 'When anything is bought automatically by autobuyers (generators, tickspeed, prestige upgrades, PE upgrades), it consumes 0 currency!',
+    cost: 70,
+    req: 'auto_8',
+    icon: '💎',
+  },
+  auto_7: {
+    id: 'auto_7',
+    branch: 'auto',
+    title: 'Infinity Autobuyer',
+    desc: 'Unlocks the Infinity Autobuyer with configurable Time, Target IP, or Gain multiplier modes (like Prestige Autobuyer).',
+    cost: 1200,
+    req: 'auto_6',
+    reqMilestone: 'milestone_1500_auto_infinity',
+    icon: '♾️',
+  },
 
   // Branch 3: New Features
   feat_1: {
@@ -130,7 +160,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'feat_2',
     branch: 'feat',
     title: 'Prestige Transcendence',
-    desc: 'Unlocks Prestige Skill Synergy in the Prestige tab. PE earned during the current Infinity run grants a passive multiplier to all generator production; it resets on Big Crunch.',
+    desc: 'Unlocks Prestige Skill Synergy in the Prestige tab.',
     cost: 3,
     req: 'feat_1',
     icon: '🔮',
@@ -153,6 +183,45 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     req: 'feat_3',
     icon: '🌌',
   },
+
+  // Branch 4: Post-Infinity
+  post_1: {
+    id: 'post_1',
+    branch: 'post',
+    title: 'Cosmic SP Conduit',
+    desc: 'Умножает получаемые SP от пойнтов по формуле: log10(Пойнты) / 500.',
+    cost: 2500,
+    req: 'feat_4',
+    reqMilestone: 'milestone_2250_post_infinity',
+    icon: '✨',
+  },
+  post_2: {
+    id: 'post_2',
+    branch: 'post',
+    title: 'Infinity Flux',
+    desc: 'Умножает получаемые бесконечности от пойнтов по формуле: log10(Пойнты) / 60.',
+    cost: 3340,
+    req: 'post_1',
+    icon: '⌛',
+  },
+  post_3: {
+    id: 'post_3',
+    branch: 'post',
+    title: 'Dimensional IP Surge',
+    desc: 'Умножает все генераторы в зависимости от IP по формуле: (IP + 1)^1.3.',
+    cost: 4500,
+    req: 'post_2',
+    icon: '💎',
+  },
+  post_4: {
+    id: 'post_4',
+    branch: 'post',
+    title: 'Power Transcendence',
+    desc: 'Возводит множители всех генераторов в степень ^1.02.',
+    cost: 6000,
+    req: 'post_3',
+    icon: '🌟',
+  },
 };
 
 export const BRANCH_CONFIG = {
@@ -173,5 +242,11 @@ export const BRANCH_CONFIG = {
     color: 'purple',
     badge: 'border-purple-500/40 text-purple-300 bg-purple-950/40',
     accent: 'from-purple-500/20 to-indigo-500/20',
+  },
+  post: {
+    name: 'Post-Infinity',
+    color: 'rose',
+    badge: 'border-rose-500/40 text-rose-300 bg-rose-950/40',
+    accent: 'from-rose-500/20 to-pink-500/20',
   },
 };

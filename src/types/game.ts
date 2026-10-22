@@ -66,6 +66,7 @@ export interface InfinityState {
 
 export type PrestigeAutobuyerMode = 'time' | 'targetPP' | 'ppMultiplier';
 export type EnergyAutobuyerMode = 'time' | 'target' | 'gainMultiplier';
+export type InfinityAutobuyerMode = 'time' | 'targetIP' | 'ipMultiplier';
 
 export interface Autobuyer {
   id: string;
@@ -88,6 +89,13 @@ export interface Autobuyer {
   energyTarget?: number;
   energyRatioTarget?: number;
   previousEnergyGain?: Decimal;
+
+  // Settings for auto_7 (Infinity Autobuyer)
+  infinityMode?: InfinityAutobuyerMode;
+  infinityTimeTarget?: number;
+  infinityTarget?: number;
+  infinityRatioTarget?: number;
+  previousIPGain?: Decimal;
 }
 
 export interface Achievement {

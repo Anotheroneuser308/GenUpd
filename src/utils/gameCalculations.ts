@@ -1,6 +1,6 @@
 import { Decimal } from './decimal';
 import { GameState } from '../types/game';
-import { getPassivePEGeneratorMultiplier, isInfinityMilestoneUnlocked } from './infinityMilestones';
+import { getPassivePEGeneratorMultiplier, isInfinityMilestoneUnlocked, getUnlockedInfinityMilestonesCount } from './infinityMilestones';
 
 // Prestige unlock threshold (1.00e18 Points)
 export const PRESTIGE_REQUIREMENT = new Decimal(1e18);
@@ -176,9 +176,19 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(5);
   }
 
-  // Infinity Tree - Root Node: 2^Infinities until 1024, then an additional 1.2x per Infinity.
+  // Upgrade 2: Achievement Resonance boosts all generators based on unlocked achievements (+ honorary ones from Achievement Master)
+  if (state.prestigeUpgrades?.achievementBoost) {
+    const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
+    const masterBonus = getAchievementMasterCompletions(state);
+    const totalAch = unlockedCount + masterBonus;
+    if (totalAch > 0) {
+      mult = mult.mul(new Decimal(1.05).pow(totalAch));
+    }
+  }
+
+  // Infinity Tree - Root Node (Infinity Nexus, 1 SP): 2^Infinities until 100, then an additional 1.2x per Infinity.
   const totalInfinities = state.infinity?.count || state.stats?.totalInfinities || 0;
-  if (totalInfinities > 0) {
+  if (state.infinityTree?.root && totalInfinities > 0) {
     mult = mult.mul(getInfinityGeneratorMultiplier(totalInfinities));
   }
 
@@ -197,7 +207,37 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     }
   }
 
+  // Milestone 1000: Multiplies all generators by 10 per milestone owned
+  if (isInfinityMilestoneUnlocked(state, 'milestone_1000_gen_mult')) {
+    const owned = getUnlockedInfinityMilestonesCount(state);
+    if (owned > 0) {
+      mult = mult.mul(new Decimal(10).pow(owned));
+    }
+  }
+
+  // Post-Infinity Upgrade 3: (IP + 1)^1.3 to all generators
+  if (state.infinityTree?.post_3) {
+    const ipPlus1 = (state.infinity?.points instanceof Decimal ? state.infinity.points : Decimal.zero()).add(1);
+    mult = mult.mul(ipPlus1.pow(1.3));
+  }
+
+  // Post-Infinity Upgrade 4: Raises generator multipliers to ^1.02
+  if (state.infinityTree?.post_4) {
+    mult = mult.pow(1.02);
+  }
+
   return mult;
+}
+
+/**
+ * Tickspeed cost multiplier:
+ * Normally 15x, but after 1e308 Points (or when tickspeed cost >= 1e308), scales by 300x!
+ */
+export function getTickspeedCostMult(state: GameState): Decimal {
+  if (state.points.gte(new Decimal(1, 308)) || state.tickspeed.cost.gte(new Decimal(1, 308))) {
+    return new Decimal(300);
+  }
+  return new Decimal(15);
 }
 
 /**
@@ -212,8 +252,12 @@ export function getTickspeedBaseCost(state: GameState): Decimal {
  * Current tickspeed cost based on purchases
  */
 export function getTickspeedCost(state: GameState): Decimal {
+  if (state.tickspeed?.cost instanceof Decimal && state.tickspeed.cost.gt(0)) {
+    return state.tickspeed.cost;
+  }
   const base = getTickspeedBaseCost(state);
-  return base.mul(state.tickspeed.costMult.pow(state.tickspeed.bought));
+  const mult = getTickspeedCostMult(state);
+  return base.mul(mult.pow(state.tickspeed.bought));
 }
 
 /**
@@ -330,6 +374,22 @@ export function calculatePrestigeEnergyGain(points: Decimal, state?: GameState):
 }
 
 /**
+ * Temporal Infinity multiplier calculation.
+ * Base: 1 + 0.002 * seconds in current Infinity.
+ * Milestone 400: Strengthens Temporal Infinity multiplier by 5x!
+ */
+export function getTemporalInfinityMultiplier(state: GameState, infinityCountOverride?: number): number {
+  if (!state.infinity?.timeIPBoost) return 1;
+  const timeSec = Math.max(0, state.stats?.timeThisInfinity || 0);
+  let timeMult = 1 + 0.002 * timeSec;
+  const count = infinityCountOverride ?? (state.infinity?.count || 0);
+  if (isInfinityMilestoneUnlocked(state, 'milestone_400_temporal_boost', count)) {
+    timeMult = timeMult * 5;
+  }
+  return timeMult;
+}
+
+/**
  * Calculate Infinity Points granted by a Big Crunch / Infinity reset.
  * Before Break Infinity, a reset grants 1 IP (then upgrade/milestone multipliers apply).
  * After Break Infinity, each additional 10 orders of magnitude of Points grants 10x more IP.
@@ -343,16 +403,36 @@ export function calculateInfinityPointGain(
 
   if (state.infinityTree?.feat_4 && points.gte(INFINITY_THRESHOLD)) {
     const excessLog = Math.max(0, points.log10() - INFINITY_THRESHOLD.log10());
-    gain = new Decimal(10).pow(excessLog / 10).floor();
+    gain = new Decimal(10).pow(excessLog / 10);
     if (gain.lt(1)) gain = Decimal.one();
   }
 
-  if (isInfinityMilestoneUnlocked(state, 'ip_resonance', infinityCount)) gain = gain.mul(1.5);
-  if (state.infinity.timeIPBoost) {
-    gain = gain.mul(1 + 0.002 * Math.max(0, state.stats?.timeThisInfinity || 0));
+  // Milestone 10: IP Resonance (1.5x)
+  if (isInfinityMilestoneUnlocked(state, 'ip_resonance', infinityCount)) {
+    gain = gain.mul(1.5);
   }
-  gain = gain.mul(new Decimal(2).pow(state.infinity.ipDoublerLevel || 0)).floor();
-  return gain.lt(1) ? Decimal.one() : gain;
+
+  // Milestone 30: 1.5x multiplicative per milestone owned
+  if (isInfinityMilestoneUnlocked(state, 'milestone_30_ip_boost', infinityCount)) {
+    const owned = getUnlockedInfinityMilestonesCount(state, infinityCount);
+    if (owned > 0) {
+      gain = gain.mul(new Decimal(1.5).pow(owned));
+    }
+  }
+
+  // Temporal Infinity Upgrade:
+  if (state.infinity?.timeIPBoost) {
+    const timeMult = getTemporalInfinityMultiplier(state, infinityCount);
+    gain = gain.mul(timeMult);
+  }
+
+  // IP Doubler purchases:
+  if (state.infinity?.ipDoublerLevel && state.infinity.ipDoublerLevel > 0) {
+    gain = gain.mul(new Decimal(2).pow(state.infinity.ipDoublerLevel));
+  }
+
+  const rounded = gain.round();
+  return rounded.lt(1) ? Decimal.one() : rounded;
 }
 
 /** Extra Skill Points granted by the requirement-based Infinity Milestones. */
@@ -369,7 +449,42 @@ export function getInfinityMilestoneExtraSP(state: GameState, infinityCount: num
   if (isInfinityMilestoneUnlocked(state, 'endless_momentum', count)) {
     extra += 1;
   }
+  // Milestone 200: +1 SP per milestone owned
+  if (isInfinityMilestoneUnlocked(state, 'milestone_200_sp_boost', count)) {
+    const owned = getUnlockedInfinityMilestonesCount(state, count);
+    extra += owned * 1;
+  }
   return extra;
+}
+
+/** Total Skill Points awarded upon Big Crunch / Infinity reset. */
+export function calculateSkillPointsGain(state: GameState, infinityCount: number = state.infinity.count): number {
+  const count = Math.max(0, Math.floor(infinityCount));
+  const prestigeSPBonus = state.prestigeUpgrades?.prestigeSkillSynergy && state.prestige.count >= 10
+    ? Math.max(0, Math.floor(Math.log10(Math.max(1, state.prestige.count))))
+    : 0;
+  let totalSP = 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(state, count);
+
+  // Post-Infinity Upgrade 1:
+  // "первый - Умножает получаемые SP от пойнтов, формула:(log10^{500}(Пойнты))"
+  if (state.infinityTree?.post_1 && state.points.gt(1)) {
+    const spMult = Math.max(1, state.points.log10() / 500);
+    totalSP = Math.floor(totalSP * spMult);
+  }
+
+  return Math.max(1, totalSP);
+}
+
+/** Number of Infinities awarded upon Big Crunch / Infinity reset. */
+export function calculateInfinitiesGain(state: GameState): number {
+  let count = 1;
+  // Post-Infinity Upgrade 2:
+  // "второй - Умножает получаемые бесконечности от пойнтов по формуле: log10^60(points)"
+  if (state.infinityTree?.post_2 && state.points.gt(1)) {
+    const infMult = Math.max(1, Math.floor(state.points.log10() / 60));
+    count = infMult;
+  }
+  return count;
 }
 
 /** Convenience export for UI previews of the new passive PE generator bonus. */

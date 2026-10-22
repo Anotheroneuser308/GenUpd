@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GameState, PrestigeAutobuyerMode } from '../types/game';
+import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode } from '../types/game';
 import { Cpu, Lock } from 'lucide-react';
 
 interface AutomationTabProps {
@@ -9,6 +9,7 @@ interface AutomationTabProps {
   onSetPrestigeAutobuyerSettings: (settings: Partial<{ target: number; mode: PrestigeAutobuyerMode; timeTarget: number; ratioTarget: number }>) => void;
   onSetAutoPrestigeUpgradesSettings?: (settings: Partial<{ priority: 'cheapest' | 'order'; buyAll: boolean }>) => void;
   onSetAutoPrestigeEnergySettings?: (settings: Partial<{ energyMode: 'time' | 'target' | 'gainMultiplier'; energyTimeTarget: number; energyTarget: number; energyRatioTarget: number }>) => void;
+  onSetAutoInfinitySettings?: (settings: Partial<{ infinityMode: InfinityAutobuyerMode; infinityTimeTarget: number; infinityTarget: number; infinityRatioTarget: number }>) => void;
 }
 
 export const AutomationTab: React.FC<AutomationTabProps> = ({
@@ -18,6 +19,7 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
   onSetPrestigeAutobuyerSettings,
   onSetAutoPrestigeUpgradesSettings,
   onSetAutoPrestigeEnergySettings,
+  onSetAutoInfinitySettings,
 }) => {
 
   const tree = state.infinityTree || {};
@@ -35,29 +37,11 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
   const [energyTargetInput, setEnergyTargetInput] = useState(() => String(energyBuyer?.energyTarget ?? 2));
   const [energyRatioInput, setEnergyRatioInput] = useState(() => String(energyBuyer?.energyRatioTarget ?? 2));
 
-  const commitNumber = (field: 'target' | 'timeTarget' | 'ratioTarget') => {
-    const raw = field === 'target' ? prestigeInput : field === 'timeTarget' ? timeInput : ratioInput;
-    const value = Number(raw);
-    if (!Number.isFinite(value) || value <= 0) {
-      if (field === 'target') setPrestigeInput(String(prestigeBuyer?.target ?? 1));
-      else if (field === 'timeTarget') setTimeInput(String(prestigeBuyer?.timeTarget ?? 60));
-      else setRatioInput(String(prestigeBuyer?.ratioTarget ?? 2));
-      return;
-    }
-    if (field === 'target') {
-      const next = Math.max(1, value);
-      onSetAutobuyerTarget('prestige', next);
-      setPrestigeInput(String(next));
-    } else if (field === 'timeTarget') {
-      const next = Math.max(1, value);
-      onSetPrestigeAutobuyerSettings({ timeTarget: next });
-      setTimeInput(String(next));
-    } else {
-      const next = Math.max(1.01, value);
-      onSetPrestigeAutobuyerSettings({ ratioTarget: next });
-      setRatioInput(String(next));
-    }
-  };
+  // Infinity Autobuyer states
+  const infinityBuyer = state.autobuyers?.autoInfinity;
+  const [infTimeInput, setInfTimeInput] = useState(() => String(infinityBuyer?.infinityTimeTarget ?? 60));
+  const [infTargetInput, setInfTargetInput] = useState(() => String(infinityBuyer?.infinityTarget ?? 1));
+  const [infRatioInput, setInfRatioInput] = useState(() => String(infinityBuyer?.infinityRatioTarget ?? 2));
 
   const handleToggleAll = (enable: boolean) => {
     Object.keys(state.autobuyers).forEach((key) => {
@@ -81,6 +65,7 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
     { key: 'prestige', name: 'Prestige Autobuyer', desc: 'Automatically triggers Prestige using the selected reset condition', reqNode: 'Prestige Autobuyer (auto_3)' },
     { key: 'autoPrestigeUpgrades', name: 'Auto: Prestige Upgrades', desc: 'Automatically purchases unbought Prestige upgrades when PP is sufficient in background', reqNode: 'Auto: Prestige Upgrades (auto_5)' },
     { key: 'autoPrestigeEnergy', name: 'Prestige Energy Autobuyer', desc: 'Automatically resets Prestige Energy with configurable timer, target gain, or gain multiplier', reqNode: 'Prestige Energy Autobuyer (auto_6)' },
+    { key: 'autoInfinity', name: 'Infinity Autobuyer', desc: 'Automatically triggers Big Crunch using the configured time, IP gain, or gain multiplier conditions', reqNode: 'Infinity Autobuyer (auto_7, Milestone 1500)' },
   ];
 
   return (
@@ -98,105 +83,100 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
               </span>
             )}
           </div>
-          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
-            <Cpu className="w-6 h-6 text-emerald-400" />
-            <span>Autobuyers Command</span>
+          <h2 className="text-2xl font-bold text-white tracking-tight">
+            Automation Protocols
           </h2>
           <p className="text-xs text-slate-400 mt-1 max-w-xl leading-relaxed">
-            Configure automated purchasing routines. Autobuyers are permanently unlocked on the <strong className="text-amber-400">Infinity Tree</strong> (located in the Infinity tab under Branch 2: Automation).
+            Configure automated operations for all unlocked generators, tickspeed, and reset layers.
+            {isHyperSpeed ? ' Hyper-Speed is active: autobuyers run every 0.05 seconds!' : ' Autobuyers run continuously every 0.25 seconds.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Global Controls */}
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => handleToggleAll(true)}
-            className="px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold hover:bg-emerald-900/60 transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-semibold rounded-lg border border-emerald-500/30 transition-colors cursor-pointer"
           >
-            All ON
+            Enable All
           </button>
           <button
             type="button"
             onClick={() => handleToggleAll(false)}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition-colors cursor-pointer"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
           >
-            All OFF
+            Disable All
           </button>
         </div>
       </div>
 
-      {/* Autobuyers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Grid of Autobuyers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {autobuyersList.map((item) => {
           const ab = state.autobuyers[item.key];
           const isUnlocked = !!ab?.unlocked;
-          const isEnabled = !!ab?.enabled;
+          const isEnabled = isUnlocked && !!ab?.enabled;
 
           return (
             <div
               key={item.key}
-              className={`p-4 rounded-xl border flex flex-col justify-between gap-3.5 transition-all ${
-                isUnlocked
-                  ? isEnabled
-                    ? 'bg-slate-900/90 border-emerald-500/30'
-                    : 'bg-slate-900 border-slate-800'
-                  : 'bg-slate-950/40 border-slate-800/60 opacity-60'
+              className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                !isUnlocked
+                  ? 'bg-slate-950/40 border-slate-800/80 opacity-60'
+                  : isEnabled
+                  ? 'bg-slate-900 border-emerald-500/40 shadow-sm shadow-emerald-950/40'
+                  : 'bg-slate-900/60 border-slate-800'
               }`}
             >
               <div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-xs text-slate-100 flex items-center gap-1.5">
-                    {isUnlocked ? (
-                      <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
-                    ) : (
-                      <Lock className="w-3 h-3 text-slate-500" />
-                    )}
-                    <span>{item.name}</span>
-                  </span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Cpu className={`w-4 h-4 ${isEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
+                    <h3 className="text-sm font-bold text-slate-100">{item.name}</h3>
+                  </div>
 
                   {isUnlocked ? (
                     <button
                       type="button"
                       onClick={() => onToggleAutobuyer(item.key)}
-                      className={`px-3 py-1 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 text-[11px] font-mono font-bold rounded cursor-pointer transition-colors ${
                         isEnabled
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
+                          ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
                           : 'bg-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
                       {isEnabled ? 'ON' : 'OFF'}
                     </button>
                   ) : (
-                    <span className="text-[10px] font-mono text-slate-500">
-                      LOCKED
-                    </span>
+                    <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                      <Lock className="w-3 h-3" />
+                      <span>LOCKED</span>
+                    </div>
                   )}
                 </div>
 
-                <p className="text-xs text-slate-400 mt-1">
-                  {item.desc}
-                </p>
-
+                <p className="text-xs text-slate-400 mt-2 leading-relaxed">{item.desc}</p>
                 {!isUnlocked && (
-                  <p className="text-[10px] font-mono text-amber-400/80 mt-1.5">
-                    Unlock in Infinity Tree: {item.reqNode}
+                  <p className="text-[10px] text-amber-400/80 font-mono mt-2">
+                    Unlocked via: {item.reqNode}
                   </p>
                 )}
               </div>
 
-              {/* Prestige Autobuyer conditions */}
+              {/* Prestige Autobuyer Settings */}
               {item.key === 'prestige' && isUnlocked && (
                 <div className="pt-3 border-t border-slate-800 space-y-3 text-xs font-mono">
                   <label className="block text-slate-400 text-[11px]">
-                    Reset condition
+                    Reset Condition
                     <select
                       value={prestigeMode}
                       onChange={(e) => onSetPrestigeAutobuyerSettings({ mode: e.target.value as PrestigeAutobuyerMode })}
                       className="mt-1 w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
                     >
-                      <option value="time">After a set time</option>
-                      <option value="targetPP">When PP gain reaches a value</option>
-                      <option value="ppMultiplier">When PP gain exceeds previous gain by a multiplier</option>
+                      <option value="time">Timer (after set seconds)</option>
+                      <option value="targetPP">Target PP Gain</option>
+                      <option value="ppMultiplier">Multiplier vs Previous Reset</option>
                     </select>
                   </label>
 
@@ -204,9 +184,19 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                     <label className="block text-slate-400 text-[11px]">
                       Reset after
                       <div className="mt-1 flex items-center gap-2">
-                        <input type="number" min="1" step="1" value={timeInput}
-                          onChange={(e) => setTimeInput(e.target.value)} onBlur={() => commitNumber('timeTarget')}
-                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={timeInput}
+                          onChange={(e) => setTimeInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1, Number(timeInput) || 60);
+                            onSetPrestigeAutobuyerSettings({ timeTarget: val });
+                            setTimeInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                        />
                         <span className="text-slate-400">seconds</span>
                       </div>
                     </label>
@@ -214,11 +204,21 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
 
                   {prestigeMode === 'targetPP' && (
                     <label className="block text-slate-400 text-[11px]">
-                      Reset when PP gained is at least
+                      Reset when PP gain reaches at least
                       <div className="mt-1 flex items-center gap-2">
-                        <input type="number" min="1" step="1" value={prestigeInput}
-                          onChange={(e) => setPrestigeInput(e.target.value)} onBlur={() => commitNumber('target')}
-                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={prestigeInput}
+                          onChange={(e) => setPrestigeInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1, Number(prestigeInput) || 1);
+                            onSetAutobuyerTarget('prestige', val);
+                            setPrestigeInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                        />
                         <span className="text-slate-400">PP</span>
                       </div>
                     </label>
@@ -226,14 +226,26 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
 
                   {prestigeMode === 'ppMultiplier' && (
                     <label className="block text-slate-400 text-[11px]">
-                      Reset when PP gain is at least this many times the previous reset
+                      Reset when PP gain reaches at least
                       <div className="mt-1 flex items-center gap-2">
-                        <input type="number" min="1.01" step="0.1" value={ratioInput}
-                          onChange={(e) => setRatioInput(e.target.value)} onBlur={() => commitNumber('ratioTarget')}
-                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none" />
-                        <span className="text-slate-400">× previous PP</span>
+                        <input
+                          type="number"
+                          min="1.01"
+                          step="0.1"
+                          value={ratioInput}
+                          onChange={(e) => setRatioInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1.01, Number(ratioInput) || 2);
+                            onSetPrestigeAutobuyerSettings({ ratioTarget: val });
+                            setRatioInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">× previous</span>
                       </div>
-                      <span className="block mt-1 text-slate-500">Previous reset gain: {prestigeBuyer?.previousPPGain?.format(state.settings.notation) ?? '0'} PP</span>
+                      <span className="block mt-1 text-slate-500">
+                        Previous gain: {state.autobuyers.prestige?.previousPPGain?.format(state.settings.notation) ?? '0'} PP
+                      </span>
                     </label>
                   )}
                 </div>
@@ -347,6 +359,93 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                       </div>
                       <span className="block mt-1 text-slate-500">
                         Previous reward: x{state.autobuyers?.autoPrestigeEnergy?.previousEnergyGain?.format(state.settings.notation) ?? '1'}
+                      </span>
+                    </label>
+                  )}
+                </div>
+              )}
+
+              {/* Infinity Autobuyer Settings (Milestone 1500) */}
+              {item.key === 'autoInfinity' && isUnlocked && (
+                <div className="pt-3 border-t border-slate-800 space-y-3 text-xs font-mono">
+                  <label className="block text-slate-400 text-[11px]">
+                    Reset Condition
+                    <select
+                      value={state.autobuyers?.autoInfinity?.infinityMode || 'targetIP'}
+                      onChange={(e) => onSetAutoInfinitySettings?.({ infinityMode: e.target.value as InfinityAutobuyerMode })}
+                      className="mt-1 w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-slate-200 text-xs focus:border-amber-500 focus:outline-none"
+                    >
+                      <option value="time">Timer (after set seconds)</option>
+                      <option value="targetIP">Target IP Gain</option>
+                      <option value="ipMultiplier">Multiplier vs Previous Crunch</option>
+                    </select>
+                  </label>
+
+                  {(state.autobuyers?.autoInfinity?.infinityMode === 'time') && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Crunch after
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={infTimeInput}
+                          onChange={(e) => setInfTimeInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1, Number(infTimeInput) || 60);
+                            onSetAutoInfinitySettings?.({ infinityTimeTarget: val });
+                            setInfTimeInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">seconds</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {((!state.autobuyers?.autoInfinity?.infinityMode || state.autobuyers?.autoInfinity?.infinityMode === 'targetIP')) && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Crunch when IP gain reaches at least
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={infTargetInput}
+                          onChange={(e) => setInfTargetInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1, Number(infTargetInput) || 1);
+                            onSetAutoInfinitySettings?.({ infinityTarget: val });
+                            setInfTargetInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">IP</span>
+                      </div>
+                    </label>
+                  )}
+
+                  {(state.autobuyers?.autoInfinity?.infinityMode === 'ipMultiplier') && (
+                    <label className="block text-slate-400 text-[11px]">
+                      Crunch when reward is at least this many times previous
+                      <div className="mt-1 flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1.01"
+                          step="0.1"
+                          value={infRatioInput}
+                          onChange={(e) => setInfRatioInput(e.target.value)}
+                          onBlur={() => {
+                            const val = Math.max(1.01, Number(infRatioInput) || 2);
+                            onSetAutoInfinitySettings?.({ infinityRatioTarget: val });
+                            setInfRatioInput(String(val));
+                          }}
+                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                        />
+                        <span className="text-slate-400">× previous</span>
+                      </div>
+                      <span className="block mt-1 text-slate-500">
+                        Previous gain: {state.autobuyers?.autoInfinity?.previousIPGain?.format(state.settings.notation) ?? '1'} IP
                       </span>
                     </label>
                   )}

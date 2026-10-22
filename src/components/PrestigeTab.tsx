@@ -71,7 +71,11 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const oom6 = Math.floor(Math.max(0, state.points.log10()) / 6);
   const upg1CurrentMult = upgs.pointScaling && oom6 > 0 ? new Decimal(2).pow(oom6) : Decimal.one();
   const unlockedAchCount = Object.values(state.achievements).filter(Boolean).length;
-  const upg2CurrentMult = upgs.achievementBoost && unlockedAchCount > 0 ? new Decimal(1.05).pow(unlockedAchCount) : Decimal.one();
+  const achMasterBonus = state.infinity?.achievementMaster && state.points.gt(0) && state.points.mantissa
+    ? Math.floor(Math.max(0, state.points.log10()))
+    : 0;
+  const totalEffectiveAch = unlockedAchCount + achMasterBonus;
+  const upg2CurrentMult = upgs.achievementBoost && totalEffectiveAch > 0 ? new Decimal(1.05).pow(totalEffectiveAch) : Decimal.one();
 
   // Upgrade 3A (Cascading Boosts)
   const boostLevel = upgs.cascadingBoostsLevel || 0;
@@ -342,7 +346,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
                   upgs.achievementBoost
                     ? 'bg-indigo-950/20 border-indigo-500/40'
-                    : currentPP.gte(2)
+                    : currentPP.gte(12)
                     ? 'bg-slate-950/80 border-slate-700 hover:border-indigo-500/60'
                     : 'bg-slate-950/40 border-slate-800 opacity-60'
                 }`}
@@ -359,25 +363,25 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Points gain is multiplied by 1.05x for each completed achievement, multiplicatively (1.05^achievements).
+                    All generators are boosted by 1.05x for each completed achievement, multiplicatively (1.05^achievements). Also factors in honorary achievements from Infinity's Achievement Master!
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
-                    Current: <span className="font-semibold">x{upg2CurrentMult.format(notation)}</span> ({unlockedAchCount} ach.)
+                    Current: <span className="font-semibold">x{upg2CurrentMult.format(notation)}</span> to all generators ({totalEffectiveAch} achievements{achMasterBonus > 0 ? `, +${achMasterBonus} bonus` : ''})
                   </div>
                 </div>
 
                 <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                   <span className="text-xs font-mono text-slate-400">
-                    Cost: <span className="text-amber-400 font-semibold">2 PP</span>
+                    Cost: <span className="text-amber-400 font-semibold">12 PP</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => onBuyUpgrade('achievementBoost')}
-                    disabled={upgs.achievementBoost || currentPP.lt(2)}
+                    disabled={upgs.achievementBoost || currentPP.lt(12)}
                     className={`px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors cursor-pointer ${
                       upgs.achievementBoost
                         ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                        : currentPP.gte(2)
+                        : currentPP.gte(12)
                         ? 'bg-indigo-600 hover:bg-indigo-500 text-white font-semibold'
                         : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                     }`}
