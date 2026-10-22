@@ -649,7 +649,7 @@ export function useGameLoop() {
             }
           }
 
-          // Auto: PE Upgrades (Branch 2 Node 8, unlocked via Milestone 100 IP, cost: 50 SP)
+          // Auto: PE Upgrades (Branch 2 Node 8, unlocked at 100 Infinities, cost: 50 SP)
           if (state.infinityTree?.auto_8 && state.prestigeEnergy?.unlocked) {
             let pLvl = Math.max(0, Math.floor(state.prestigeEnergy.generatorUpgradeLevel || 0));
             while (true) {
@@ -1356,7 +1356,7 @@ export function useGameLoop() {
         },
       };
 
-      // First Echo requires both the Infinity Milestones node and 30 lifetime IP.
+      // First Echo requires the Infinity Milestones node, at least 1 Infinity, and 30 lifetime IP.
       // Check the post-crunch state, so crossing 30 IP on this Crunch counts immediately.
       if (nextState.infinityTree?.feat_3 && nextState.infinity.totalEarnedIP.gte(30) && newCount >= 1) {
         nextState.points = new Decimal(1000);

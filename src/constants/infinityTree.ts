@@ -123,7 +123,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     desc: 'Automatically purchases available Prestige Energy (PE) amplifier upgrades when affordable, without resetting progress.',
     cost: 50,
     req: 'auto_6',
-    reqMilestone: 'milestone_100_ip_auto_pe',
+    reqMilestone: 'milestone_100_infinities_auto_pe',
     icon: '⚡',
   },
   auto_9: {
@@ -169,7 +169,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'feat_3',
     branch: 'feat',
     title: 'Infinity Milestones',
-    desc: 'Unlocks conditional Infinity Milestones. The first reward requires 30 lifetime IP; later milestones also check Infinities, lifetime PE, playtime, or highest-ever Points.',
+    desc: 'Unlocks Infinity Milestones and their listed rewards. Most milestones require a specific number of Infinities; some also require lifetime IP or total playtime.',
     cost: 25,
     req: 'feat_2',
     icon: '🏆',

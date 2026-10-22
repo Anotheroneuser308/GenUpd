@@ -3,18 +3,12 @@ import type { GameState } from '../types/game';
 
 export type InfinityMilestoneId =
   | 'first_echo'
-  | 'prestige_echo'
-  | 'energy_well'
-  | 'time_fracture'
-  | 'ip_resonance'
-  | 'skill_cycle'
-  | 'cascade_memory'
   | 'milestone_30_ip_boost'
   | 'endless_momentum'
   | 'milestone_200_sp_boost'
   | 'milestone_400_temporal_boost'
   | 'milestone_1000_gen_mult'
-  | 'milestone_100_ip_auto_pe'
+  | 'milestone_100_infinities_auto_pe'
   | 'milestone_1500_auto_infinity'
   | 'milestone_2250_post_infinity';
 
@@ -37,58 +31,10 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     infinityCountRequired: 1,
   },
   {
-    id: 'prestige_echo',
-    title: 'Prestige Echo',
-    icon: '🔱',
-    reward: 'Prestige Point gains are multiplied by ×2.',
-    requirement: '3 Infinities and 100 lifetime IP earned',
-    infinityCountRequired: 3,
-  },
-  {
-    id: 'energy_well',
-    title: 'Energy Well',
-    icon: '⚡',
-    reward: 'Prestige Energy gained from Energy resets is multiplied by ×2.',
-    requirement: '5 Infinities and 10 PE earned in the current Infinity',
-    infinityCountRequired: 5,
-  },
-  {
-    id: 'time_fracture',
-    title: 'Time Fracture',
-    icon: '⌛',
-    reward: 'Prestige Energy gained from Energy resets is multiplied by ×1.5.',
-    requirement: '7 Infinities and 15 minutes of total playtime',
-    infinityCountRequired: 7,
-  },
-  {
-    id: 'ip_resonance',
-    title: 'IP Resonance',
-    icon: '💠',
-    reward: 'Infinity Point gains are multiplied by ×1.5.',
-    requirement: '10 Infinities and 250 lifetime IP earned',
-    infinityCountRequired: 10,
-  },
-  {
-    id: 'skill_cycle',
-    title: 'Skill Cycle',
-    icon: '🧠',
-    reward: 'Every third Infinity grants +1 additional Skill Point.',
-    requirement: '15 Infinities and 50 PE earned in the current Infinity',
-    infinityCountRequired: 15,
-  },
-  {
-    id: 'cascade_memory',
-    title: 'Cascade Memory',
-    icon: '🌀',
-    reward: 'All generators receive a permanent ×5 production multiplier.',
-    requirement: '25 Infinities and highest-ever Points of at least 1e100',
-    infinityCountRequired: 25,
-  },
-  {
     id: 'milestone_30_ip_boost',
     title: 'Milestone IP Echo',
     icon: '💎',
-    reward: 'Получаемые IP увеличиваются на 1.5х мультипликативно за каждый имеющийся майлстоун.',
+    reward: 'Infinity Point gains are multiplied by ×1.5 for each unlocked milestone.',
     requirement: '30 Infinities',
     infinityCountRequired: 30,
   },
@@ -101,10 +47,18 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     infinityCountRequired: 50,
   },
   {
+    id: 'milestone_100_infinities_auto_pe',
+    title: 'PE Automation Protocol',
+    icon: '⚡',
+    reward: 'Unlocks a new upgrade in the Automation branch: Auto: PE Upgrades (cost: 50 SP).',
+    requirement: '100 Infinities',
+    infinityCountRequired: 100,
+  },
+  {
     id: 'milestone_200_sp_boost',
     title: 'Skill Resonance',
     icon: '🔮',
-    reward: 'Увеличивает Получаемые SP за каждый майлстоун +1 к получаемым SP.',
+    reward: 'Gain +1 additional Skill Point for each unlocked milestone.',
     requirement: '200 Infinities',
     infinityCountRequired: 200,
   },
@@ -112,7 +66,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_400_temporal_boost',
     title: 'Temporal Mastery',
     icon: '⏱️',
-    reward: 'Усиливает Temporal Infinity получаемый множитель в 5 раз.',
+    reward: 'Increases the Temporal Infinity multiplier by ×5.',
     requirement: '400 Infinities',
     infinityCountRequired: 400,
   },
@@ -120,23 +74,15 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_1000_gen_mult',
     title: 'Millennial Singularity',
     icon: '💥',
-    reward: 'Умножает все генераторы на 10 за каждый майлстоун.',
+    reward: 'All generators gain a ×10 multiplier for each unlocked milestone.',
     requirement: '1,000 Infinities',
     infinityCountRequired: 1000,
-  },
-  {
-    id: 'milestone_100_ip_auto_pe',
-    title: 'PE Automation Protocol',
-    icon: '⚡',
-    reward: 'Разблокирует новое улучшение в ветке Automation: Автоматическая покупка улучшений PE (стоимость: 50 SP).',
-    requirement: '100 lifetime IP earned',
-    infinityCountRequired: 0,
   },
   {
     id: 'milestone_1500_auto_infinity',
     title: 'Automated Transcendence',
     icon: '🤖',
-    reward: 'Разблокирует новый апгрейд в Automation Tree: Автоматизация бесконечности и её настройки как у престижа (стоимость: 1,200 SP).',
+    reward: 'Unlocks the Infinity Autobuyer upgrade in the Automation Tree, with configurable settings like the Prestige Autobuyer (cost: 1,200 SP).',
     requirement: '1,500 Infinities',
     infinityCountRequired: 1500,
   },
@@ -144,7 +90,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_2250_post_infinity',
     title: 'Post-Infinity Gateway',
     icon: '🌌',
-    reward: 'Разблокирует новую ветку в дереве бесконечности: Post-Infinity (4 мощных апгрейда).',
+    reward: 'Unlocks the Post-Infinity branch in the Infinity Tree, containing 4 powerful upgrades.',
     requirement: '2,250 Infinities',
     infinityCountRequired: 2250,
   },
@@ -171,8 +117,7 @@ export function getTotalInfinities(state: GameState, override?: number): number 
 
 /**
  * Milestones are active only after the Infinity Milestones tree node is purchased.
- * Infinity count and IP history are persistent; PE requirements intentionally use PE
- * earned in the current Infinity run because PE progress resets on Big Crunch.
+ * Lifetime IP and playtime requirements are cumulative; spending IP does not undo progress.
  */
 export function isInfinityMilestoneUnlocked(
   state: GameState,
@@ -183,27 +128,11 @@ export function isInfinityMilestoneUnlocked(
 
   const infinities = getTotalInfinities(state, infinityCountOverride);
   const lifetimeIP = getLifetimeIPEarned(state);
-  const lifetimePE = getLifetimePEEarned(state);
   const totalTime = Math.max(0, state.stats?.totalTimePlayed || 0);
-  const highestPoints = state.stats?.highestPointsEver instanceof Decimal
-    ? state.stats.highestPointsEver
-    : Decimal.zero();
 
   switch (id) {
     case 'first_echo':
       return infinities >= 1 && lifetimeIP.gte(30);
-    case 'prestige_echo':
-      return infinities >= 3 && lifetimeIP.gte(100);
-    case 'energy_well':
-      return infinities >= 5 && lifetimePE.gte(10);
-    case 'time_fracture':
-      return infinities >= 7 && totalTime >= 15 * 60;
-    case 'ip_resonance':
-      return infinities >= 10 && lifetimeIP.gte(250);
-    case 'skill_cycle':
-      return infinities >= 15 && lifetimePE.gte(50);
-    case 'cascade_memory':
-      return infinities >= 25 && highestPoints.gte(new Decimal(1, 100));
     case 'milestone_30_ip_boost':
       return infinities >= 30;
     case 'endless_momentum':
@@ -214,8 +143,8 @@ export function isInfinityMilestoneUnlocked(
       return infinities >= 400;
     case 'milestone_1000_gen_mult':
       return infinities >= 1000;
-    case 'milestone_100_ip_auto_pe':
-      return lifetimeIP.gte(100);
+    case 'milestone_100_infinities_auto_pe':
+      return infinities >= 100;
     case 'milestone_1500_auto_infinity':
       return infinities >= 1500;
     case 'milestone_2250_post_infinity':
@@ -225,19 +154,15 @@ export function isInfinityMilestoneUnlocked(
   }
 }
 
-/**
- * Returns the total count of unlocked Infinity Milestones.
- */
+/** Returns the number of currently unlocked Infinity Milestones. */
 export function getUnlockedInfinityMilestonesCount(
   state: GameState,
   infinityCountOverride?: number,
 ): number {
   if (!state.infinityTree?.feat_3) return 0;
   let count = 0;
-  for (const m of INFINITY_MILESTONES) {
-    if (isInfinityMilestoneUnlocked(state, m.id, infinityCountOverride)) {
-      count++;
-    }
+  for (const milestone of INFINITY_MILESTONES) {
+    if (isInfinityMilestoneUnlocked(state, milestone.id, infinityCountOverride)) count++;
   }
   return count;
 }
@@ -248,32 +173,15 @@ export function getInfinityMilestoneRequirementProgress(
 ): string[] {
   const infinities = getTotalInfinities(state);
   const lifetimeIP = getLifetimeIPEarned(state);
-  const lifetimePE = getLifetimePEEarned(state);
   const totalTime = Math.max(0, state.stats?.totalTimePlayed || 0);
-  const highestPoints = state.stats?.highestPointsEver instanceof Decimal
-    ? state.stats.highestPointsEver
-    : Decimal.zero();
   const notation = state.settings?.notation;
   const fmtIP = (target: number) => `${lifetimeIP.format(notation)} / ${target} lifetime IP`;
-  const fmtPE = (target: number) => `${lifetimePE.format(notation)} / ${target} PE this Infinity`;
   const fmtInfinities = (target: number) => `${infinities} / ${target} Infinities`;
-  const fmtTime = (targetSeconds: number) => `${Math.floor(totalTime / 60)} / ${Math.floor(targetSeconds / 60)} minutes total playtime`;
+  const fmtTime = (targetSeconds: number) => `${Math.floor(totalTime / 60)} / ${Math.floor(targetSeconds / 60)} minutes of total playtime`;
 
   switch (id) {
     case 'first_echo':
       return [fmtInfinities(1), fmtIP(30)];
-    case 'prestige_echo':
-      return [fmtInfinities(3), fmtIP(100)];
-    case 'energy_well':
-      return [fmtInfinities(5), fmtPE(10)];
-    case 'time_fracture':
-      return [fmtInfinities(7), fmtTime(15 * 60)];
-    case 'ip_resonance':
-      return [fmtInfinities(10), fmtIP(250)];
-    case 'skill_cycle':
-      return [fmtInfinities(15), fmtPE(50)];
-    case 'cascade_memory':
-      return [fmtInfinities(25), `Highest Points: ${highestPoints.format(notation)} / 1e100`];
     case 'milestone_30_ip_boost':
       return [fmtInfinities(30)];
     case 'endless_momentum':
@@ -284,8 +192,8 @@ export function getInfinityMilestoneRequirementProgress(
       return [fmtInfinities(400)];
     case 'milestone_1000_gen_mult':
       return [fmtInfinities(1000)];
-    case 'milestone_100_ip_auto_pe':
-      return [fmtIP(100)];
+    case 'milestone_100_infinities_auto_pe':
+      return [fmtInfinities(100)];
     case 'milestone_1500_auto_infinity':
       return [fmtInfinities(1500)];
     case 'milestone_2250_post_infinity':

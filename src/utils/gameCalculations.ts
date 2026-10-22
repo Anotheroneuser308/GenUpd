@@ -171,11 +171,6 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(new Decimal(3).pow(lifetimeIPLog));
   }
 
-  // Cascade Memory is earned through the Infinity Milestone system, not count alone.
-  if (isInfinityMilestoneUnlocked(state, 'cascade_memory')) {
-    mult = mult.mul(5);
-  }
-
   // Upgrade 2: Achievement Resonance boosts all generators based on unlocked achievements (+ honorary ones from Achievement Master)
   if (state.prestigeUpgrades?.achievementBoost) {
     const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
@@ -340,9 +335,6 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
   if (state?.infinityTree?.pre_3) {
     gain = gain.mul(3);
   }
-  if (state && isInfinityMilestoneUnlocked(state, 'prestige_echo')) {
-    gain = gain.mul(2);
-  }
 
   return gain;
 }
@@ -357,13 +349,6 @@ export function calculatePrestigeEnergyGain(points: Decimal, state?: GameState):
 
   const excessLog = Math.max(0, points.log10() - 154);
   let gain = new Decimal(10).pow(excessLog / 40);
-
-  if (state && isInfinityMilestoneUnlocked(state, 'energy_well')) {
-    gain = gain.mul(2);
-  }
-  if (state && isInfinityMilestoneUnlocked(state, 'time_fracture')) {
-    gain = gain.mul(1.5);
-  }
 
   // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).
   if (state?.infinity?.energySPBoost) {
@@ -407,11 +392,6 @@ export function calculateInfinityPointGain(
     if (gain.lt(1)) gain = Decimal.one();
   }
 
-  // Milestone 10: IP Resonance (1.5x)
-  if (isInfinityMilestoneUnlocked(state, 'ip_resonance', infinityCount)) {
-    gain = gain.mul(1.5);
-  }
-
   // Milestone 30: 1.5x multiplicative per milestone owned
   if (isInfinityMilestoneUnlocked(state, 'milestone_30_ip_boost', infinityCount)) {
     const owned = getUnlockedInfinityMilestonesCount(state, infinityCount);
@@ -435,16 +415,12 @@ export function calculateInfinityPointGain(
   return rounded.lt(1) ? Decimal.one() : rounded;
 }
 
-/** Extra Skill Points granted by the requirement-based Infinity Milestones. */
+/** Extra Skill Points granted by the Infinity Milestones. */
 export function getInfinityMilestoneExtraSP(state: GameState, infinityCount: number = state.infinity.count): number {
   if (!state.infinityTree?.feat_3) return 0;
   const count = Math.max(0, Math.floor(infinityCount));
   let extra = 0;
 
-  // Skill Cycle: +1 SP every third Infinity, once its conditions have been met.
-  if (count > 0 && count % 3 === 0 && isInfinityMilestoneUnlocked(state, 'skill_cycle', count)) {
-    extra += 1;
-  }
   // Endless Momentum: +1 SP on every Infinity after this milestone is unlocked.
   if (isInfinityMilestoneUnlocked(state, 'endless_momentum', count)) {
     extra += 1;

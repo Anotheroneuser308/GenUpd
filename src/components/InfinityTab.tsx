@@ -205,7 +205,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             <div className="text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-amber-300">{totalInfinities} Infinities</div>
           </div>
           <div className="space-y-3">
-            <p className="text-xs text-slate-400">Milestones now use combined conditions. The first one requires <strong className="text-amber-300">30 lifetime IP earned</strong>; later milestones also check PE earned in the current Infinity, total playtime, or highest-ever Points. Spent IP still counts as earned.</p>
+            <p className="text-xs text-slate-400">Milestones unlock when their listed requirements are met. Lifetime IP and playtime requirements are cumulative, so spending IP does not undo progress.</p>
             {INFINITY_MILESTONES.map((milestone) => {
               const unlocked = isInfinityMilestoneUnlocked(state, milestone.id);
               const requirementProgress = getInfinityMilestoneRequirementProgress(state, milestone.id);
@@ -224,7 +224,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-500">Additional Skill Points from Skill Cycle and Endless Momentum are included in the Big Crunch reward preview.</p>
+          <p className="text-[11px] text-slate-500">Additional Skill Points from Endless Momentum and later Skill Point milestones are included in the Big Crunch reward preview.</p>
         </div>
       ) : (
         /* Infinity Chamber Protocols */
