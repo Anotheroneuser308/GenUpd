@@ -224,7 +224,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-500">Additional Skill Points from Endless Momentum and later Skill Point milestones are included in the Big Crunch reward preview.</p>
+          <p className="text-[11px] text-slate-500">Additional Skill Points from unlocked Skill Point milestones are included in the Big Crunch reward preview.</p>
         </div>
       ) : (
         /* Infinity Chamber Protocols */

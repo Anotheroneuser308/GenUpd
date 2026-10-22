@@ -2,9 +2,7 @@ import { Decimal } from './decimal';
 import type { GameState } from '../types/game';
 
 export type InfinityMilestoneId =
-  | 'first_echo'
   | 'milestone_30_ip_boost'
-  | 'endless_momentum'
   | 'milestone_200_sp_boost'
   | 'milestone_400_temporal_boost'
   | 'milestone_1000_gen_mult'
@@ -23,28 +21,12 @@ export interface InfinityMilestoneDefinition {
 
 export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
   {
-    id: 'first_echo',
-    title: 'First Echo',
-    icon: '🌠',
-    reward: 'Start each new Infinity with 1,000 Points and one free Generator 1.',
-    requirement: '1 Infinity and 30 lifetime IP earned',
-    infinityCountRequired: 1,
-  },
-  {
     id: 'milestone_30_ip_boost',
     title: 'Milestone IP Echo',
     icon: '💎',
     reward: 'Infinity Point gains are multiplied by ×1.5 for each unlocked milestone.',
     requirement: '30 Infinities',
     infinityCountRequired: 30,
-  },
-  {
-    id: 'endless_momentum',
-    title: 'Endless Momentum',
-    icon: '♾️',
-    reward: 'Every Infinity grants +1 additional Skill Point.',
-    requirement: '50 Infinities, 1,000 lifetime IP, and 1 hour of total playtime',
-    infinityCountRequired: 50,
   },
   {
     id: 'milestone_100_infinities_auto_pe',
@@ -115,10 +97,7 @@ export function getTotalInfinities(state: GameState, override?: number): number 
   );
 }
 
-/**
- * Milestones are active only after the Infinity Milestones tree node is purchased.
- * Lifetime IP and playtime requirements are cumulative; spending IP does not undo progress.
- */
+/** Milestones are active only after the Infinity Milestones tree node is purchased. */
 export function isInfinityMilestoneUnlocked(
   state: GameState,
   id: InfinityMilestoneId,
@@ -127,16 +106,9 @@ export function isInfinityMilestoneUnlocked(
   if (!state.infinityTree?.feat_3) return false;
 
   const infinities = getTotalInfinities(state, infinityCountOverride);
-  const lifetimeIP = getLifetimeIPEarned(state);
-  const totalTime = Math.max(0, state.stats?.totalTimePlayed || 0);
-
   switch (id) {
-    case 'first_echo':
-      return infinities >= 1 && lifetimeIP.gte(30);
     case 'milestone_30_ip_boost':
       return infinities >= 30;
-    case 'endless_momentum':
-      return infinities >= 50 && lifetimeIP.gte(1000) && totalTime >= 60 * 60;
     case 'milestone_200_sp_boost':
       return infinities >= 200;
     case 'milestone_400_temporal_boost':
@@ -172,20 +144,11 @@ export function getInfinityMilestoneRequirementProgress(
   id: InfinityMilestoneId,
 ): string[] {
   const infinities = getTotalInfinities(state);
-  const lifetimeIP = getLifetimeIPEarned(state);
-  const totalTime = Math.max(0, state.stats?.totalTimePlayed || 0);
-  const notation = state.settings?.notation;
-  const fmtIP = (target: number) => `${lifetimeIP.format(notation)} / ${target} lifetime IP`;
   const fmtInfinities = (target: number) => `${infinities} / ${target} Infinities`;
-  const fmtTime = (targetSeconds: number) => `${Math.floor(totalTime / 60)} / ${Math.floor(targetSeconds / 60)} minutes of total playtime`;
 
   switch (id) {
-    case 'first_echo':
-      return [fmtInfinities(1), fmtIP(30)];
     case 'milestone_30_ip_boost':
       return [fmtInfinities(30)];
-    case 'endless_momentum':
-      return [fmtInfinities(50), fmtIP(1000), fmtTime(60 * 60)];
     case 'milestone_200_sp_boost':
       return [fmtInfinities(200)];
     case 'milestone_400_temporal_boost':

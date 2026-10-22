@@ -421,10 +421,6 @@ export function getInfinityMilestoneExtraSP(state: GameState, infinityCount: num
   const count = Math.max(0, Math.floor(infinityCount));
   let extra = 0;
 
-  // Endless Momentum: +1 SP on every Infinity after this milestone is unlocked.
-  if (isInfinityMilestoneUnlocked(state, 'endless_momentum', count)) {
-    extra += 1;
-  }
   // Milestone 200: +1 SP per milestone owned
   if (isInfinityMilestoneUnlocked(state, 'milestone_200_sp_boost', count)) {
     const owned = getUnlockedInfinityMilestonesCount(state, count);
