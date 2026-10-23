@@ -32,8 +32,8 @@ interface AdvancedBreakInfinityUpgradeDefinition {
 }
 
 const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[] = [
-  { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains an additional ×(1 + 0.01 × OoMs) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
-  { id: 'singularityOverdrive', title: 'Singularity Overdrive', description: 'Squares the generator multiplier from Singularity Resonance. Requires Singularity Resonance.', cost: new Decimal(1, 50), requirement: 'singularityResonance' },
+  { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains a powerful ×10^(0.1 × OoMs^1.1) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
+  { id: 'singularityOverdrive', title: 'Badass Singularity', description: 'Upgrades Singularity Resonance to +2% per OoM, then raises that multiplier to ^7.77. Requires Singularity Resonance.', cost: new Decimal(1, 50), requirement: 'singularityResonance' },
   { id: 'hyperchargeOverdrive', title: 'Hypercharge Overdrive', description: 'Dimension Hypercharge grants ×2 every 25 OoMs instead of every 50. Requires Dimension Hypercharge.', cost: new Decimal(1, 60), requirement: 'hypercharge' },
   { id: 'vacuumCascade', title: 'Vacuum Cascade', description: 'Infinity Point gains are multiplied by 10^(0.1 × sqrt(OoMs above 1e308)).', cost: new Decimal(1, 75) },
   { id: 'transcendentCascade', title: 'Transcendent Cascade', description: 'Raises the final multiplier of every Generator to the power of 1.05.', cost: new Decimal(1, 90) },
@@ -43,9 +43,9 @@ const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[]
 function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, state: GameState, oomAbove: number): string {
   switch (id) {
     case 'fractalIgnition':
-      return 'Points gain ×' + new Decimal(1 + 0.01 * oomAbove).format(state.settings.notation);
+      return 'Points gain ×' + new Decimal(10).pow(0.1 * Math.pow(oomAbove, 1.1)).format(state.settings.notation);
     case 'singularityOverdrive':
-      return 'Singularity Resonance becomes ×' + new Decimal(1 + 0.01 * oomAbove).pow(2).format(state.settings.notation);
+      return 'Singularity Resonance becomes ×' + new Decimal(1 + 0.02 * oomAbove).pow(7.77).format(state.settings.notation);
     case 'hyperchargeOverdrive':
       return 'Hypercharge multiplier ×' + new Decimal(2).pow(Math.floor(oomAbove / 25)).format(state.settings.notation);
     case 'vacuumCascade':
@@ -750,7 +750,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const cost = new Decimal(1e18);
                       const canAfford = state.infinity.points.gte(cost);
                       const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
-                      const currentMult = isBought && oomAbove > 0 ? (1 + 0.01 * oomAbove) : 1;
+                      const hasBadassSingularity = !!state.infinity.breakInfinityUpgrades?.singularityOverdrive;
+                      const currentMult = isBought && oomAbove > 0
+                        ? new Decimal(1 + (hasBadassSingularity ? 0.02 : 0.01) * oomAbove).pow(hasBadassSingularity ? 7.77 : 1)
+                        : Decimal.one();
 
                       return (
                         <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
@@ -774,10 +777,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               )}
                             </div>
                             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                              Increases all generator power by +1% per order of magnitude (OoM) of Points above 1.79e308 (+1% per OoM).
+                              Increases all generator power by +1% per OoM above 1.79e308 Points. Badass Singularity upgrades this to +2% per OoM and raises the multiplier to ^7.77.
                             </p>
                             <div className="mt-3 text-xs font-mono text-purple-300">
-                              Current boost: <strong>×{currentMult.toFixed(2)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
+                              Current boost: <strong>×{currentMult.format(state.settings.notation)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
                             </div>
                           </div>
                           <div className="pt-3 border-t border-slate-800 flex items-center justify-between">

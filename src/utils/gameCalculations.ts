@@ -317,12 +317,13 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.pow(1.02);
   }
 
-  // Singularity Overdrive squares the multiplier from Singularity Resonance.
+  // Badass Singularity upgrades Resonance to +2% per OoM and raises its multiplier to ^7.77.
   if (state.infinity?.breakInfinityUpgrades?.singularityResonance && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
     if (oomAbove > 0) {
-      const resonance = new Decimal(1 + 0.01 * oomAbove);
-      mult = mult.mul(state.infinity.breakInfinityUpgrades?.singularityOverdrive ? resonance.pow(2) : resonance);
+      const badassSingularity = !!state.infinity.breakInfinityUpgrades?.singularityOverdrive;
+      const resonance = new Decimal(1 + (badassSingularity ? 0.02 : 0.01) * oomAbove);
+      mult = mult.mul(badassSingularity ? resonance.pow(7.77) : resonance);
     }
   }
 
@@ -431,10 +432,10 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
     mult = mult.mul(new Decimal(10).pow(oomAbove * 0.03));
   }
 
-  // Fractal Ignition adds a separate linear Points-generation multiplier per OoM above 1e308.
+  // Fractal Ignition: strong superlinear scaling to help reach the next Break Infinity IP tier.
   if (state.infinity?.breakInfinityUpgrades?.fractalIgnition && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
-    mult = mult.mul(new Decimal(1 + 0.01 * oomAbove));
+    mult = mult.mul(new Decimal(10).pow(0.1 * Math.pow(oomAbove, 1.1)));
   }
 
   // Absolute Horizon raises the complete Points-generation multiplier to ^1.05.

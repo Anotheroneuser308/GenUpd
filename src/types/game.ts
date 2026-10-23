@@ -78,11 +78,11 @@ export interface InfinityState {
   spDoublerUpgrade?: boolean; // Infinity Upgrade: 1,000 IP, multiplies gained SP by 2x
   breakInfinityUpgrades?: {
     limitless?: boolean; // Points gain scales above 1e308
-    singularityResonance?: boolean; // +1% generator power per OoM above 1e308
+    singularityResonance?: boolean; // +1% generator power per OoM above 1e308, upgraded by Badass Singularity
     hypercharge?: boolean; // x2 generator bonus per 50 OoMs above 1e308
     vacuumMomentum?: boolean; // +1% IP gain per OoM above 1e308
-    fractalIgnition?: boolean; // Additional linear Points gain bonus per OoM
-    singularityOverdrive?: boolean; // Squares Singularity Resonance's generator multiplier
+    fractalIgnition?: boolean; // Points generation x10^(0.1 * OoMs^1.1) above 1e308
+    singularityOverdrive?: boolean; // Badass Singularity: +2% per OoM and ^7.77 Resonance multiplier
     hyperchargeOverdrive?: boolean; // Improves Hypercharge from every 50 to every 25 OoMs
     vacuumCascade?: boolean; // Additional IP gain scaling from sqrt(OoMs)
     transcendentCascade?: boolean; // Raises generator multipliers to ^1.05
