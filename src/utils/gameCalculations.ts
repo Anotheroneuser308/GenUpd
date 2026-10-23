@@ -327,10 +327,10 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     }
   }
 
-  // Hypercharge Overdrive improves the interval from 50 OoMs to 25 OoMs.
+  // Hypercharge Overdrive improves the interval from 50 OoMs to 40 OoMs.
   if (state.infinity?.breakInfinityUpgrades?.hypercharge && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
-    const interval = state.infinity.breakInfinityUpgrades?.hyperchargeOverdrive ? 25 : 50;
+    const interval = state.infinity.breakInfinityUpgrades?.hyperchargeOverdrive ? 40 : 50;
     const groups = Math.floor(oomAbove / interval);
     if (groups > 0) {
       mult = mult.mul(new Decimal(2).pow(groups));
