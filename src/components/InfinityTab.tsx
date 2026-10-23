@@ -532,7 +532,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           )}
                         </div>
                         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                          Умножает все получаемые Skill Points (SP) в 2 раза на каждом сбросе Бесконечности (×2 к приросту SP).
+                          Doubles all Skill Points (SP) gained from each Infinity reset (×2 SP gain).
                         </p>
                         <div className="mt-3 text-xs font-mono text-amber-300">
                           Status: <strong>{isBought ? '×2 SP Active' : 'Available'}</strong>
@@ -577,7 +577,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       </h3>
                     </div>
                     <p className="text-xs text-slate-400 mt-1">
-                      Мощные улучшения, разблокированные матрицей Break Infinity в дереве бесконечности.
+                      Powerful upgrades unlocked by the Break Infinity Matrix in the Infinity Tree.
                     </p>
                   </div>
 
@@ -588,7 +588,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const cost = new Decimal(1e16);
                       const canAfford = state.infinity.points.gte(cost);
                       const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
-                      const currentMult = isBought && oomAbove > 0 ? new Decimal(10).pow(oomAbove * 0.05) : Decimal.one();
+                      const currentMult = isBought && oomAbove > 0 ? new Decimal(10).pow(oomAbove * 0.03) : Decimal.one();
 
                       return (
                         <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
@@ -612,7 +612,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               )}
                             </div>
                             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                              Усиливает все генераторы в зависимости от очков свыше 1.79e308: множитель (Points / 1e308)^0.05 к производству.
+                              Multiplies Points gained by (Points / 1e308)^0.03 when Points exceed 1e308.
                             </p>
                             <div className="mt-3 text-xs font-mono text-purple-300">
                               Current boost: <strong>×{currentMult.format(notation)}</strong>
@@ -673,7 +673,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               )}
                             </div>
                             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                              Усиливает мощность всех генераторов на +1% за каждый порядок величины (OoM) очков свыше 1.79e308 (+1% за порядок).
+                              Increases all generator power by +1% per order of magnitude (OoM) of Points above 1.79e308 (+1% per OoM).
                             </p>
                             <div className="mt-3 text-xs font-mono text-purple-300">
                               Current boost: <strong>×{currentMult.toFixed(2)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
@@ -735,7 +735,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               )}
                             </div>
                             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                              Умножает мощность всех генераторов на ×2 за каждые 50 порядков величины (OoM) очков выше 1.79e308.
+                              Multiplies all generator power by ×2 for every 50 orders of magnitude (OoM) of Points above 1.79e308.
                             </p>
                             <div className="mt-3 text-xs font-mono text-purple-300">
                               Current boost: <strong>×{currentMult.format(notation)}</strong> {groupsOf50 > 0 && <span className="text-slate-400">({groupsOf50} × 50 OoMs)</span>}
@@ -796,7 +796,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               )}
                             </div>
                             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                              Увеличивает прирост Infinity Points (IP) от сброса Big Crunch на +1% за каждый порядок величины (OoM) очков свыше 1.79e308 (+1% за порядок).
+                              Increases Infinity Point (IP) gains from Big Crunch by +1% per order of magnitude (OoM) of Points above 1.79e308 (+1% per OoM).
                             </p>
                             <div className="mt-3 text-xs font-mono text-purple-300">
                               Current IP boost: <strong>×{currentMult.toFixed(2)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
