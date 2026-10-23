@@ -83,21 +83,21 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
       peResets: 1, peAmount: new Decimal(1), totalPE: new Decimal(1), prestigeEnergyLevel: 1,
       infinityCount: 0, infinityPoints: Decimal.zero(), totalIP: Decimal.zero(), skillPoints: 0,
       tree: {}, generatorBuys: [100, 70, 40, 20, 10, 5, 2, 0],
-      generatorAmountExponents: [100, 75, 50, 25, 10, 3, 0, null], tickspeedBuys: 35, totalTimePlayed: 7200,
+      generatorAmountExponents: [123, 75, 50, 25, 10, 3, 0, null], tickspeedBuys: 35, totalTimePlayed: 7200,
     },
     'first-infinity': {
       pointsExponent: 300, prestigeCount: 40, prestigePoints: new Decimal(1, 100),
       peResets: 12, peAmount: new Decimal(20), totalPE: new Decimal(20), prestigeEnergyLevel: 8,
       infinityCount: 1, infinityPoints: new Decimal(1), totalIP: new Decimal(1), skillPoints: 1,
       tree: {}, generatorBuys: [150, 120, 90, 60, 30, 10, 2, 0],
-      generatorAmountExponents: [100, 80, 60, 40, 20, 5, 1, null], tickspeedBuys: 60, totalTimePlayed: 21600,
+      generatorAmountExponents: [255, 80, 60, 40, 20, 5, 1, null], tickspeedBuys: 60, totalTimePlayed: 21600,
     },
     'ten-infinities': {
       pointsExponent: 300, prestigeCount: 150, prestigePoints: new Decimal(1, 120),
       peResets: 40, peAmount: new Decimal(100), totalPE: new Decimal(100), prestigeEnergyLevel: 15,
       infinityCount: 10, infinityPoints: new Decimal(10), totalIP: new Decimal(10), skillPoints: 10,
       tree: {}, generatorBuys: [200, 160, 120, 80, 40, 20, 10, 3],
-      generatorAmountExponents: [140, 110, 80, 50, 30, 10, 3, 0], tickspeedBuys: 80, totalTimePlayed: 86400,
+      generatorAmountExponents: [238, 110, 80, 50, 30, 10, 3, 0], tickspeedBuys: 80, totalTimePlayed: 86400,
     },
     'milestones-unlocked': {
       pointsExponent: 306, prestigeCount: 500, prestigePoints: new Decimal(1, 150),
@@ -105,7 +105,7 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
       infinityCount: 40, infinityPoints: new Decimal(1, 5), totalIP: new Decimal(1, 5), skillPoints: 10,
       tree: { root: true, feat_1: true, feat_2: true, feat_3: true },
       generatorBuys: [250, 200, 150, 100, 50, 25, 10, 3],
-      generatorAmountExponents: [180, 150, 120, 90, 50, 25, 5, 0], tickspeedBuys: 100, totalTimePlayed: 172800,
+      generatorAmountExponents: [221, 150, 120, 90, 50, 25, 5, 0], tickspeedBuys: 100, totalTimePlayed: 172800,
     },
     'break-infinity': {
       pointsExponent: 320, prestigeCount: 4000, prestigePoints: new Decimal(1, 250),
@@ -113,7 +113,7 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
       infinityCount: 4000, infinityPoints: new Decimal(1, 16), totalIP: new Decimal(1, 25), skillPoints: 470,
       tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true },
       generatorBuys: [300, 250, 200, 150, 100, 50, 20, 5],
-      generatorAmountExponents: [200, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
+      generatorAmountExponents: [195, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
     },
   };
 
