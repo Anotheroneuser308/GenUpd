@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GameState } from '../types/game';
 import { INFINITY_TREE_NODES, BRANCH_CONFIG, InfinityTreeNodeDef } from '../constants/infinityTree';
-import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
+import { getUnlockedInfinityMilestonesCount, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { getInfinityGeneratorMultiplier, getPreInfinityGeneratorMultiplier, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';
 import { Decimal } from '../utils/decimal';
 import {
@@ -190,9 +190,13 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'auto_9': return 'Automated purchases cost 0 currency.';
       case 'feat_1': return 'Unlocks the Infinity Upgrades Matrix.';
       case 'feat_2': return 'Unlocks Prestige Skill Synergy.';
-      case 'feat_3': return 'Unlocks Infinity Milestones and their rewards.';
+      case 'feat_3': {
+        const unlockedMilestones = getUnlockedInfinityMilestonesCount(state);
+        const milestoneBonus = new Decimal(1000).pow(unlockedMilestones);
+        return `Currently ${unlockedMilestones} Infinity Milestones are unlocked. Millennial Singularity currently grants ×${fmt(milestoneBonus)} to all generators.`;
+      }
       case 'feat_4': return `Break Infinity: IP gain formula is 10^(log10(Points) / 308); at current Points, the base reward is ×${fmt(new Decimal(10).pow(logPoints / 308))} IP before bonuses.`;
-      case 'feat_5': return 'Открывает улучшения Break Infinity в разделе улучшений бесконечности.';
+      case 'feat_5': return 'Unlocks Break Infinity upgrades in the Infinity Upgrades section.'
       case 'post_1': return `Current SP reward from the next Infinity: ${calculateSkillPointsGain(state)} SP (includes this upgrade only if purchased).`;
       case 'post_2': return `Current Infinities gained on the next reset: ${calculateInfinitiesGain(state)}.`;
       case 'post_3': return `Current generator multiplier from IP: ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}.`;
@@ -482,7 +486,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
             {selectedStatus.isBought && !selectedStatus.isRepeatable ? (
               <div className="px-6 py-3 bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Узел активирован (Purchased)</span>
+                <span>Purchased</span>
               </div>
             ) : (
               <div className="flex flex-col sm:flex-row items-stretch gap-2">
@@ -495,15 +499,15 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                     : 'w-full lg:w-auto px-7 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform flex items-center justify-center gap-2 shadow-lg bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed shadow-none'}
                 >
                   {!selectedStatus.hasParent ? (
-                    <><Lock className="w-4 h-4" /><span>Требуется предыдущий узел</span></>
+                    <><Lock className="w-4 h-4" /><span>Requires the previous node</span></>
                   ) : !selectedStatus.hasMilestoneReq ? (
-                    <><Lock className="w-4 h-4" /><span>Требуется майлстоун</span></>
+                    <><Lock className="w-4 h-4" /><span>Requires a milestone</span></>
                   ) : !selectedStatus.hasUpgradeReq ? (
-                    <><Lock className="w-4 h-4" /><span>Требуется апгрейд матрицы</span></>
+                    <><Lock className="w-4 h-4" /><span>Requires a Matrix upgrade</span></>
                   ) : !selectedStatus.canAfford ? (
-                    <><Lock className="w-4 h-4" /><span>Нужно {selectedStatus.cost} SP (не хватает {selectedStatus.cost - currentSP} SP)</span></>
+                    <><Lock className="w-4 h-4" /><span>Need {selectedStatus.cost} SP ({selectedStatus.cost - currentSP} SP short)</span></>
                   ) : (
-                    <><Sparkles className="w-4 h-4" /><span>{selectedStatus.isRepeatable ? 'Buy Level ' + (selectedStatus.level + 1) + ' for ' + selectedStatus.cost + ' SP' : 'Купить за ' + selectedStatus.cost + ' SP'}</span></>
+                    <><Sparkles className="w-4 h-4" /><span>{selectedStatus.isRepeatable ? 'Buy Level ' + (selectedStatus.level + 1) + ' for ' + selectedStatus.cost + ' SP' : 'Buy for ' + selectedStatus.cost + ' SP'}</span></>
                   )}
                 </button>
                 {selectedStatus.isRepeatable && (
@@ -583,7 +587,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
         {/* Helper Drag Overlay Hint */}
         <div className="absolute bottom-4 left-4 z-20 pointer-events-none flex items-center gap-2 bg-slate-950/80 border border-slate-800/80 px-3 py-1.5 rounded-xl text-[11px] font-mono text-slate-400 backdrop-blur-sm">
           <Move className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          <span>Перетаскивайте карту • Нажмите на кружок для выбора</span>
+          <span>Drag to pan • Click a node to select</span>
         </div>
 
         {/* Transformed Map Canvas */}
@@ -654,6 +658,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                 key={nodeId}
                 onClick={(e) => handleNodeClick(nodeId, e)}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group select-none"
+                title={`${def.title}\n${status.isBought ? 'Purchased' : 'Not purchased'}\nCurrent effect: ${getCurrentEffect(nodeId)}`}
                 style={{
                   left: pos.x,
                   top: pos.y,
