@@ -298,11 +298,11 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
   // Pre-Infinity branch multipliers: Tickspeed Induction and repeatable Generator Amplification.
   mult = mult.mul(getPreInfinityGeneratorMultiplier(state));
 
-  // Milestone 1000: Multiplies all generators by 10 per milestone owned
+  // Millennial Singularity: multiplies all generators by 1,000 per unlocked milestone.
   if (isInfinityMilestoneUnlocked(state, 'milestone_1000_gen_mult')) {
     const owned = getUnlockedInfinityMilestonesCount(state);
     if (owned > 0) {
-      mult = mult.mul(new Decimal(10).pow(owned));
+      mult = mult.mul(new Decimal(1000).pow(owned));
     }
   }
 
@@ -315,12 +315,6 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
   // Post-Infinity Upgrade 4: Raises generator multipliers to ^1.02
   if (state.infinityTree?.post_4) {
     mult = mult.pow(1.02);
-  }
-
-  // Break Infinity Upgrade 1: Limitless Expansion (scales above 1e308)
-  if (state.infinity?.breakInfinityUpgrades?.limitless && state.points.gt(new Decimal(1, 308))) {
-    const oomAbove = Math.max(0, state.points.log10() - 308);
-    mult = mult.mul(new Decimal(10).pow(oomAbove * 0.05));
   }
 
   // Break Infinity Upgrade 2: Singularity Resonance (+1% generator power per OoM above 1e308)
@@ -422,6 +416,12 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
   if (state.prestigeUpgrades?.logarithmicCascade && state.points.gte(10)) {
     const logP = state.points.log10();
     mult = mult.mul(new Decimal(logP * logP));
+  }
+
+  // Break Infinity Upgrade 1: Limitless Expansion multiplies Points gained by (Points / 1e308)^0.03.
+  if (state.infinity?.breakInfinityUpgrades?.limitless && state.points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, state.points.log10() - 308);
+    mult = mult.mul(new Decimal(10).pow(oomAbove * 0.03));
   }
 
   return mult;
@@ -564,7 +564,7 @@ export function calculateSkillPointsGain(state: GameState, infinityCount: number
   }
 
   // Post-Infinity Upgrade 1:
-  // "первый - Умножает получаемые SP от пойнтов, формула:(log10^{500}(Пойнты))"
+  // "First: multiplies Skill Points gained from Points using the log10(Points) / 500 scaling."
   if (state.infinityTree?.post_1 && state.points.gt(1)) {
     const spMult = Math.max(1, state.points.log10() / 500);
     totalSP = Math.floor(totalSP * spMult);
@@ -577,7 +577,7 @@ export function calculateSkillPointsGain(state: GameState, infinityCount: number
 export function calculateInfinitiesGain(state: GameState): number {
   let count = 1;
   // Post-Infinity Upgrade 2:
-  // "второй - Умножает получаемые бесконечности от пойнтов по формуле: log10^60(points)"
+  // "Second: multiplies Infinities gained from Points using the log10(Points) / 60 scaling."
   if (state.infinityTree?.post_2 && state.points.gt(1)) {
     const infMult = Math.max(1, Math.floor(state.points.log10() / 60));
     count = infMult;
