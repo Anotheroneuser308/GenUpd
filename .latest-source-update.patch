@@ -1,0 +1,556 @@
+from pathlib import Path
+
+def replace_once(path, old, new):
+    p = Path(path)
+    text = p.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one replacement, found {count}: {old[:80]!r}")
+    p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+def replace_region(path, start, end, new):
+    p = Path(path)
+    text = p.read_text(encoding="utf-8")
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise SystemExit(f"{path}: region markers not unique: {start!r} / {end!r}")
+    a = text.index(start)
+    b = text.index(end, a)
+    if b <= a:
+        raise SystemExit(f"{path}: invalid region order")
+    p.write_text(text[:a] + new + text[b:], encoding="utf-8")
+
+# State types and defaults.
+replace_once("src/types/game.ts",
+"""  generatorUpgradeLevel: number; // Purchased generator boosts bought with Prestige Energy
+  resets: number;""",
+"""  generatorUpgradeLevel: number; // Purchased generator boosts bought with Prestige Energy
+  boosterLevel: number; // Prestige Energy gain booster level
+  resets: number;""")
+replace_once("src/types/game.ts", "  infinityTree?: Record<string, boolean>;", "  infinityTree?: Record<string, boolean | number>;")
+replace_once("src/constants/initialState.ts",
+"""    generatorUpgradeLevel: 0,
+    resets: 0,""",
+"""    generatorUpgradeLevel: 0,
+    boosterLevel: 0,
+    resets: 0,""")
+
+# Prestige Energy Booster cost and effect.
+replace_once("src/utils/gameCalculations.ts",
+"""export function getGeneratorEnergyAmplifierCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  let cost = Decimal.one();
+  let levelsLeft = level;
+  let band = 0;
+
+  while (levelsLeft > 0) {
+    const levelsInBand = Math.min(10, levelsLeft);
+    const growthMultiplier = 2 + band * 0.1;
+    cost = cost.mul(new Decimal(growthMultiplier).pow(levelsInBand));
+    levelsLeft -= levelsInBand;
+    band += 1;
+  }
+
+  return cost;
+}""",
+"""export function getGeneratorEnergyAmplifierCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  let cost = Decimal.one();
+  let levelsLeft = level;
+  let band = 0;
+
+  while (levelsLeft > 0) {
+    const levelsInBand = Math.min(10, levelsLeft);
+    const growthMultiplier = 2 + band * 0.1;
+    cost = cost.mul(new Decimal(growthMultiplier).pow(levelsInBand));
+    levelsLeft -= levelsInBand;
+    band += 1;
+  }
+
+  return cost;
+}
+
+/** Next Energy Booster cost: starts at 10 PE and increases by x10 per level. */
+export function getPrestigeEnergyBoosterCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  return new Decimal(10).pow(level + 1);
+}""")
+replace_once("src/utils/gameCalculations.ts",
+"""  let gain = new Decimal(10).pow(points.log10() / 154);
+
+  // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).""",
+"""  let gain = new Decimal(10).pow(points.log10() / 154);
+
+  // Each Energy Booster level doubles Prestige Energy gained from this reset.
+  const boosterLevel = Math.max(0, Math.floor(state?.prestigeEnergy?.boosterLevel || 0));
+  if (boosterLevel > 0) gain = gain.mul(new Decimal(2).pow(boosterLevel));
+
+  // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).""")
+replace_once("src/utils/gameCalculations.ts",
+"""/**
+ * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
+ * and the Infinity Tree Root Node with a softcap after 1024 Infinities.
+ */""",
+"""/**
+ * Combined Pre-Infinity generator multiplier from Tickspeed Induction and the repeatable node.
+ */
+export function getPreInfinityGeneratorMultiplier(state: GameState): Decimal {
+  let multiplier = Decimal.one();
+  if (state.infinityTree?.pre_4) {
+    multiplier = multiplier.mul(getTotalTickspeedSpeed(state).pow(0.5));
+  }
+  const level = typeof state.infinityTree?.pre_5Level === 'number'
+    ? Math.max(0, Math.floor(state.infinityTree.pre_5Level))
+    : 0;
+  if (level > 0) multiplier = multiplier.mul(1 + level);
+  return multiplier;
+}
+
+/**
+ * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
+ * and the Infinity Tree Root Node with a softcap after 1024 Infinities.
+ */""")
+replace_once("src/utils/gameCalculations.ts",
+"""  // Infinity Tree - Pre-Infinity Node 4 (Tickspeed Induction: tickspeed affects generators at reduced rate)
+  if (state.infinityTree?.pre_4) {
+    const tickspeedSpeed = getTotalTickspeedSpeed(state);
+    if (tickspeedSpeed.gt(1)) {
+      mult = mult.mul(tickspeedSpeed.pow(0.5));
+    }
+  }""",
+"""  // Pre-Infinity branch multipliers: Tickspeed Induction and repeatable Generator Amplification.
+  mult = mult.mul(getPreInfinityGeneratorMultiplier(state));""")
+
+# Show Points Mult first; show Pre-Infinity Gen Mult after that branch has an effect.
+replace_once("src/components/GeneratorsTab.tsx",
+"""  getPointsGenerationMultiplier,
+} from '../utils/gameCalculations';""",
+"""  getPointsGenerationMultiplier,
+  getPreInfinityGeneratorMultiplier,
+} from '../utils/gameCalculations';""")
+replace_once("src/components/GeneratorsTab.tsx",
+"""  const pointsMult = getPointsGenerationMultiplier(state);
+  const costScaling""",
+"""  const pointsMult = getPointsGenerationMultiplier(state);
+  const genMult = getPreInfinityGeneratorMultiplier(state);
+  const preInfRepeatableLevel = typeof state.infinityTree?.pre_5Level === 'number' ? state.infinityTree.pre_5Level : 0;
+  const showGenMult = !!state.infinityTree?.pre_4 || preInfRepeatableLevel > 0;
+  const costScaling""")
+replace_once("src/components/GeneratorsTab.tsx",
+"""          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
+            <span>
+              Speed: <strong className="text-cyan-300">{totalTickspeed.format(notation)}x</strong>
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>
+              Points Mult: <strong className="text-emerald-300">{pointsMult.format(notation)}x</strong>
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>
+              Bought: {state.tickspeed.bought}
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span className={state.points.gte(new Decimal(1, 308)) ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
+              Cost Scale: {costScaling}
+            </span>
+          </div>""",
+"""          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
+            <span>
+              Points Mult: <strong className="text-emerald-300">{pointsMult.format(notation)}x</strong>
+            </span>
+            {showGenMult && (
+              <>
+                <span aria-hidden="true" className="text-slate-600">·</span>
+                <span>
+                  Gen Mult: <strong className="text-cyan-300">{genMult.format(notation)}x</strong>
+                </span>
+              </>
+            )}
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>
+              Speed: <strong className="text-cyan-300">{totalTickspeed.format(notation)}x</strong>
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>
+              Bought: {state.tickspeed.bought}
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span className={state.points.gte(new Decimal(1, 308)) ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
+              Cost Scale: {costScaling}
+            </span>
+          </div>""")
+
+# Infinity Tree data: repeatable Pre-Infinity node; Post-Infinity is an independent Root branch.
+replace_once("src/constants/infinityTree.ts",
+"""  reqUpgrade?: string; // requires an Infinity Upgrade to be unlocked, e.g. 'automationExpand'
+  reqMilestone?: string;""",
+"""  reqUpgrade?: string; // requires an Infinity Upgrade to be unlocked, e.g. 'automationExpand'
+  repeatable?: boolean;
+  reqMilestone?: string;""")
+replace_once("src/constants/infinityTree.ts",
+"""  pre_4: {
+    id: 'pre_4',
+    branch: 'pre',
+    title: 'Tickspeed Induction',
+    desc: 'Tickspeed multiplier also boosts all generators at a reduced power (tickspeed^0.5).',
+    cost: 3,
+    req: 'pre_3',
+    icon: '⚡',
+  },""",
+"""  pre_4: {
+    id: 'pre_4',
+    branch: 'pre',
+    title: 'Tickspeed Induction',
+    desc: 'Tickspeed multiplier also boosts all generators at a reduced power (tickspeed^0.5).',
+    cost: 3,
+    req: 'pre_3',
+    icon: '⚡',
+  },
+  pre_5: {
+    id: 'pre_5',
+    branch: 'pre',
+    title: 'Generator Amplification',
+    desc: 'Repeatable: multiplies all generator production by x(1 + level). The next level costs one more SP than the previous level (1, 2, 3, 4 SP, and so on).',
+    cost: 1,
+    req: 'pre_4',
+    repeatable: true,
+    icon: '📈',
+  },""")
+replace_once("src/constants/infinityTree.ts",
+"""    cost: 2500,
+    req: 'feat_4',
+    reqMilestone: 'milestone_2250_post_infinity',""",
+"""    cost: 2500,
+    req: 'root',
+    reqMilestone: 'milestone_2250_post_infinity',""")
+
+replace_once("src/components/InfinityTree.tsx",
+"import { getInfinityGeneratorMultiplier, getTotalTickspeedSpeed, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';",
+"import { getInfinityGeneratorMultiplier, getPreInfinityGeneratorMultiplier, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';")
+replace_once("src/components/InfinityTree.tsx",
+"""  pre_4: { x: -540, y: -170 },
+
+  // Automation (North)""",
+"""  pre_4: { x: -540, y: -170 },
+  pre_5: { x: -670, y: -240 },
+
+  // Automation (North)""")
+replace_once("src/components/InfinityTree.tsx",
+"""  // Post-Infinity (South-East extending from feat_4)
+  post_1: { x: 670, y: -130 },
+  post_2: { x: 780, y: -60 },
+  post_3: { x: 860, y: 40 },
+  post_4: { x: 910, y: 160 },""",
+"""  // Post-Infinity is a separate branch from Root Nexus (South-East).
+  post_1: { x: 430, y: 220 },
+  post_2: { x: 550, y: 310 },
+  post_3: { x: 650, y: 420 },
+  post_4: { x: 730, y: 540 },""")
+replace_once("src/components/InfinityTree.tsx",
+"""  ['pre_3', 'pre_4'],
+
+  ['root', 'auto_1'],""",
+"""  ['pre_3', 'pre_4'],
+  ['pre_4', 'pre_5'],
+
+  ['root', 'auto_1'],""")
+replace_once("src/components/InfinityTree.tsx",
+"""  ['feat_3', 'feat_4'],
+
+  ['feat_4', 'post_1'],
+  ['post_1', 'post_2'],""",
+"""  ['feat_3', 'feat_4'],
+
+  ['root', 'post_1'],
+  ['post_1', 'post_2'],""")
+replace_once("src/components/InfinityTree.tsx", "else if (clusterKey === 'post') handleCenter(750, 0);", "else if (clusterKey === 'post') handleCenter(590, 390);")
+replace_once("src/components/InfinityTree.tsx",
+"""      const isBought = !!tree[def.id];
+      const hasParent = def.req === 'none' || !!tree[def.req];
+      const hasUpgradeReq =
+        !def.reqUpgrade ||
+        (def.reqUpgrade === 'automationExpand' && !!state.infinity?.automationExpand);
+      const hasMilestoneReq =
+        !def.reqMilestone || isInfinityMilestoneUnlocked(state, def.reqMilestone as any);
+      const canAfford = currentSP >= def.cost;
+      const canBuy = !isBought && hasParent && hasUpgradeReq && hasMilestoneReq && canAfford;
+      const isAvailable = !isBought && hasParent && hasUpgradeReq && hasMilestoneReq;
+
+      return {
+        isBought,
+        hasParent,
+        hasUpgradeReq,
+        hasMilestoneReq,
+        canAfford,
+        canBuy,
+        isAvailable,
+      };""",
+"""      const isRepeatable = !!def.repeatable;
+      const levelValue = tree[def.id + 'Level'];
+      const level = isRepeatable && typeof levelValue === 'number' ? Math.max(0, Math.floor(levelValue)) : 0;
+      const isBought = isRepeatable ? level > 0 : !!tree[def.id];
+      const cost = isRepeatable ? level + 1 : def.cost;
+      const hasParent = def.req === 'none' || !!tree[def.req];
+      const hasUpgradeReq =
+        !def.reqUpgrade ||
+        (def.reqUpgrade === 'automationExpand' && !!state.infinity?.automationExpand);
+      const hasMilestoneReq =
+        !def.reqMilestone || isInfinityMilestoneUnlocked(state, def.reqMilestone as any);
+      const canAfford = currentSP >= cost;
+      const canBuy = (isRepeatable || !isBought) && hasParent && hasUpgradeReq && hasMilestoneReq && canAfford;
+      const isAvailable = (isRepeatable || !isBought) && hasParent && hasUpgradeReq && hasMilestoneReq;
+
+      return {
+        isBought,
+        isRepeatable,
+        level,
+        cost,
+        hasParent,
+        hasUpgradeReq,
+        hasMilestoneReq,
+        canAfford,
+        canBuy,
+        isAvailable,
+      };""")
+replace_region("src/components/InfinityTree.tsx",
+"      case 'pre_4':",
+"      case 'auto_1':",
+"""      case 'pre_4': return 'Current generator multiplier from the Pre-Infinity branch: x' + fmt(getPreInfinityGeneratorMultiplier(state)) + '.';
+      case 'pre_5': {
+        const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
+        return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + (level + 1) + ' SP.';
+      }
+""")
+replace_once("src/components/InfinityTree.tsx",
+"""                  Cost: <strong className="text-amber-400 font-bold">{selectedDef.cost} SP</strong>""",
+"""                  Cost: <strong className="text-amber-400 font-bold">{selectedStatus.cost} SP</strong>
+                  {selectedStatus.isRepeatable && <span className="ml-1 text-slate-500">(Level {selectedStatus.level})</span>}""")
+replace_region("src/components/InfinityTree.tsx",
+"          {/* Action / Buy Button */}",
+"        </div>\n      </div>\n\n      {/* THE INTERACTIVE 2D MAP VIEWPORT */}",
+"""          {/* Action / Buy Button */}
+          <div className="shrink-0 w-full lg:w-auto">
+            {selectedStatus.isBought && !selectedStatus.isRepeatable ? (
+              <div className="px-6 py-3 bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Узел активирован (Purchased)</span>
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                <button
+                  type="button"
+                  onClick={() => onBuyInfinityTreeNode(selectedDef.id)}
+                  disabled={!selectedStatus.canBuy}
+                  className={selectedStatus.canBuy
+                    ? 'w-full lg:w-auto px-7 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform flex items-center justify-center gap-2 shadow-lg cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-amber-500/30 hover:scale-105 active:scale-95'
+                    : 'w-full lg:w-auto px-7 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform flex items-center justify-center gap-2 shadow-lg bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed shadow-none'}
+                >
+                  {!selectedStatus.hasParent ? (
+                    <><Lock className="w-4 h-4" /><span>Требуется предыдущий узел</span></>
+                  ) : !selectedStatus.hasMilestoneReq ? (
+                    <><Lock className="w-4 h-4" /><span>Требуется майлстоун</span></>
+                  ) : !selectedStatus.hasUpgradeReq ? (
+                    <><Lock className="w-4 h-4" /><span>Требуется апгрейд матрицы</span></>
+                  ) : !selectedStatus.canAfford ? (
+                    <><Lock className="w-4 h-4" /><span>Нужно {selectedStatus.cost} SP (не хватает {selectedStatus.cost - currentSP} SP)</span></>
+                  ) : (
+                    <><Sparkles className="w-4 h-4" /><span>{selectedStatus.isRepeatable ? 'Buy Level ' + (selectedStatus.level + 1) + ' for ' + selectedStatus.cost + ' SP' : 'Купить за ' + selectedStatus.cost + ' SP'}</span></>
+                  )}
+                </button>
+                {selectedStatus.isRepeatable && (
+                  <button
+                    type="button"
+                    onClick={() => onBuyInfinityTreeNode(selectedDef.id + '_max')}
+                    disabled={!selectedStatus.hasParent || !selectedStatus.hasMilestoneReq || !selectedStatus.hasUpgradeReq || currentSP < selectedStatus.cost}
+                    className={!selectedStatus.hasParent || !selectedStatus.hasMilestoneReq || !selectedStatus.hasUpgradeReq || currentSP < selectedStatus.cost
+                      ? 'px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider border bg-slate-800 text-slate-600 border-slate-700 cursor-not-allowed'
+                      : 'px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider border bg-emerald-700 hover:bg-emerald-600 text-white border-emerald-500/50 cursor-pointer'}
+                    title="Buy as many Generator Amplification levels as possible"
+                  >
+                    MAX
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+""")
+
+# PrestigeTab props, values and Energy Booster UI.
+replace_once("src/components/PrestigeTab.tsx",
+"""  getGeneratorEnergyAmplifierCost,
+  getCascadingBoostCost,""",
+"""  getGeneratorEnergyAmplifierCost,
+  getPrestigeEnergyBoosterCost,
+  getCascadingBoostCost,""")
+replace_once("src/components/PrestigeTab.tsx",
+"""  onBuyPrestigeEnergyUpgrade: () => void;
+  onBuyMaxPrestigeEnergyUpgrade: () => void;""",
+"""  onBuyPrestigeEnergyUpgrade: () => void;
+  onBuyMaxPrestigeEnergyUpgrade: () => void;
+  onBuyPrestigeEnergyBooster: () => void;""")
+replace_once("src/components/PrestigeTab.tsx",
+"""  onBuyPrestigeEnergyUpgrade,
+  onBuyMaxPrestigeEnergyUpgrade,
+  onBuyUpgrade,""",
+"""  onBuyPrestigeEnergyUpgrade,
+  onBuyMaxPrestigeEnergyUpgrade,
+  onBuyPrestigeEnergyBooster,
+  onBuyUpgrade,""")
+replace_once("src/components/PrestigeTab.tsx",
+"""  const energyUpgradeCost = getGeneratorEnergyAmplifierCost(energyUpgradeLevel);
+  const prestigeSkillSynergyBonus""",
+"""  const energyUpgradeCost = getGeneratorEnergyAmplifierCost(energyUpgradeLevel);
+  const energyBoosterLevel = Math.max(0, Math.floor(state.prestigeEnergy.boosterLevel || 0));
+  const energyBoosterCost = getPrestigeEnergyBoosterCost(energyBoosterLevel);
+  const energyBoosterMult = new Decimal(2).pow(energyBoosterLevel);
+  const prestigeSkillSynergyBonus""")
+replace_once("src/components/PrestigeTab.tsx",
+"""            {/* Prestige Energy Contract */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl text-left pt-4 border-t border-slate-800/80 text-xs">""",
+"""            {/* Energy Booster: doubles PE gained per Prestige Energy reset. */}
+            <div className="w-full max-w-xl rounded-xl border border-amber-500/30 bg-slate-950/70 p-5 text-left space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-100">Energy Booster</h3>
+                <span className="text-[10px] font-mono rounded border border-amber-500/30 bg-amber-950/50 px-2 py-1 text-amber-300">LEVEL {energyBoosterLevel}</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Each level doubles the Prestige Energy gained from every Energy reset. Cost starts at 10 PE and multiplies by x10 per level.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                <div className="text-xs font-mono text-slate-400">
+                  Current bonus: <strong className="text-emerald-300">x{energyBoosterMult.format(notation)} PE gain</strong>
+                  {' · '}Next level: <strong className="text-purple-300">x{new Decimal(2).pow(energyBoosterLevel + 1).format(notation)}</strong>
+                  {' · '}Cost: <strong className="text-amber-400">{energyBoosterCost.format(notation)} PE</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={onBuyPrestigeEnergyBooster}
+                  disabled={state.prestigeEnergy.amount.lt(energyBoosterCost)}
+                  className={state.prestigeEnergy.amount.gte(energyBoosterCost)
+                    ? 'px-4 py-2 rounded-lg text-xs font-mono font-semibold bg-amber-600 hover:bg-amber-500 text-white cursor-pointer'
+                    : 'px-4 py-2 rounded-lg text-xs font-mono font-semibold bg-slate-800 text-slate-600 cursor-not-allowed'}
+                >
+                  Buy Level
+                </button>
+              </div>
+            </div>
+
+            {/* Prestige Energy Contract */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-xl text-left pt-4 border-t border-slate-800/80 text-xs">""")
+
+# Purchase function and App wiring.
+replace_once("src/hooks/useGameLoop.ts",
+"""  getGeneratorEnergyAmplifierCost,
+  calculateInfinityPointGain,""",
+"""  getGeneratorEnergyAmplifierCost,
+  getPrestigeEnergyBoosterCost,
+  calculateInfinityPointGain,""")
+replace_once("src/hooks/useGameLoop.ts",
+"""                  generatorUpgradeLevel: state.prestigeEnergy.generatorUpgradeLevel || 0,
+                  resets: state.prestigeEnergy.resets + 1,""",
+"""                  generatorUpgradeLevel: state.prestigeEnergy.generatorUpgradeLevel || 0,
+                  boosterLevel: state.prestigeEnergy.boosterLevel || 0,
+                  resets: state.prestigeEnergy.resets + 1,""")
+replace_once("src/hooks/useGameLoop.ts",
+"""  // Buy any Prestige Upgrade
+  const buyPrestigeUpgrade = useCallback((upgradeId: string) => {""",
+"""  // Buy Energy Booster: costs 10 PE initially, grows x10 each level, doubles PE gain.
+  const buyPrestigeEnergyBooster = useCallback(() => {
+    setGameState((prev) => {
+      const level = Math.max(0, Math.floor(prev.prestigeEnergy.boosterLevel || 0));
+      const cost = getPrestigeEnergyBoosterCost(level);
+      if (prev.prestigeEnergy.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        prestigeEnergy: {
+          ...prev.prestigeEnergy,
+          amount: prev.prestigeEnergy.amount.sub(cost),
+          boosterLevel: level + 1,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Buy any Prestige Upgrade
+  const buyPrestigeUpgrade = useCallback((upgradeId: string) => {""")
+replace_once("src/hooks/useGameLoop.ts",
+"""          multiplier: Decimal.one(),
+          generatorUpgradeLevel: 0,
+          resets: 0,""",
+"""          multiplier: Decimal.one(),
+          generatorUpgradeLevel: 0,
+          boosterLevel: 0,
+          resets: 0,""")
+replace_once("src/hooks/useGameLoop.ts",
+"""  const buyInfinityTreeNode = useCallback((nodeId: string) => {
+    setGameState((prev) => {
+      const def = INFINITY_TREE_NODES[nodeId];
+      if (!def) return prev;
+      const tree = prev.infinityTree || {};
+      if (tree[nodeId]) return prev;""",
+"""  const buyInfinityTreeNode = useCallback((nodeId: string) => {
+    setGameState((prev) => {
+      const tree = prev.infinityTree || {};
+
+      // MAX-buy the repeatable Generator Amplification node using the triangular cost sequence.
+      if (nodeId === 'pre_5_max') {
+        if (!tree.pre_4) return prev;
+        const level = typeof tree.pre_5Level === 'number' ? Math.max(0, Math.floor(tree.pre_5Level)) : 0;
+        const currentSP = Math.max(0, prev.infinity.skillPoints || 0);
+        const discriminant = 2 * level + 1;
+        let levelsToBuy = Math.max(0, Math.floor((-discriminant + Math.sqrt(discriminant * discriminant + 8 * currentSP)) / 2));
+        const costFor = (count: number) => count * (level + 1) + count * (count - 1) / 2;
+        for (let i = 0; i < 4 && levelsToBuy > 0 && costFor(levelsToBuy) > currentSP; i++) levelsToBuy -= 1;
+        for (let i = 0; i < 4 && costFor(levelsToBuy + 1) <= currentSP; i++) levelsToBuy += 1;
+        if (levelsToBuy <= 0) return prev;
+
+        const totalCost = costFor(levelsToBuy);
+        sound.playBuy();
+        const nextState: GameState = {
+          ...prev,
+          infinity: { ...prev.infinity, skillPoints: Math.max(0, currentSP - totalCost) },
+          infinityTree: { ...tree, pre_5: true, pre_5Level: level + levelsToBuy },
+        };
+        saveStateWithBackup(nextState);
+        return nextState;
+      }
+
+      const def = INFINITY_TREE_NODES[nodeId];
+      if (!def) return prev;
+      if (tree[nodeId] && !def.repeatable) return prev;""")
+replace_once("src/hooks/useGameLoop.ts",
+"""      const costSP = def.cost;
+      const currentSP = prev.infinity.skillPoints ?? 0;""",
+"""      const storedLevel = tree[nodeId + 'Level'];
+      const currentLevel = def.repeatable && typeof storedLevel === 'number' ? Math.max(0, Math.floor(storedLevel)) : 0;
+      const costSP = def.repeatable ? currentLevel + 1 : def.cost;
+      const currentSP = prev.infinity.skillPoints ?? 0;""")
+replace_once("src/hooks/useGameLoop.ts",
+"""      const nextSP = currentSP - costSP;
+      const nextTree = { ...tree, [nodeId]: true };""",
+"""      const nextSP = currentSP - costSP;
+      const nextTree = def.repeatable
+        ? { ...tree, [nodeId]: true, [nodeId + 'Level']: currentLevel + 1 }
+        : { ...tree, [nodeId]: true };""")
+replace_once("src/hooks/useGameLoop.ts",
+"""    buyPrestigeEnergyUpgrade,
+    buyMaxPrestigeEnergyUpgrade,
+    buyPrestigeUpgrade,""",
+"""    buyPrestigeEnergyUpgrade,
+    buyMaxPrestigeEnergyUpgrade,
+    buyPrestigeEnergyBooster,
+    buyPrestigeUpgrade,""")
+replace_once("src/App.tsx",
+"""            onBuyMaxPrestigeEnergyUpgrade={buyMaxPrestigeEnergyUpgrade}
+            onBuyUpgrade={buyPrestigeUpgrade}""",
+"""            onBuyMaxPrestigeEnergyUpgrade={buyMaxPrestigeEnergyUpgrade}
+            onBuyPrestigeEnergyBooster={buyPrestigeEnergyBooster}
+            onBuyUpgrade={buyPrestigeUpgrade}""")
+
+print("Applied Generators source updates.")
