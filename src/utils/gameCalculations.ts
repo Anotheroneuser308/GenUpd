@@ -110,7 +110,7 @@ export function getGeneratorUnlockCost(currentLevel: number): Decimal {
 
 /**
  * Infinity generator multiplier: 2^Infinities up to 100 Infinities, then
- * retains that entire bonus and adds a softer x1.2 multiplier per extra Infinity.
+ * retains that entire bonus and adds a strongly softcapped x1.05 multiplier per extra Infinity.
  */
 export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
   const count = Math.max(0, Math.floor(Number.isFinite(infinities) ? infinities : 0));
@@ -119,7 +119,7 @@ export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
 
   const multiplier = new Decimal(2).pow(beforeSoftcap);
   return afterSoftcap > 0
-    ? multiplier.mul(new Decimal(1.2).pow(afterSoftcap))
+    ? multiplier.mul(new Decimal(1.05).pow(afterSoftcap))
     : multiplier;
 }
 
@@ -181,7 +181,7 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     }
   }
 
-  // Infinity Tree - Root Node (Infinity Nexus, 1 SP): 2^Infinities until 100, then an additional 1.2x per Infinity.
+  // Infinity Tree - Root Node (Infinity Nexus, 1 SP): 2^Infinities until 100, then an additional 1.05x per Infinity.
   const totalInfinities = state.infinity?.count || state.stats?.totalInfinities || 0;
   if (state.infinityTree?.root && totalInfinities > 0) {
     mult = mult.mul(getInfinityGeneratorMultiplier(totalInfinities));
@@ -268,7 +268,7 @@ export function getAchievementMasterCompletions(state: GameState): number {
   if (!state.infinity?.achievementMaster) return 0;
   const p = state.points;
   if (!p || p.lte(0) || !p.mantissa) return 0;
-  return Math.floor(Math.max(0, p.log10()));
+  return Math.floor(Math.max(0, p.log10())) * 3;
 }
 
 /**
@@ -341,14 +341,13 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
 
 /**
  * Calculate Prestige Energy currency gained on an Energy reset.
- * Starts at 1 PE at 1e154 Points and scales by 10x per 40 additional orders of magnitude.
+ * Exponential formula: 10^(log10(Points) / 154). At 1e154 Points, this grants 10 PE.
  * It is a currency reward only; it no longer directly multiplies existing generator power.
  */
 export function calculatePrestigeEnergyGain(points: Decimal, state?: GameState): Decimal {
   if (points.lt(PRESTIGE_ENERGY_THRESHOLD)) return Decimal.zero();
 
-  const excessLog = Math.max(0, points.log10() - 154);
-  let gain = new Decimal(10).pow(excessLog / 40);
+  let gain = new Decimal(10).pow(points.log10() / 154);
 
   // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).
   if (state?.infinity?.energySPBoost) {
@@ -376,8 +375,8 @@ export function getTemporalInfinityMultiplier(state: GameState, infinityCountOve
 
 /**
  * Calculate Infinity Points granted by a Big Crunch / Infinity reset.
- * Before Break Infinity, a reset grants 1 IP (then upgrade/milestone multipliers apply).
- * After Break Infinity, each additional 10 orders of magnitude of Points grants 10x more IP.
+ * After Break Infinity, the base gain is 10^(log10(Points) / 308).
+ * At 1e308 Points, this grants 10 IP.
  */
 export function calculateInfinityPointGain(
   points: Decimal,
@@ -387,8 +386,7 @@ export function calculateInfinityPointGain(
   let gain = Decimal.one();
 
   if (state.infinityTree?.feat_4 && points.gte(INFINITY_THRESHOLD)) {
-    const excessLog = Math.max(0, points.log10() - INFINITY_THRESHOLD.log10());
-    gain = new Decimal(10).pow(excessLog / 10);
+    gain = new Decimal(10).pow(points.log10() / 308);
     if (gain.lt(1)) gain = Decimal.one();
   }
 

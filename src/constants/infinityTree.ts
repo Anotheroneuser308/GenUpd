@@ -15,7 +15,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'root',
     branch: 'root',
     title: 'Infinity Nexus',
-    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, the full 2^100 bonus is retained and each extra Infinity adds a x1.2 multiplier. Unlocks all branches.',
+    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, the full 2^100 bonus is retained and each extra Infinity adds a strongly softcapped x1.05 multiplier. Unlocks all branches.',
     cost: 1, // Purchasable for 1 SP
     req: 'none',
     icon: '⚡',
@@ -178,7 +178,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'feat_4',
     branch: 'feat',
     title: 'Break Infinity',
-    desc: 'Shatters the 1.79e308 boundary, allowing points and production to scale endlessly.',
+    desc: 'Shatters the 1.79e308 boundary, allowing points and production to scale endlessly. Base Infinity Point gain is 10^(log10(Points) / 308).',
     cost: 1000,
     req: 'feat_3',
     icon: '🌌',

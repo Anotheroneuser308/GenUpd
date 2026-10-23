@@ -565,7 +565,7 @@ export function useGameLoop() {
                 // to establish a baseline; later runs must beat it by the configured ratio.
                 shouldPrestige = previousGain.gt(0)
                   ? ppGain.gte(previousGain.mul(ratioTarget))
-                  : true;
+                  : ppGain.gte(target);
               } else {
                 shouldPrestige = ppGain.gte(target);
               }
@@ -678,7 +678,7 @@ export function useGameLoop() {
               if (eMode === 'time') {
                 shouldResetEnergy = state.stats.timeThisPrestige >= eTimeTarget;
               } else if (eMode === 'gainMultiplier') {
-                shouldResetEnergy = prevGain.gt(0) ? gainedEnergy.gte(prevGain.mul(eRatioTarget)) : true;
+                shouldResetEnergy = prevGain.gt(0) ? gainedEnergy.gte(prevGain.mul(eRatioTarget)) : gainedEnergy.gte(eTarget);
               } else {
                 shouldResetEnergy = gainedEnergy.gte(eTarget);
               }
@@ -724,7 +724,7 @@ export function useGameLoop() {
             if (infMode === 'time') {
               shouldCrunch = (state.stats.timeThisInfinity || 0) >= infTimeTarget;
             } else if (infMode === 'ipMultiplier') {
-              shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : true;
+              shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : ipGain.gte(infTarget);
             } else {
               shouldCrunch = ipGain.gte(infTarget);
             }
@@ -1495,7 +1495,7 @@ export function useGameLoop() {
     });
   }, []);
 
-  // Infinity Upgrade 3: Achievement Master (15 IP, +1 completion per magnitude of points)
+  // Infinity Upgrade 3: Achievement Master (15 IP, +3 completions per magnitude of points)
   const buyAchievementMaster = useCallback(() => {
     setGameState((prev) => {
       if (prev.infinity.achievementMaster) return prev;

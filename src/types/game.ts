@@ -57,7 +57,7 @@ export interface InfinityState {
   unlocked: boolean; // unlocked when reaching 1.79e308
   ipDoublerLevel?: number; // Infinity Upgrade: Doubles IP gain on each Infinity
   automationExpand?: boolean; // Infinity Upgrade: Unlocks auto_5 and auto_6 in tree
-  achievementMaster?: boolean; // Infinity Upgrade: 15 IP, unlocks infinite achievements per magnitude
+  achievementMaster?: boolean; // Infinity Upgrade: 15 IP, grants 3 honorary achievements per magnitude
   ipGeneratorBoost: boolean; // All generators scale with lifetime IP: 3^log10(total IP earned)
   timeIPBoost: boolean; // Big Crunch IP gain scales with time spent in current Infinity
   energySPBoost: boolean; // Prestige Energy gain scales with unspent SP + 1

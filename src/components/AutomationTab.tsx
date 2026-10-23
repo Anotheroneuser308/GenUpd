@@ -202,9 +202,9 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                     </label>
                   )}
 
-                  {prestigeMode === 'targetPP' && (
+                  {(prestigeMode === 'targetPP' || prestigeMode === 'ppMultiplier') && (
                     <label className="block text-slate-400 text-[11px]">
-                      Reset when PP gain reaches at least
+                      First reset when PP gain reaches this amount
                       <div className="mt-1 flex items-center gap-2">
                         <input
                           type="number"
@@ -226,7 +226,7 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
 
                   {prestigeMode === 'ppMultiplier' && (
                     <label className="block text-slate-400 text-[11px]">
-                      Reset when PP gain reaches at least
+                      After the first reset, require this multiple of the previous PP gain
                       <div className="mt-1 flex items-center gap-2">
                         <input
                           type="number"
@@ -316,9 +316,9 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                     </label>
                   )}
 
-                  {((!state.autobuyers?.autoPrestigeEnergy?.energyMode || state.autobuyers?.autoPrestigeEnergy?.energyMode === 'target')) && (
+                  {((!state.autobuyers?.autoPrestigeEnergy?.energyMode || state.autobuyers?.autoPrestigeEnergy?.energyMode === 'target' || state.autobuyers?.autoPrestigeEnergy?.energyMode === 'gainMultiplier')) && (
                     <label className="block text-slate-400 text-[11px]">
-                      Reset when Energy reward is at least
+                      First reset when PE reward reaches this amount
                       <div className="mt-1 flex items-center gap-2">
                         <input
                           type="number"
@@ -403,9 +403,9 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                     </label>
                   )}
 
-                  {((!state.autobuyers?.autoInfinity?.infinityMode || state.autobuyers?.autoInfinity?.infinityMode === 'targetIP')) && (
+                  {((!state.autobuyers?.autoInfinity?.infinityMode || state.autobuyers?.autoInfinity?.infinityMode === 'targetIP' || state.autobuyers?.autoInfinity?.infinityMode === 'ipMultiplier')) && (
                     <label className="block text-slate-400 text-[11px]">
-                      Crunch when IP gain reaches at least
+                      First crunch when IP gain reaches this amount
                       <div className="mt-1 flex items-center gap-2">
                         <input
                           type="number"

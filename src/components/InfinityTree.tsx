@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GameState } from '../types/game';
 import { INFINITY_TREE_NODES, BRANCH_CONFIG, InfinityTreeNodeDef } from '../constants/infinityTree';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
+import { getInfinityGeneratorMultiplier, getTotalTickspeedSpeed, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';
+import { Decimal } from '../utils/decimal';
 import {
   Layers,
   CheckCircle2,
@@ -148,6 +150,40 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
   );
 
   const selectedStatus = getNodeStatus(selectedDef);
+
+  // Live effect preview for the currently selected tree node.
+  const getCurrentEffect = (id: string): string => {
+    const points = state.points || Decimal.zero();
+    const logPoints = Math.max(0, points.log10());
+    const infCount = state.infinity?.count || state.stats?.totalInfinities || 0;
+    const notation = state.settings?.notation;
+    const fmt = (value: Decimal | number) => value instanceof Decimal ? value.format(notation) : String(Number.isFinite(value) ? Number(value.toFixed(3)) : value);
+    switch (id) {
+      case 'root': return `Generator multiplier from Infinities: ×${fmt(getInfinityGeneratorMultiplier(infCount))} (currently ${infCount} Infinities; after 100, growth is ×1.05 per extra Infinity).`;
+      case 'pre_1': return `Current generator bonus from time: ×${fmt(1 + (state.stats?.timeThisInfinity || 0) * 0.01)}.`;
+      case 'pre_2': return 'On each Prestige/Infinity: start with 1,000,000 Points and 1 of each of the first 4 generators.';
+      case 'pre_3': return 'Current Prestige Point reward multiplier: ×3.';
+      case 'pre_4': return `Current extra generator multiplier from Tickspeed: ×${fmt(getTotalTickspeedSpeed(state).pow(0.5))}.`;
+      case 'auto_1': return 'Unlocks automatic purchases for Generators 1–4.';
+      case 'auto_2': return 'Unlocks automatic Tickspeed and Generators 5–8 purchases.';
+      case 'auto_3': return 'Unlocks Prestige automation; current settings are shown in the Automation tab.';
+      case 'auto_4': return 'Autobuyers run 5× faster and can buy maximum available generators.';
+      case 'auto_5': return 'Unlocks automatic Prestige upgrade purchases.';
+      case 'auto_6': return 'Unlocks automatic Prestige Energy resets.';
+      case 'auto_7': return 'Unlocks automatic Infinity resets.';
+      case 'auto_8': return 'Unlocks automatic PE amplifier purchases.';
+      case 'auto_9': return 'Automated purchases cost 0 currency.';
+      case 'feat_1': return 'Unlocks the Infinity Upgrades Matrix.';
+      case 'feat_2': return 'Unlocks Prestige Skill Synergy.';
+      case 'feat_3': return 'Unlocks Infinity Milestones and their rewards.';
+      case 'feat_4': return `Break Infinity: IP gain formula is 10^(log10(Points) / 308); at current Points, the base reward is ×${fmt(new Decimal(10).pow(logPoints / 308))} IP before bonuses.`;
+      case 'post_1': return `Current SP reward from the next Infinity: ${calculateSkillPointsGain(state)} SP (includes this upgrade only if purchased).`;
+      case 'post_2': return `Current Infinities gained on the next reset: ${calculateInfinitiesGain(state)}.`;
+      case 'post_3': return `Current generator multiplier from IP: ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}.`;
+      case 'post_4': return 'Raises the resulting generator multipliers to the power of 1.02.';
+      default: return 'This node unlocks the effect described above.';
+    }
+  };
 
   // Mouse pan handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -374,6 +410,9 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
 
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
                 {selectedDef.desc}
+              </p>
+              <p className="mt-2 text-xs sm:text-sm text-emerald-300 leading-relaxed max-w-2xl">
+                <span className="font-bold text-emerald-200">Current effect: </span>{getCurrentEffect(selectedDef.id)}
               </p>
 
               {/* Requirements row */}

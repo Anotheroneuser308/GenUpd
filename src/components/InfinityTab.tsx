@@ -382,7 +382,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                   const isBought = !!state.infinity.achievementMaster;
                   const canAfford = state.infinity.points.gte(15);
                   const extraCompletions = isBought && state.points.gt(0) && state.points.mantissa
-                    ? Math.floor(Math.max(0, state.points.log10()))
+                    ? Math.floor(Math.max(0, state.points.log10())) * 3
                     : 0;
 
                   return (
@@ -407,7 +407,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           )}
                         </div>
                         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                          For every magnitude (log10) of Points achieved, grants +1 honorary achievement completion. Infinite scalability without notification spam. Directly multiplies Achievement Resonance!
+                          For every magnitude (log10) of Points achieved, grants +3 honorary achievement completions. Infinite scalability without notification spam. Directly multiplies Achievement Resonance!
                         </p>
                         {isBought && (
                           <div className="mt-3 text-xs font-mono text-amber-300">

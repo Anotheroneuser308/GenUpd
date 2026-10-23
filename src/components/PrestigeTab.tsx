@@ -72,7 +72,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const upg1CurrentMult = upgs.pointScaling && oom6 > 0 ? new Decimal(2).pow(oom6) : Decimal.one();
   const unlockedAchCount = Object.values(state.achievements).filter(Boolean).length;
   const achMasterBonus = state.infinity?.achievementMaster && state.points.gt(0) && state.points.mantissa
-    ? Math.floor(Math.max(0, state.points.log10()))
+    ? Math.floor(Math.max(0, state.points.log10())) * 3
     : 0;
   const totalEffectiveAch = unlockedAchCount + achMasterBonus;
   const upg2CurrentMult = upgs.achievementBoost && totalEffectiveAch > 0 ? new Decimal(1.05).pow(totalEffectiveAch) : Decimal.one();
@@ -945,7 +945,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 Prestige Energy
               </h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE based on your Points. Purchased amplifier levels and the passive PE generator bonus both reset when you Big Crunch into Infinity.
+                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE using 10^(log10(Points) / 154). Purchased amplifier levels and the passive PE generator bonus both reset when you Big Crunch into Infinity.
               </p>
             </div>
 
