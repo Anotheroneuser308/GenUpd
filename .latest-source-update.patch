@@ -1,0 +1,25 @@
+from pathlib import Path
+
+def replace_once(path, old, new):
+    p = Path(path)
+    content = p.read_text(encoding="utf-8")
+    if content.count(old) != 1:
+        raise SystemExit(f"{path}: expected exactly one match for {old!r}")
+    p.write_text(content.replace(old, new, 1), encoding="utf-8")
+
+replace_once(
+    "src/components/PrestigeTab.tsx",
+    "Purchased amplifier levels and the passive PE generator bonus both reset when you Big Crunch into Infinity.",
+    "Purchased Generator Energy Amplifier levels, Energy Booster levels, and the passive PE generator bonus reset when you Big Crunch into Infinity."
+)
+replace_once(
+    "src/components/PrestigeTab.tsx",
+    "• Unspent Prestige Energy and purchased Energy Amplifier levels",
+    "• Unspent Prestige Energy, Generator Energy Amplifier levels, and Energy Booster levels"
+)
+replace_once(
+    ".github/workflows/build-game.yml",
+    'git commit -m "Add softcap to Generator Energy Amplifier price growth"',
+    'git commit -m "Apply Generators source updates"'
+)
+print("Updated Prestige Energy reset descriptions and workflow commit message.")
