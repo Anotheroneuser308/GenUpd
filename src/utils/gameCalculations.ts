@@ -327,14 +327,19 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     }
   }
 
-  // Hypercharge Overdrive improves the interval from 50 OoMs to 40 OoMs.
+  // Dimension Hypercharge grants x2 per 50 OoMs above 1e308 Points.
   if (state.infinity?.breakInfinityUpgrades?.hypercharge && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
-    const interval = state.infinity.breakInfinityUpgrades?.hyperchargeOverdrive ? 40 : 50;
-    const groups = Math.floor(oomAbove / interval);
+    const groups = Math.floor(oomAbove / 50);
     if (groups > 0) {
       mult = mult.mul(new Decimal(2).pow(groups));
     }
+  }
+
+  // Hypercharge Overdrive adds a separate generator multiplier with sublinear OoM scaling.
+  if (state.infinity?.breakInfinityUpgrades?.hyperchargeOverdrive && state.points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, state.points.log10() - 308);
+    mult = mult.mul(new Decimal(10).pow(0.5 * Math.sqrt(oomAbove)));
   }
 
   // Transcendent Cascade raises the final generator multiplier to ^1.05.
