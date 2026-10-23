@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Use relative asset paths so the production build runs from itch.io's embedded HTML5 URL.
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
