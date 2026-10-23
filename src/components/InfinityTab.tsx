@@ -32,7 +32,7 @@ interface AdvancedBreakInfinityUpgradeDefinition {
 }
 
 const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[] = [
-  { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains a powerful ×10^(0.1 × OoMs^1.1) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
+  { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains a controlled ×10^(0.01 × OoMs^0.8) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
   { id: 'singularityOverdrive', title: 'Badass Singularity', description: 'Upgrades Singularity Resonance to +2% per OoM, then raises that multiplier to ^7.77. Requires Singularity Resonance.', cost: new Decimal(1, 50), requirement: 'singularityResonance' },
   { id: 'hyperchargeOverdrive', title: 'Hypercharge Overdrive', description: 'Adds an extra generator multiplier of ×10^(0.5 × √OoMs above 1e308 Points). Requires Dimension Hypercharge.', cost: new Decimal(1, 60), requirement: 'hypercharge' },
   { id: 'vacuumCascade', title: 'Vacuum Cascade', description: 'Infinity Point gains are multiplied by 10^(0.1 × sqrt(OoMs above 1e308)).', cost: new Decimal(1, 75) },
@@ -43,7 +43,7 @@ const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[]
 function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, state: GameState, oomAbove: number): string {
   switch (id) {
     case 'fractalIgnition':
-      return 'Points gain ×' + new Decimal(10).pow(0.1 * Math.pow(oomAbove, 1.1)).format(state.settings.notation);
+      return 'Points gain ×' + new Decimal(10).pow(0.01 * Math.pow(oomAbove, 0.8)).format(state.settings.notation);
     case 'singularityOverdrive':
       return 'Singularity Resonance becomes ×' + new Decimal(1 + 0.02 * oomAbove).pow(7.77).format(state.settings.notation);
     case 'hyperchargeOverdrive':

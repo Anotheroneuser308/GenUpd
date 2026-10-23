@@ -81,7 +81,7 @@ export interface InfinityState {
     singularityResonance?: boolean; // +1% generator power per OoM above 1e308, upgraded by Badass Singularity
     hypercharge?: boolean; // x2 generator bonus per 50 OoMs above 1e308
     vacuumMomentum?: boolean; // +1% IP gain per OoM above 1e308
-    fractalIgnition?: boolean; // Points generation x10^(0.1 * OoMs^1.1) above 1e308
+    fractalIgnition?: boolean; // Points generation x10^(0.01 * OoMs^0.8) above 1e308
     singularityOverdrive?: boolean; // Badass Singularity: +2% per OoM and ^7.77 Resonance multiplier
     hyperchargeOverdrive?: boolean; // Adds x10^(0.5 * sqrt(OoMs above 1e308)) to generator power
     vacuumCascade?: boolean; // Additional IP gain scaling from sqrt(OoMs)

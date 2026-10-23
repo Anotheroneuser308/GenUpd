@@ -437,10 +437,10 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
     mult = mult.mul(new Decimal(10).pow(oomAbove * 0.03));
   }
 
-  // Fractal Ignition: strong superlinear scaling to help reach the next Break Infinity IP tier.
+  // Fractal Ignition: controlled sublinear scaling so it helps without overwhelming later upgrades.
   if (state.infinity?.breakInfinityUpgrades?.fractalIgnition && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
-    mult = mult.mul(new Decimal(10).pow(0.1 * Math.pow(oomAbove, 1.1)));
+    mult = mult.mul(new Decimal(10).pow(0.01 * Math.pow(oomAbove, 0.8)));
   }
 
   // Absolute Horizon raises the complete Points-generation multiplier to ^1.05.
