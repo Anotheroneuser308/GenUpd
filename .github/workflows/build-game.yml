@@ -13,10 +13,11 @@ jobs:
       - name: Apply latest source update if provided
         shell: bash
         run: |
-          if [[ -f .latest-source-update.tar.xz.b64 ]]; then
-            base64 --decode .latest-source-update.tar.xz.b64 > /tmp/generators-source-update.tar.xz
+          if [[ -f .latest-source-update-00.b64 && -f .latest-source-update-01.b64 && -f .latest-source-update-02.b64 && -f .latest-source-update-03.b64 && -f .latest-source-update-04.b64 && -f .latest-source-update-05.b64 && -f .latest-source-update-06.b64 && -f .latest-source-update-07.b64 && -f .latest-source-update-08.b64 ]]; then
+            cat .latest-source-update-*.b64 > /tmp/generators-source-update.tar.xz.b64
+            base64 --decode /tmp/generators-source-update.tar.xz.b64 > /tmp/generators-source-update.tar.xz
             tar -xJf /tmp/generators-source-update.tar.xz -C .
-            rm .latest-source-update.tar.xz.b64 /tmp/generators-source-update.tar.xz
+            rm .latest-source-update-*.b64 /tmp/generators-source-update.tar.xz.b64 /tmp/generators-source-update.tar.xz
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -A
