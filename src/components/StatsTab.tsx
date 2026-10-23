@@ -16,7 +16,347 @@ import {
   X,
 } from 'lucide-react';
 import { GameState } from '../types/game';
+import { Decimal } from '../utils/decimal';
+import { createInitialState, serializeState } from '../constants/initialState';
 import { GrowthHistoryChart } from './GrowthHistoryChart';
+
+
+type SaveBankPresetId =
+  | 'first-prestige'
+  | 'first-prestige-energy'
+  | 'first-infinity'
+  | 'ten-infinities'
+  | 'milestones-unlocked'
+  | 'break-infinity';
+
+interface SaveBankPresetDefinition {
+  id: SaveBankPresetId;
+  title: string;
+  stage: string;
+  description: string;
+  icon: string;
+  progress: string;
+}
+
+const SAVE_BANK_PREVIOUS_STATE_KEY = 'generators_save_bank_previous_v1';
+
+const SAVE_BANK_PRESETS: SaveBankPresetDefinition[] = [
+  { id: 'first-prestige', title: 'First Prestige', stage: 'Prestige', description: 'A checkpoint after the first Prestige reset, with 8 Prestige Points (PP) available.', icon: '🏆', progress: '1 Prestige · 8 PP' },
+  { id: 'first-prestige-energy', title: 'First Prestige Energy', stage: 'Prestige Energy', description: 'Prestige Energy has been reset once. One PE is available, with a developed run ready to continue.', icon: '⚡', progress: '1 PE reset' },
+  { id: 'first-infinity', title: 'First Infinity', stage: 'Infinity', description: 'The first Big Crunch is complete. Infinity Points (IP) and Skill Points (SP) are available.', icon: '♾️', progress: '1 Infinity · 1 IP · 1 SP' },
+  { id: 'ten-infinities', title: '10 Infinities', stage: 'Infinity', description: 'Ten Big Crunches recorded, with IP and SP accumulated for the next stage.', icon: '🔟', progress: '10 Infinities' },
+  { id: 'milestones-unlocked', title: 'Infinity Milestones Unlocked', stage: 'Milestones', description: 'The Infinity Tree path to Infinity Milestones is already purchased, so the milestone system is immediately available.', icon: '🌿', progress: '40 Infinities · Milestones unlocked' },
+  { id: 'break-infinity', title: 'Break Infinity', stage: 'Post-Infinity', description: 'Points have passed 1e308, and both Break Infinity nodes are unlocked so you can test post-Infinity scaling.', icon: '🌌', progress: '4,000 Infinities · Points above 1e308' },
+];
+
+interface SaveBankPresetConfig {
+  pointsExponent: number;
+  prestigeCount: number;
+  prestigePoints: Decimal;
+  peResets: number;
+  peAmount: Decimal;
+  totalPE: Decimal;
+  prestigeEnergyLevel: number;
+  infinityCount: number;
+  infinityPoints: Decimal;
+  totalIP: Decimal;
+  skillPoints: number;
+  tree: Record<string, boolean | number>;
+  generatorBuys: number[];
+  generatorAmountExponents: Array<number | null>;
+  tickspeedBuys: number;
+  totalTimePlayed: number;
+}
+
+function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
+  const state = createInitialState();
+  const configs: Record<SaveBankPresetId, SaveBankPresetConfig> = {
+    'first-prestige': {
+      pointsExponent: 10, prestigeCount: 1, prestigePoints: new Decimal(8),
+      peResets: 0, peAmount: Decimal.zero(), totalPE: Decimal.zero(), prestigeEnergyLevel: 0,
+      infinityCount: 0, infinityPoints: Decimal.zero(), totalIP: Decimal.zero(), skillPoints: 0,
+      tree: {}, generatorBuys: [10, 3, 0, 0, 0, 0, 0, 0],
+      generatorAmountExponents: [12, 5, null, null, null, null, null, null], tickspeedBuys: 4, totalTimePlayed: 900,
+    },
+    'first-prestige-energy': {
+      pointsExponent: 153, prestigeCount: 12, prestigePoints: new Decimal(1, 50),
+      peResets: 1, peAmount: new Decimal(1), totalPE: new Decimal(1), prestigeEnergyLevel: 1,
+      infinityCount: 0, infinityPoints: Decimal.zero(), totalIP: Decimal.zero(), skillPoints: 0,
+      tree: {}, generatorBuys: [100, 70, 40, 20, 10, 5, 2, 0],
+      generatorAmountExponents: [100, 75, 50, 25, 10, 3, 0, null], tickspeedBuys: 35, totalTimePlayed: 7200,
+    },
+    'first-infinity': {
+      pointsExponent: 300, prestigeCount: 40, prestigePoints: new Decimal(1, 100),
+      peResets: 12, peAmount: new Decimal(20), totalPE: new Decimal(20), prestigeEnergyLevel: 8,
+      infinityCount: 1, infinityPoints: new Decimal(1), totalIP: new Decimal(1), skillPoints: 1,
+      tree: {}, generatorBuys: [150, 120, 90, 60, 30, 10, 2, 0],
+      generatorAmountExponents: [100, 80, 60, 40, 20, 5, 1, null], tickspeedBuys: 60, totalTimePlayed: 21600,
+    },
+    'ten-infinities': {
+      pointsExponent: 300, prestigeCount: 150, prestigePoints: new Decimal(1, 120),
+      peResets: 40, peAmount: new Decimal(100), totalPE: new Decimal(100), prestigeEnergyLevel: 15,
+      infinityCount: 10, infinityPoints: new Decimal(10), totalIP: new Decimal(10), skillPoints: 10,
+      tree: {}, generatorBuys: [200, 160, 120, 80, 40, 20, 10, 3],
+      generatorAmountExponents: [140, 110, 80, 50, 30, 10, 3, 0], tickspeedBuys: 80, totalTimePlayed: 86400,
+    },
+    'milestones-unlocked': {
+      pointsExponent: 306, prestigeCount: 500, prestigePoints: new Decimal(1, 150),
+      peResets: 100, peAmount: new Decimal(1000), totalPE: new Decimal(1000), prestigeEnergyLevel: 20,
+      infinityCount: 40, infinityPoints: new Decimal(1, 5), totalIP: new Decimal(1, 5), skillPoints: 10,
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true },
+      generatorBuys: [250, 200, 150, 100, 50, 25, 10, 3],
+      generatorAmountExponents: [180, 150, 120, 90, 50, 25, 5, 0], tickspeedBuys: 100, totalTimePlayed: 172800,
+    },
+    'break-infinity': {
+      pointsExponent: 320, prestigeCount: 4000, prestigePoints: new Decimal(1, 250),
+      peResets: 1000, peAmount: new Decimal(1, 6), totalPE: new Decimal(1, 6), prestigeEnergyLevel: 30,
+      infinityCount: 4000, infinityPoints: new Decimal(1, 16), totalIP: new Decimal(1, 25), skillPoints: 470,
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true },
+      generatorBuys: [300, 250, 200, 150, 100, 50, 20, 5],
+      generatorAmountExponents: [200, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
+    },
+  };
+
+  const config = configs[presetId];
+  const points = new Decimal(1, config.pointsExponent);
+  state.points = points;
+  state.pointsPerSecond = Decimal.zero();
+  state.lastUpdate = Date.now();
+  state.generatorCostSoftcapBought = null;
+  state.generators = state.generators.map((generator, index) => {
+    const bought = config.generatorBuys[index] ?? 0;
+    const amountExponent = config.generatorAmountExponents[index];
+    return {
+      ...generator,
+      bought,
+      amount: amountExponent === null ? Decimal.zero() : new Decimal(1, amountExponent),
+      multiplier: new Decimal(2).pow(bought),
+    };
+  });
+  state.tickspeed.bought = config.tickspeedBuys;
+  state.tickspeed.cost = new Decimal(1e3).mul(new Decimal(15).pow(config.tickspeedBuys));
+  state.prestige.count = config.prestigeCount;
+  state.prestige.points = config.prestigePoints;
+  state.prestige.unlockedGenerators = 4;
+  state.prestigeEnergy.unlocked = config.peResets > 0;
+  state.prestigeEnergy.resets = config.peResets;
+  state.prestigeEnergy.amount = config.peAmount;
+  state.prestigeEnergy.totalEarned = config.totalPE;
+  state.prestigeEnergy.generatorUpgradeLevel = config.prestigeEnergyLevel;
+  state.infinity.count = config.infinityCount;
+  state.infinity.unlocked = config.infinityCount > 0;
+  state.infinity.points = config.infinityPoints;
+  state.infinity.totalEarnedIP = config.totalIP;
+  state.infinity.skillPoints = config.skillPoints;
+  state.infinityTree = { ...config.tree };
+  state.stats.totalPrestiges = config.prestigeCount;
+  state.stats.totalInfinities = config.infinityCount;
+  state.stats.totalTimePlayed = config.totalTimePlayed;
+  state.stats.onlineTimePlayed = config.totalTimePlayed;
+  state.stats.timeThisPrestige = 0;
+  state.stats.timeThisInfinity = 0;
+  state.stats.highestPointsEver = points;
+  state.stats.highestPPEver = config.prestigePoints;
+  state.stats.highestIPEver = config.infinityPoints;
+  return state;
+}
+
+function createSaveBankPresetSaveCode(presetId: SaveBankPresetId): string {
+  return btoa(unescape(encodeURIComponent(serializeState(createSaveBankPresetState(presetId)))));
+}
+
+interface SaveBankPanelProps {
+  onExportSave: () => string;
+  onImportSave: (saveStr: string) => boolean;
+}
+
+type PendingSaveBankAction =
+  | { type: 'preset'; presetId: SaveBankPresetId }
+  | { type: 'restore' };
+
+const SaveBankPanel: React.FC<SaveBankPanelProps> = ({ onExportSave, onImportSave }) => {
+  const [pendingAction, setPendingAction] = useState<PendingSaveBankAction | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [hasPreviousSave, setHasPreviousSave] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return Boolean(window.localStorage.getItem(SAVE_BANK_PREVIOUS_STATE_KEY));
+    } catch {
+      return false;
+    }
+  });
+
+  const handleConfirmAction = () => {
+    if (!pendingAction) return;
+    try {
+      const currentSave = onExportSave();
+      if (!currentSave) {
+        setFeedback('Could not back up the current save. No checkpoint was loaded.');
+        setPendingAction(null);
+        return;
+      }
+      if (pendingAction.type === 'preset') {
+        window.localStorage.setItem(SAVE_BANK_PREVIOUS_STATE_KEY, currentSave);
+        const preset = SAVE_BANK_PRESETS.find((item) => item.id === pendingAction.presetId);
+        const loaded = onImportSave(createSaveBankPresetSaveCode(pendingAction.presetId));
+        setFeedback(loaded
+          ? (preset?.title ?? 'Checkpoint') + ' loaded. Your previous progress was backed up.'
+          : 'The checkpoint could not be loaded. Your previous save backup is preserved.');
+        if (loaded) setHasPreviousSave(true);
+      } else {
+        const previousSave = window.localStorage.getItem(SAVE_BANK_PREVIOUS_STATE_KEY);
+        if (!previousSave) {
+          setFeedback('No previous save backup is available yet.');
+        } else {
+          window.localStorage.setItem(SAVE_BANK_PREVIOUS_STATE_KEY, currentSave);
+          const restored = onImportSave(previousSave);
+          if (restored) {
+            setHasPreviousSave(true);
+            setFeedback('Previous save restored. Your former run is now stored in the backup slot.');
+          } else {
+            window.localStorage.setItem(SAVE_BANK_PREVIOUS_STATE_KEY, previousSave);
+            setFeedback('The previous save backup could not be loaded.');
+          }
+        }
+      }
+    } catch {
+      setFeedback('Save Bank could not access local storage. No checkpoint was loaded.');
+    }
+    setPendingAction(null);
+  };
+
+  const pendingPreset = pendingAction?.type === 'preset'
+    ? SAVE_BANK_PRESETS.find((preset) => preset.id === pendingAction.presetId)
+    : null;
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-indigo-950/70 border border-indigo-500/30 flex items-center justify-center text-indigo-300">
+            <Save className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-slate-100">Save Bank</h2>
+            <p className="text-xs text-slate-400 mt-1">Load a prepared checkpoint to jump straight to a specific stage of Generators.</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-950/20 p-3 text-xs text-amber-100/90">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" />
+          <p>Loading a checkpoint replaces your current run. A separate previous-save backup is created automatically and can be restored here later.</p>
+        </div>
+      </div>
+
+      {hasPreviousSave && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-emerald-300 shrink-0" />
+            <div>
+              <div className="text-sm font-semibold text-emerald-200">Previous Save Backup Available</div>
+              <p className="text-xs text-slate-400 mt-0.5">Restore the run that was active before the last Save Bank load.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPendingAction({ type: 'restore' })}
+            className="rounded-lg border border-emerald-500/30 bg-emerald-900/40 px-4 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-800/60 transition-colors"
+          >
+            Restore Previous Save
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {SAVE_BANK_PRESETS.map((preset, index) => (
+          <div key={preset.id} className="flex flex-col rounded-xl border border-slate-800 bg-slate-900 p-5 gap-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-950/40 w-11 h-11 text-xl shrink-0">
+                {preset.icon}
+              </div>
+              <span className="rounded-full border border-slate-700 bg-slate-950 px-2.5 py-1 text-[10px] font-mono text-slate-400">
+                CHECKPOINT {index + 1}
+              </span>
+            </div>
+            <div className="flex-1 space-y-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-100">{preset.title}</h3>
+                <p className="mt-1 text-[10px] uppercase tracking-wider font-semibold text-indigo-300">{preset.stage}</p>
+              </div>
+              <p className="text-xs leading-relaxed text-slate-400">{preset.description}</p>
+              <div className="inline-flex rounded-md border border-slate-700/80 bg-slate-950 px-2.5 py-1.5 text-[10px] font-mono text-slate-300">
+                {preset.progress}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setFeedback(null);
+                setPendingAction({ type: 'preset', presetId: preset.id });
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-600/90 px-4 py-2.5 text-xs font-bold text-white hover:bg-indigo-500 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Load Checkpoint
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {feedback && (
+        <div className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 text-xs text-slate-200">
+          {feedback}
+        </div>
+      )}
+
+      {pendingAction && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setPendingAction(null)}
+        >
+          <div
+            className="w-full max-w-md space-y-5 rounded-2xl border-2 border-amber-500/40 bg-slate-900 p-6 shadow-2xl shadow-black/50"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-1 h-6 w-6 shrink-0 text-amber-300" />
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-white">
+                  {pendingAction.type === 'restore' ? 'Restore Previous Save?' : 'Load ' + (pendingPreset?.title ?? 'Checkpoint') + '?'}
+                </h3>
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  {pendingAction.type === 'restore'
+                    ? 'Your current run will be stored in the backup slot, and the previous run will replace it.'
+                    : 'Your current run will be backed up, then replaced with this prepared checkpoint.'}
+                </p>
+              </div>
+              <button type="button" onClick={() => setPendingAction(null)} className="rounded-lg p-1 text-slate-400 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingAction(null)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500"
+              >
+                {pendingAction.type === 'restore' ? 'Restore Previous Save' : 'Load Checkpoint'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface StatsTabProps {
   state: GameState;
@@ -70,6 +410,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const [saveFeedback, setSaveFeedback] = useState(false);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [showWipeModal, setShowWipeModal] = useState(false);
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'overview' | 'saveBank'>('overview');
 
   const handleManualSave = () => {
     onSaveGame();
@@ -111,6 +452,27 @@ export const StatsTab: React.FC<StatsTabProps> = ({
 
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-800 bg-slate-950/70 p-1.5">
+        <button
+          type="button"
+          onClick={() => setActiveSettingsTab('overview')}
+          className={activeSettingsTab === 'overview' ? 'rounded-lg px-4 py-2.5 text-xs font-bold transition-colors bg-indigo-600 text-white' : 'rounded-lg px-4 py-2.5 text-xs font-bold transition-colors text-slate-400 hover:bg-slate-800 hover:text-white'}
+        >
+          Stats & Settings
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSettingsTab('saveBank')}
+          className={activeSettingsTab === 'saveBank' ? 'rounded-lg px-4 py-2.5 text-xs font-bold transition-colors bg-indigo-600 text-white' : 'rounded-lg px-4 py-2.5 text-xs font-bold transition-colors text-slate-400 hover:bg-slate-800 hover:text-white'}
+        >
+          Save Bank
+        </button>
+      </div>
+
+      {activeSettingsTab === 'saveBank' ? (
+        <SaveBankPanel onExportSave={onExportSave} onImportSave={onImportSave} />
+      ) : (
+        <>
       {/* 1. Growth History Chart (recharts) */}
       <GrowthHistoryChart state={state} />
 
@@ -523,6 +885,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  window.localStorage.removeItem(SAVE_BANK_PREVIOUS_STATE_KEY);
                   onHardReset();
                   setShowWipeModal(false);
                 }}
@@ -534,6 +897,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
