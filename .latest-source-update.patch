@@ -1,0 +1,109 @@
+diff --git a/src/components/PrestigeTab.tsx b/src/components/PrestigeTab.tsx
+--- a/src/components/PrestigeTab.tsx
++++ b/src/components/PrestigeTab.tsx
+@@ -8,6 +8,7 @@ import {
+   calculatePrestigePointsGain,
+   calculatePrestigeEnergyGain,
+   getPassivePrestigeEnergyGeneratorMultiplier,
++  getGeneratorEnergyAmplifierCost,
+   getCascadingBoostCost,
+@@ -61,7 +62,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
+   const energyGeneratorMult = new Decimal(2).pow(energyUpgradeLevel);
+   const passiveEnergyGeneratorMult = getPassivePrestigeEnergyGeneratorMultiplier(state);
+   const lifetimePE = state.prestigeEnergy.totalEarned || state.prestigeEnergy.amount;
+-  const energyUpgradeCost = new Decimal(2).pow(energyUpgradeLevel);
++  const energyUpgradeCost = getGeneratorEnergyAmplifierCost(energyUpgradeLevel);
+@@ -1015,7 +1016,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
+                 <h3 className="text-sm font-semibold text-slate-100">Generator Energy Amplifier</h3>
+                 <span className="text-[10px] font-mono rounded border border-purple-500/30 bg-purple-950/50 px-2 py-1 text-purple-300">LEVEL {energyUpgradeLevel}</span>
+               </div>
+-              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. PE earned during the current Infinity also grants a passive generator multiplier, doubled: 1 PE gives ×4, 2 gives about ×5.10, 3 gives ×7.07, and 4 gives ×10.4. This passive bonus resets on Big Crunch and growth softcaps after 10 PE.</p>
++              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. The price multiplier starts at x2 and increases by +0.1x for every 10 levels (x2.1 after level 10, x2.2 after level 20, etc.). PE earned during the current Infinity also grants a passive generator multiplier, doubled: 1 PE gives ×4, 2 gives about ×5.10, 3 gives ×7.07, and 4 gives ×10.4. This passive bonus resets on Big Crunch and growth softcaps after 10 PE.</p>
+diff --git a/src/hooks/useGameLoop.ts b/src/hooks/useGameLoop.ts
+--- a/src/hooks/useGameLoop.ts
++++ b/src/hooks/useGameLoop.ts
+@@ -34,6 +34,7 @@ import {
+   getUnlockedGeneratorsCount,
+   calculatePrestigePointsGain,
+   calculatePrestigeEnergyGain,
++  getGeneratorEnergyAmplifierCost,
+   calculateInfinityPointGain,
+@@ -653,7 +654,7 @@ export function useGameLoop() {
+           if (state.infinityTree?.auto_8 && state.prestigeEnergy?.unlocked) {
+             let pLvl = Math.max(0, Math.floor(state.prestigeEnergy.generatorUpgradeLevel || 0));
+             while (true) {
+-              const cost = new Decimal(2).pow(pLvl);
++              const cost = getGeneratorEnergyAmplifierCost(pLvl);
+@@ -1133,7 +1134,7 @@ export function useGameLoop() {
+   const buyPrestigeEnergyUpgrade = useCallback(() => {
+     setGameState((prev) => {
+       const level = Math.max(0, Math.floor(prev.prestigeEnergy.generatorUpgradeLevel || 0));
+-      const cost = new Decimal(2).pow(level);
++      const cost = getGeneratorEnergyAmplifierCost(level);
+@@ -1155,18 +1156,31 @@ export function useGameLoop() {
+   const buyMaxPrestigeEnergyUpgrade = useCallback(() => {
+     setGameState((prev) => {
+       const level = Math.max(0, Math.floor(prev.prestigeEnergy.generatorUpgradeLevel || 0));
+-      const firstCost = new Decimal(2).pow(level);
+-      const boughtNow = getMaxGeometricPurchases(prev.prestigeEnergy.amount, firstCost, new Decimal(2));
+-      if (boughtNow.count === 0) return prev;
++      let currentLevel = level;
++      let currentCost = getGeneratorEnergyAmplifierCost(currentLevel);
++      let remainingEnergy = prev.prestigeEnergy.amount;
++      let totalCost = Decimal.zero();
++      let boughtCount = 0;
++
++      // Costs no longer follow one fixed geometric ratio after the softcap.
++      while (remainingEnergy.gte(currentCost) && boughtCount < 100000) {
++        remainingEnergy = remainingEnergy.sub(currentCost);
++        totalCost = totalCost.add(currentCost);
++        const growthMultiplier = 2 + 0.1 * Math.floor(currentLevel / 10);
++        currentCost = currentCost.mul(growthMultiplier);
++        currentLevel += 1;
++        boughtCount += 1;
++      }
++      if (boughtCount === 0) return prev;
+ 
+       sound.playBuy();
+       const nextState: GameState = {
+         ...prev,
+         prestigeEnergy: {
+           ...prev.prestigeEnergy,
+-          amount: prev.prestigeEnergy.amount.sub(boughtNow.totalCost),
++          amount: prev.prestigeEnergy.amount.sub(totalCost),
+           multiplier: Decimal.one(),
+-          generatorUpgradeLevel: level + boughtNow.count,
++          generatorUpgradeLevel: level + boughtCount,
+         },
+       };
+diff --git a/src/utils/gameCalculations.ts b/src/utils/gameCalculations.ts
+--- a/src/utils/gameCalculations.ts
++++ b/src/utils/gameCalculations.ts
+@@ -12,6 +12,28 @@ export function getPrestigeRequirement(_state?: GameState): Decimal {
+ // Prestige Energy unlock threshold (1.00e154 Points)
+ export const PRESTIGE_ENERGY_THRESHOLD = new Decimal(1, 154);
+ 
++/**
++ * Price for the next Generator Energy Amplifier level. The first 10 levels
++ * retain the original x2 price growth; each subsequent 10-level band raises
++ * the per-level price multiplier by +0.1x (x2.1 after level 10, x2.2 after 20, etc.).
++ */
++export function getGeneratorEnergyAmplifierCost(currentLevel: number): Decimal {
++  const level = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
++  let cost = Decimal.one();
++  let levelsLeft = level;
++  let band = 0;
++
++  while (levelsLeft > 0) {
++    const levelsInBand = Math.min(10, levelsLeft);
++    const growthMultiplier = 2 + band * 0.1;
++    cost = cost.mul(new Decimal(growthMultiplier).pow(levelsInBand));
++    levelsLeft -= levelsInBand;
++    band += 1;
++  }
++
++  return cost;
++}
++
+ // Infinity threshold (1.79e308 Points)
+ export const INFINITY_THRESHOLD = new Decimal(1.7976931348623157, 308);
