@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode } from '../types/game';
+import { Decimal } from '../utils/decimal';
 import { Cpu, Lock } from 'lucide-react';
 
 interface AutomationTabProps {
@@ -30,6 +31,24 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
   const [prestigeInput, setPrestigeInput] = useState(() => String(prestigeBuyer?.target ?? 1));
   const [timeInput, setTimeInput] = useState(() => String(prestigeBuyer?.timeTarget ?? 60));
   const [ratioInput, setRatioInput] = useState(() => String(prestigeBuyer?.ratioTarget ?? 2));
+
+  React.useEffect(() => {
+    if (prestigeBuyer?.target !== undefined) {
+      setPrestigeInput(String(prestigeBuyer.target));
+    }
+  }, [prestigeBuyer?.target]);
+
+  React.useEffect(() => {
+    if (prestigeBuyer?.timeTarget !== undefined) {
+      setTimeInput(String(prestigeBuyer.timeTarget));
+    }
+  }, [prestigeBuyer?.timeTarget]);
+
+  React.useEffect(() => {
+    if (prestigeBuyer?.ratioTarget !== undefined) {
+      setRatioInput(String(prestigeBuyer.ratioTarget));
+    }
+  }, [prestigeBuyer?.ratioTarget]);
 
   // Energy Autobuyer states
   const energyBuyer = state.autobuyers?.autoPrestigeEnergy;
@@ -63,9 +82,9 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
     { key: 'gen7', name: 'Auto: Generator 7', desc: 'Automatically purchases Generator 7 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
     { key: 'gen8', name: 'Auto: Generator 8', desc: 'Automatically purchases Generator 8 (when unlocked)', reqNode: 'Apex Autobuyers (auto_2)' },
     { key: 'prestige', name: 'Prestige Autobuyer', desc: 'Automatically triggers Prestige using the selected reset condition', reqNode: 'Prestige Autobuyer (auto_3)' },
-    { key: 'autoPrestigeUpgrades', name: 'Auto: Prestige Upgrades', desc: 'Automatically purchases unbought Prestige upgrades when PP is sufficient in background', reqNode: 'Auto: Prestige Upgrades (auto_5)' },
+    { key: 'autoPrestigeUpgrades', name: 'Auto: Prestige Upgrades', desc: 'Automatically purchases Prestige upgrades, Prestige Skill Synergy, and Prestige Energy upgrades', reqNode: 'Auto: Prestige Upgrades (auto_5)' },
     { key: 'autoPrestigeEnergy', name: 'Prestige Energy Autobuyer', desc: 'Automatically resets Prestige Energy with configurable timer, target gain, or gain multiplier', reqNode: 'Prestige Energy Autobuyer (auto_6)' },
-    { key: 'autoInfinity', name: 'Infinity Autobuyer', desc: 'Automatically triggers Big Crunch using the configured time, IP gain, or gain multiplier conditions', reqNode: 'Infinity Autobuyer (auto_7, Milestone 1500)' },
+    { key: 'autoInfinity', name: 'Infinity Autobuyer', desc: 'Automatically triggers Big Crunch using the configured time, IP gain, or gain multiplier conditions', reqNode: 'Infinity Autobuyer (auto_7, Milestone 150)' },
   ];
 
   return (
@@ -204,18 +223,33 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
 
                   {(prestigeMode === 'targetPP' || prestigeMode === 'ppMultiplier') && (
                     <label className="block text-slate-400 text-[11px]">
-                      First reset when PP gain reaches this amount
+                      {prestigeMode === 'targetPP'
+                        ? 'Reset when PP gain reaches at least'
+                        : 'First reset / minimum when PP gain reaches this amount (or higher)'}
                       <div className="mt-1 flex items-center gap-2">
                         <input
                           type="number"
                           min="1"
                           step="1"
                           value={prestigeInput}
-                          onChange={(e) => setPrestigeInput(e.target.value)}
+                          onChange={(e) => {
+                            setPrestigeInput(e.target.value);
+                            const val = Number(e.target.value);
+                            if (!isNaN(val) && val >= 1) {
+                              onSetAutobuyerTarget('prestige', val);
+                              onSetPrestigeAutobuyerSettings({ target: val });
+                            }
+                          }}
                           onBlur={() => {
                             const val = Math.max(1, Number(prestigeInput) || 1);
                             onSetAutobuyerTarget('prestige', val);
+                            onSetPrestigeAutobuyerSettings({ target: val });
                             setPrestigeInput(String(val));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              (e.target as HTMLInputElement).blur();
+                            }
                           }}
                           className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
                         />
@@ -224,30 +258,56 @@ export const AutomationTab: React.FC<AutomationTabProps> = ({
                     </label>
                   )}
 
-                  {prestigeMode === 'ppMultiplier' && (
-                    <label className="block text-slate-400 text-[11px]">
-                      After the first reset, require this multiple of the previous PP gain
-                      <div className="mt-1 flex items-center gap-2">
-                        <input
-                          type="number"
-                          min="1.01"
-                          step="0.1"
-                          value={ratioInput}
-                          onChange={(e) => setRatioInput(e.target.value)}
-                          onBlur={() => {
-                            const val = Math.max(1.01, Number(ratioInput) || 2);
-                            onSetPrestigeAutobuyerSettings({ ratioTarget: val });
-                            setRatioInput(String(val));
-                          }}
-                          className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
-                        />
-                        <span className="text-slate-400">× previous</span>
-                      </div>
-                      <span className="block mt-1 text-slate-500">
-                        Previous gain: {state.autobuyers.prestige?.previousPPGain?.format(state.settings.notation) ?? '0'} PP
-                      </span>
-                    </label>
-                  )}
+                  {prestigeMode === 'ppMultiplier' && (() => {
+                    const prevGain = state.autobuyers.prestige?.previousPPGain instanceof Decimal
+                      ? state.autobuyers.prestige.previousPPGain
+                      : (typeof state.autobuyers.prestige?.previousPPGain === 'number' ? new Decimal(state.autobuyers.prestige.previousPPGain) : Decimal.zero());
+                    const currentRatio = Math.max(1.01, Number(ratioInput) || 2);
+                    const nextTarget = prevGain.gt(0)
+                      ? prevGain.mul(currentRatio)
+                      : new Decimal(Math.max(1, Number(prestigeInput) || 1));
+
+                    return (
+                      <label className="block text-slate-400 text-[11px]">
+                        After the first reset, require this multiple of previous PP gain
+                        <div className="mt-1 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1.01"
+                            step="0.1"
+                            value={ratioInput}
+                            onChange={(e) => {
+                              setRatioInput(e.target.value);
+                              const val = Number(e.target.value);
+                              if (!isNaN(val) && val >= 1.01) {
+                                onSetPrestigeAutobuyerSettings({ ratioTarget: val });
+                              }
+                            }}
+                            onBlur={() => {
+                              const val = Math.max(1.01, Number(ratioInput) || 2);
+                              onSetPrestigeAutobuyerSettings({ ratioTarget: val });
+                              setRatioInput(String(val));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            className="w-full px-2 py-1.5 rounded bg-slate-950 border border-slate-700 text-right text-amber-300 focus:border-amber-500 focus:outline-none"
+                          />
+                          <span className="text-slate-400">× previous</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 mt-1.5 text-[11px] text-slate-400">
+                          <span>
+                            Previous gain: <strong className="text-amber-300 font-mono">{prevGain.gt(0) ? prevGain.format(state.settings.notation) : '0'} PP</strong>
+                          </span>
+                          <span>
+                            Next reset threshold: <strong className="text-emerald-400 font-mono">{nextTarget.format(state.settings.notation)} PP</strong>
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })()}
                 </div>
               )}
 

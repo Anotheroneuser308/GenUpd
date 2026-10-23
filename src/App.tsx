@@ -38,6 +38,7 @@ export default function App() {
     performPrestigeEnergy,
     buyPrestigeEnergyUpgrade,
     buyMaxPrestigeEnergyUpgrade,
+    buyPrestigeEnergyBooster,
     buyPrestigeUpgrade,
     buyMaxPrestigeUpgrade,
     buyMaxPrestigeUpgrades,
@@ -49,6 +50,8 @@ export default function App() {
     buyIpGeneratorBoost,
     buyTimeIPBoost,
     buyEnergySPBoost,
+    buySpDoublerUpgrade,
+    buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
     setAutoPrestigeUpgradesSettings,
@@ -255,6 +258,8 @@ export default function App() {
             onBuyIpGeneratorBoost={buyIpGeneratorBoost}
             onBuyTimeIPBoost={buyTimeIPBoost}
             onBuyEnergySPBoost={buyEnergySPBoost}
+            onBuySpDoublerUpgrade={buySpDoublerUpgrade}
+            onBuyBreakInfinityUpgrade={buyBreakInfinityUpgrade}
             onInfinityReset={proceedInfinity}
             onToggleAutobuyer={toggleAutobuyer}
             onSetAutobuyerTarget={setAutobuyerTarget}

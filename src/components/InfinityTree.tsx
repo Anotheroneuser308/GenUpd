@@ -54,6 +54,7 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   feat_2: { x: 280, y: -90 },
   feat_3: { x: 410, y: -130 },
   feat_4: { x: 540, y: -170 }, // Break Infinity
+  feat_5: { x: 670, y: -210 }, // Break Infinity Upgrades Matrix
 
   // Post-Infinity is a separate branch from Root Nexus (South-East).
   post_1: { x: 430, y: 220 },
@@ -84,6 +85,7 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['feat_1', 'feat_2'],
   ['feat_2', 'feat_3'],
   ['feat_3', 'feat_4'],
+  ['feat_4', 'feat_5'],
 
   ['root', 'post_1'],
   ['post_1', 'post_2'],
@@ -190,6 +192,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'feat_2': return 'Unlocks Prestige Skill Synergy.';
       case 'feat_3': return 'Unlocks Infinity Milestones and their rewards.';
       case 'feat_4': return `Break Infinity: IP gain formula is 10^(log10(Points) / 308); at current Points, the base reward is ×${fmt(new Decimal(10).pow(logPoints / 308))} IP before bonuses.`;
+      case 'feat_5': return 'Открывает улучшения Break Infinity в разделе улучшений бесконечности.';
       case 'post_1': return `Current SP reward from the next Infinity: ${calculateSkillPointsGain(state)} SP (includes this upgrade only if purchased).`;
       case 'post_2': return `Current Infinities gained on the next reset: ${calculateInfinitiesGain(state)}.`;
       case 'post_3': return `Current generator multiplier from IP: ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}.`;

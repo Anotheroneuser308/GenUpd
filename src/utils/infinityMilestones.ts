@@ -64,9 +64,9 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_1500_auto_infinity',
     title: 'Automated Transcendence',
     icon: '🤖',
-    reward: 'Unlocks the Infinity Autobuyer upgrade in the Automation Tree, with configurable settings like the Prestige Autobuyer (cost: 1,200 SP).',
-    requirement: '1,500 Infinities',
-    infinityCountRequired: 1500,
+    reward: 'Unlocks the Infinity Autobuyer upgrade in the Automation Tree, with configurable settings like the Prestige Autobuyer (cost: 120 SP).',
+    requirement: '150 Infinities',
+    infinityCountRequired: 150,
   },
   {
     id: 'milestone_2250_post_infinity',
@@ -118,7 +118,7 @@ export function isInfinityMilestoneUnlocked(
     case 'milestone_100_infinities_auto_pe':
       return infinities >= 100;
     case 'milestone_1500_auto_infinity':
-      return infinities >= 1500;
+      return infinities >= 150;
     case 'milestone_2250_post_infinity':
       return infinities >= 2250;
     default:
@@ -158,7 +158,7 @@ export function getInfinityMilestoneRequirementProgress(
     case 'milestone_100_infinities_auto_pe':
       return [fmtInfinities(100)];
     case 'milestone_1500_auto_infinity':
-      return [fmtInfinities(1500)];
+      return [fmtInfinities(150)];
     case 'milestone_2250_post_infinity':
       return [fmtInfinities(2250)];
     default:

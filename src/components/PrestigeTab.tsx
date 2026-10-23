@@ -15,6 +15,7 @@ import {
   getCascadingBoostMultiplierForGen,
   getGeneratorUnlockCost,
   MAX_GENERATOR_UNLOCKS,
+  getAchievementMasterCompletions,
 } from '../utils/gameCalculations';
 
 interface PrestigeTabProps {
@@ -78,9 +79,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const oom6 = Math.floor(Math.max(0, state.points.log10()) / 6);
   const upg1CurrentMult = upgs.pointScaling && oom6 > 0 ? new Decimal(2).pow(oom6) : Decimal.one();
   const unlockedAchCount = Object.values(state.achievements).filter(Boolean).length;
-  const achMasterBonus = state.infinity?.achievementMaster && state.points.gt(0) && state.points.mantissa
-    ? Math.floor(Math.max(0, state.points.log10())) * 3
-    : 0;
+  const achMasterBonus = getAchievementMasterCompletions(state);
   const totalEffectiveAch = unlockedAchCount + achMasterBonus;
   const upg2CurrentMult = upgs.achievementBoost && totalEffectiveAch > 0 ? new Decimal(1.05).pow(totalEffectiveAch) : Decimal.one();
 

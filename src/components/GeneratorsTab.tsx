@@ -4,7 +4,6 @@ import { Decimal } from '../utils/decimal';
 import {
   getGeneratorCost,
   getTotalTickspeedSpeed,
-  getPointsGenerationMultiplier,
   getPreInfinityGeneratorMultiplier,
 } from '../utils/gameCalculations';
 
@@ -25,7 +24,6 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
 }) => {
   const notation = state.settings.notation;
   const totalTickspeed = getTotalTickspeedSpeed(state);
-  const pointsMult = getPointsGenerationMultiplier(state);
   const genMult = getPreInfinityGeneratorMultiplier(state);
   const preInfRepeatableLevel = typeof state.infinityTree?.pre_5Level === 'number' ? state.infinityTree.pre_5Level : 0;
   const showGenMult = !!state.infinityTree?.pre_4 || preInfRepeatableLevel > 0;
@@ -47,18 +45,14 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5 font-mono">
-            <span>
-              Points Mult: <strong className="text-emerald-300">{pointsMult.format(notation)}x</strong>
-            </span>
             {showGenMult && (
               <>
-                <span aria-hidden="true" className="text-slate-600">·</span>
                 <span>
                   Gen Mult: <strong className="text-cyan-300">{genMult.format(notation)}x</strong>
                 </span>
+                <span aria-hidden="true" className="text-slate-600">·</span>
               </>
             )}
-            <span aria-hidden="true" className="text-slate-600">·</span>
             <span>
               Speed: <strong className="text-cyan-300">{totalTickspeed.format(notation)}x</strong>
             </span>

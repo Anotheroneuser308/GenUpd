@@ -58,11 +58,18 @@ export interface InfinityState {
   unlocked: boolean; // unlocked when reaching 1.79e308
   ipDoublerLevel?: number; // Infinity Upgrade: Doubles IP gain on each Infinity
   automationExpand?: boolean; // Infinity Upgrade: Unlocks auto_5 and auto_6 in tree
-  achievementMaster?: boolean; // Infinity Upgrade: 15 IP, grants 3 honorary achievements per magnitude
+  achievementMaster?: boolean; // Infinity Upgrade: 15 IP, grants 1 honorary achievement per 3 OoMs of points
   ipGeneratorBoost: boolean; // All generators scale with lifetime IP: 3^log10(total IP earned)
   timeIPBoost: boolean; // Big Crunch IP gain scales with time spent in current Infinity
   energySPBoost: boolean; // Prestige Energy gain scales with unspent SP + 1
   totalEarnedIP: Decimal; // Lifetime IP earned, including IP later spent on upgrades
+  spDoublerUpgrade?: boolean; // Infinity Upgrade: 1,000 IP, multiplies gained SP by 2x
+  breakInfinityUpgrades?: {
+    limitless?: boolean; // Break Infinity Upgrade: generator multiplier based on points > 1e308
+    singularityResonance?: boolean; // Break Infinity Upgrade: +1% generator power per OoM > 1e308
+    hypercharge?: boolean; // Break Infinity Upgrade: 2x per 50 OoMs > 1e308
+    vacuumMomentum?: boolean; // Break Infinity Upgrade: +1% IP gain per OoM > 1e308
+  };
 }
 
 export type PrestigeAutobuyerMode = 'time' | 'targetPP' | 'ppMultiplier';

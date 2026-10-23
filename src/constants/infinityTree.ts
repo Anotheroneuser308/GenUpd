@@ -151,7 +151,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     branch: 'auto',
     title: 'Infinity Autobuyer',
     desc: 'Unlocks the Infinity Autobuyer with configurable Time, Target IP, or Gain multiplier modes (like Prestige Autobuyer).',
-    cost: 1200,
+    cost: 120,
     req: 'auto_6',
     reqMilestone: 'milestone_1500_auto_infinity',
     icon: '♾️',
@@ -193,6 +193,15 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     cost: 1000,
     req: 'feat_3',
     icon: '🌌',
+  },
+  feat_5: {
+    id: 'feat_5',
+    branch: 'feat',
+    title: 'Break Infinity Matrix',
+    desc: 'Открывает улучшения Break Infinity в разделе улучшений бесконечности.',
+    cost: 2500,
+    req: 'feat_4',
+    icon: '⚡',
   },
 
   // Branch 4: Post-Infinity

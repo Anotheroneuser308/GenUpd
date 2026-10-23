@@ -152,12 +152,47 @@ export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
 }
 
 /**
+ * Upgrade 10: Cosmic Resonance helper functions.
+ * Every 10 total generator purchases multiplies each generator by 1.05x up to 1,000 purchases.
+ * After 1,000 purchases, each group requires 50 total generator purchases instead of 10.
+ */
+export function getCosmicResonanceGroups(totalPurchases: number): number {
+  if (totalPurchases < 10) return 0;
+  if (totalPurchases <= 1000) {
+    return Math.floor(totalPurchases / 10);
+  }
+  const baseGroups = 100; // 1000 / 10
+  const extraPurchases = totalPurchases - 1000;
+  const extraGroups = Math.floor(extraPurchases / 50);
+  return baseGroups + extraGroups;
+}
+
+export function getCosmicResonanceMultiplier(totalPurchases: number): Decimal {
+  const groups = getCosmicResonanceGroups(totalPurchases);
+  return groups > 0 ? new Decimal(1.05).pow(groups) : Decimal.one();
+}
+
+/**
+ * Upgrade 2: Achievement Resonance helper function.
+ * Multiplies by 1.05x per achievement up to 308, and 1.01x per achievement beyond 308.
+ */
+export function getAchievementResonanceMultiplier(totalAch: number): Decimal {
+  if (totalAch <= 0) return Decimal.one();
+  if (totalAch <= 308) {
+    return new Decimal(1.05).pow(totalAch);
+  }
+  const base = new Decimal(1.05).pow(308);
+  const extra = new Decimal(1.01).pow(totalAch - 308);
+  return base.mul(extra);
+}
+
+/**
  * Combined Pre-Infinity generator multiplier from Tickspeed Induction and the repeatable node.
  */
 export function getPreInfinityGeneratorMultiplier(state: GameState): Decimal {
   let multiplier = Decimal.one();
   if (state.infinityTree?.pre_4) {
-    multiplier = multiplier.mul(getTotalTickspeedSpeed(state).pow(0.5));
+    multiplier = multiplier.mul(getTotalTickspeedSpeed(state).pow(0.35));
   }
   const level = typeof state.infinityTree?.pre_5Level === 'number'
     ? Math.max(0, Math.floor(state.infinityTree.pre_5Level))
@@ -190,13 +225,10 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(2);
   }
 
-  // Upgrade 10: Cosmic Resonance (every 10 purchases gives x1.05).
+  // Upgrade 10: Cosmic Resonance (every 10 purchases up to 1000 gives x1.05; after 1000, every 50 purchases gives x1.05).
   if (state.prestigeUpgrades?.cosmicResonance) {
     const totalPurchases = state.generators.reduce((sum, g) => sum + g.bought, 0);
-    const groupsOf10 = Math.floor(totalPurchases / 10);
-    if (groupsOf10 > 0) {
-      mult = mult.mul(new Decimal(1.05).pow(groupsOf10));
-    }
+    mult = mult.mul(getCosmicResonanceMultiplier(totalPurchases));
   }
 
   // Purchased PE amplifier levels are one source of power; PE earned in this
@@ -219,9 +251,7 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
     const masterBonus = getAchievementMasterCompletions(state);
     const totalAch = unlockedCount + masterBonus;
-    if (totalAch > 0) {
-      mult = mult.mul(new Decimal(1.05).pow(totalAch));
-    }
+    mult = mult.mul(getAchievementResonanceMultiplier(totalAch));
   }
 
   // Infinity Tree - Root Node (Infinity Nexus, 1 SP): 2^Infinities until 100, then an additional 1.05x per Infinity.
@@ -257,6 +287,29 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
   // Post-Infinity Upgrade 4: Raises generator multipliers to ^1.02
   if (state.infinityTree?.post_4) {
     mult = mult.pow(1.02);
+  }
+
+  // Break Infinity Upgrade 1: Limitless Expansion (scales above 1e308)
+  if (state.infinity?.breakInfinityUpgrades?.limitless && state.points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, state.points.log10() - 308);
+    mult = mult.mul(new Decimal(10).pow(oomAbove * 0.05));
+  }
+
+  // Break Infinity Upgrade 2: Singularity Resonance (+1% generator power per OoM above 1e308)
+  if (state.infinity?.breakInfinityUpgrades?.singularityResonance && state.points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, state.points.log10() - 308);
+    if (oomAbove > 0) {
+      mult = mult.mul(new Decimal(1 + 0.01 * oomAbove));
+    }
+  }
+
+  // Break Infinity Upgrade 3: Hypercharge (2x per 50 OoMs above 1e308)
+  if (state.infinity?.breakInfinityUpgrades?.hypercharge && state.points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, state.points.log10() - 308);
+    const groupsOf50 = Math.floor(oomAbove / 50);
+    if (groupsOf50 > 0) {
+      mult = mult.mul(new Decimal(2).pow(groupsOf50));
+    }
   }
 
   return mult;
@@ -295,7 +348,7 @@ export function getTickspeedCost(state: GameState): Decimal {
 
 /**
  * Current tickspeed rate multiplier:
- * Base is 1.10x, upgraded to 1.15x with Upgrade 7 (Chronos Flow)
+ * Base is 1.10x, upgraded to 1.15x with Upgrade 7 (Chronos Flow).
  */
 export function getTotalTickspeedSpeed(state: GameState): Decimal {
   const basePower = state.prestigeUpgrades?.chronosFlow ? 1.15 : state.tickspeed.multiplier;
@@ -306,7 +359,7 @@ export function getAchievementMasterCompletions(state: GameState): number {
   if (!state.infinity?.achievementMaster) return 0;
   const p = state.points;
   if (!p || p.lte(0) || !p.mantissa) return 0;
-  return Math.floor(Math.max(0, p.log10())) * 3;
+  return Math.floor(Math.max(0, p.log10()) / 3);
 }
 
 /**
@@ -446,6 +499,14 @@ export function calculateInfinityPointGain(
     gain = gain.mul(new Decimal(2).pow(state.infinity.ipDoublerLevel));
   }
 
+  // Break Infinity Upgrade 4: Vacuum Momentum (+1% IP gain per OoM above 1e308)
+  if (state.infinity?.breakInfinityUpgrades?.vacuumMomentum && points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, points.log10() - 308);
+    if (oomAbove > 0) {
+      gain = gain.mul(new Decimal(1 + 0.01 * oomAbove));
+    }
+  }
+
   const rounded = gain.round();
   return rounded.lt(1) ? Decimal.one() : rounded;
 }
@@ -471,6 +532,11 @@ export function calculateSkillPointsGain(state: GameState, infinityCount: number
     ? Math.max(0, Math.floor(Math.log10(Math.max(1, state.prestige.count))))
     : 0;
   let totalSP = 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(state, count);
+
+  // Infinity Upgrade: multiplies gained SP by 2x (cost: 1000 IP)
+  if (state.infinity?.spDoublerUpgrade) {
+    totalSP *= 2;
+  }
 
   // Post-Infinity Upgrade 1:
   // "первый - Умножает получаемые SP от пойнтов, формула:(log10^{500}(Пойнты))"

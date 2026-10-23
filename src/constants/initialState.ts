@@ -140,6 +140,13 @@ export const createInitialState = (): GameState => ({
     timeIPBoost: false,
     energySPBoost: false,
     totalEarnedIP: Decimal.zero(),
+    spDoublerUpgrade: false,
+    breakInfinityUpgrades: {
+      limitless: false,
+      singularityResonance: false,
+      hypercharge: false,
+      vacuumMomentum: false,
+    },
   },
 
   infinityTree: {},
@@ -306,6 +313,13 @@ export const deserializeState = (raw: string): GameState | null => {
         totalEarnedIP: parsed.infinity?.totalEarnedIP instanceof Decimal
           ? parsed.infinity.totalEarnedIP
           : (parsed.infinity?.points instanceof Decimal ? parsed.infinity.points : Decimal.zero()),
+        spDoublerUpgrade: !!parsed.infinity?.spDoublerUpgrade,
+        breakInfinityUpgrades: {
+          limitless: !!parsed.infinity?.breakInfinityUpgrades?.limitless,
+          singularityResonance: !!parsed.infinity?.breakInfinityUpgrades?.singularityResonance,
+          hypercharge: !!parsed.infinity?.breakInfinityUpgrades?.hypercharge,
+          vacuumMomentum: !!parsed.infinity?.breakInfinityUpgrades?.vacuumMomentum,
+        },
       },
       infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
       autobuyers: {

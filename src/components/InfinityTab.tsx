@@ -7,6 +7,7 @@ import {
   calculateSkillPointsGain,
   getInfinityMilestoneExtraSP,
   getTemporalInfinityMultiplier,
+  getAchievementMasterCompletions,
 } from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { InfinityTree } from './InfinityTree';
@@ -23,6 +24,8 @@ interface InfinityTabProps {
   onBuyIpGeneratorBoost?: () => void;
   onBuyTimeIPBoost?: () => void;
   onBuyEnergySPBoost?: () => void;
+  onBuySpDoublerUpgrade?: () => void;
+  onBuyBreakInfinityUpgrade?: (upgradeId: 'limitless' | 'singularityResonance' | 'hypercharge' | 'vacuumMomentum') => void;
   onInfinityReset?: () => void;
   onToggleAutobuyer: (id: string) => void;
   onSetAutobuyerTarget: (id: string, target: number) => void;
@@ -42,6 +45,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyIpGeneratorBoost,
   onBuyTimeIPBoost,
   onBuyEnergySPBoost,
+  onBuySpDoublerUpgrade,
+  onBuyBreakInfinityUpgrade,
   onInfinityReset,
   onToggleAutobuyer,
   onSetAutobuyerTarget,
@@ -381,9 +386,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 {(() => {
                   const isBought = !!state.infinity.achievementMaster;
                   const canAfford = state.infinity.points.gte(15);
-                  const extraCompletions = isBought && state.points.gt(0) && state.points.mantissa
-                    ? Math.floor(Math.max(0, state.points.log10())) * 3
-                    : 0;
+                  const extraCompletions = getAchievementMasterCompletions(state);
 
                   return (
                     <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
@@ -407,7 +410,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           )}
                         </div>
                         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                          For every magnitude (log10) of Points achieved, grants +3 honorary achievement completions. Infinite scalability without notification spam. Directly multiplies Achievement Resonance!
+                          For every 3 Orders of Magnitude (OoMs) of Points achieved, grants +1 completed achievement. Infinite scalability without notification spam. Directly multiplies Achievement Resonance!
                         </p>
                         {isBought && (
                           <div className="mt-3 text-xs font-mono text-amber-300">
@@ -502,8 +505,330 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     </div>
                   );
                 })()}
+
+                {/* Upgrade 7: Skill Amplification (2x SP Gain) */}
+                {(() => {
+                  const isBought = !!state.infinity.spDoublerUpgrade;
+                  const canAfford = state.infinity.points.gte(1000);
+                  return (
+                    <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                      isBought
+                        ? 'bg-amber-950/20 border-amber-500/40'
+                        : 'bg-slate-950/80 border-slate-700'
+                    }`}>
+                      <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-semibold text-sm text-slate-100">
+                            Skill Amplification
+                          </h4>
+                          {isBought ? (
+                            <span className="text-[10px] font-mono text-amber-400 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">
+                              ACTIVE
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono text-slate-500">
+                              ONE-TIME
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                          Умножает все получаемые Skill Points (SP) в 2 раза на каждом сбросе Бесконечности (×2 к приросту SP).
+                        </p>
+                        <div className="mt-3 text-xs font-mono text-amber-300">
+                          Status: <strong>{isBought ? '×2 SP Active' : 'Available'}</strong>
+                        </div>
+                      </div>
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                        <span className="text-xs font-mono text-slate-400">
+                          Cost: <strong className="text-amber-400">1,000 IP</strong>
+                        </span>
+                        {isBought ? (
+                          <span className="text-xs font-mono text-amber-400 font-semibold">Active</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={onBuySpDoublerUpgrade}
+                            disabled={!canAfford}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                              canAfford
+                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }`}
+                          >
+                            Buy Upgrade
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
+              {/* Break Infinity Upgrades Section (Unlocked via node feat_5) */}
+              {state.infinityTree?.feat_5 && (
+                <div className="mt-8 pt-8 border-t border-purple-500/30 space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-950/70 text-purple-300 border border-purple-500/40">
+                        BREAK INFINITY
+                      </span>
+                      <h3 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-amber-300 font-mono">
+                        Break Infinity Upgrades
+                      </h3>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Мощные улучшения, разблокированные матрицей Break Infinity в дереве бесконечности.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* BI Upgrade 1: Limitless Expansion */}
+                    {(() => {
+                      const isBought = !!state.infinity.breakInfinityUpgrades?.limitless;
+                      const cost = new Decimal(1e16);
+                      const canAfford = state.infinity.points.gte(cost);
+                      const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
+                      const currentMult = isBought && oomAbove > 0 ? new Decimal(10).pow(oomAbove * 0.05) : Decimal.one();
+
+                      return (
+                        <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                          isBought
+                            ? 'bg-purple-950/25 border-purple-500/40'
+                            : 'bg-slate-950/80 border-slate-700'
+                        }`}>
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-semibold text-sm text-slate-100">
+                                Limitless Expansion
+                              </h4>
+                              {isBought ? (
+                                <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  ONE-TIME
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                              Усиливает все генераторы в зависимости от очков свыше 1.79e308: множитель (Points / 1e308)^0.05 к производству.
+                            </p>
+                            <div className="mt-3 text-xs font-mono text-purple-300">
+                              Current boost: <strong>×{currentMult.format(notation)}</strong>
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <span className="text-xs font-mono text-slate-400">
+                              Cost: <strong className="text-purple-400">1.00e16 IP</strong>
+                            </span>
+                            {isBought ? (
+                              <span className="text-xs font-mono text-purple-400 font-semibold">Active</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onBuyBreakInfinityUpgrade?.('limitless')}
+                                disabled={!canAfford}
+                                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                  canAfford
+                                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                }`}
+                              >
+                                Buy Upgrade
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* BI Upgrade 2: Singularity Resonance */}
+                    {(() => {
+                      const isBought = !!state.infinity.breakInfinityUpgrades?.singularityResonance;
+                      const cost = new Decimal(1e18);
+                      const canAfford = state.infinity.points.gte(cost);
+                      const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
+                      const currentMult = isBought && oomAbove > 0 ? (1 + 0.01 * oomAbove) : 1;
+
+                      return (
+                        <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                          isBought
+                            ? 'bg-purple-950/25 border-purple-500/40'
+                            : 'bg-slate-950/80 border-slate-700'
+                        }`}>
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-semibold text-sm text-slate-100">
+                                Singularity Resonance
+                              </h4>
+                              {isBought ? (
+                                <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  ONE-TIME
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                              Усиливает мощность всех генераторов на +1% за каждый порядок величины (OoM) очков свыше 1.79e308 (+1% за порядок).
+                            </p>
+                            <div className="mt-3 text-xs font-mono text-purple-300">
+                              Current boost: <strong>×{currentMult.toFixed(2)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <span className="text-xs font-mono text-slate-400">
+                              Cost: <strong className="text-purple-400">1.00e18 IP</strong>
+                            </span>
+                            {isBought ? (
+                              <span className="text-xs font-mono text-purple-400 font-semibold">Active</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onBuyBreakInfinityUpgrade?.('singularityResonance')}
+                                disabled={!canAfford}
+                                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                  canAfford
+                                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                }`}
+                              >
+                                Buy Upgrade
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* BI Upgrade 3: Dimension Hypercharge */}
+                    {(() => {
+                      const isBought = !!state.infinity.breakInfinityUpgrades?.hypercharge;
+                      const cost = new Decimal(1e20);
+                      const canAfford = state.infinity.points.gte(cost);
+                      const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
+                      const groupsOf50 = Math.floor(oomAbove / 50);
+                      const currentMult = isBought && groupsOf50 > 0 ? new Decimal(2).pow(groupsOf50) : Decimal.one();
+
+                      return (
+                        <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                          isBought
+                            ? 'bg-purple-950/25 border-purple-500/40'
+                            : 'bg-slate-950/80 border-slate-700'
+                        }`}>
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-semibold text-sm text-slate-100">
+                                Dimension Hypercharge
+                              </h4>
+                              {isBought ? (
+                                <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  ONE-TIME
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                              Умножает мощность всех генераторов на ×2 за каждые 50 порядков величины (OoM) очков выше 1.79e308.
+                            </p>
+                            <div className="mt-3 text-xs font-mono text-purple-300">
+                              Current boost: <strong>×{currentMult.format(notation)}</strong> {groupsOf50 > 0 && <span className="text-slate-400">({groupsOf50} × 50 OoMs)</span>}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <span className="text-xs font-mono text-slate-400">
+                              Cost: <strong className="text-purple-400">1.00e20 IP</strong>
+                            </span>
+                            {isBought ? (
+                              <span className="text-xs font-mono text-purple-400 font-semibold">Active</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onBuyBreakInfinityUpgrade?.('hypercharge')}
+                                disabled={!canAfford}
+                                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                  canAfford
+                                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                }`}
+                              >
+                                Buy Upgrade
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* BI Upgrade 4: Vacuum Momentum */}
+                    {(() => {
+                      const isBought = !!state.infinity.breakInfinityUpgrades?.vacuumMomentum;
+                      const cost = new Decimal(1e22);
+                      const canAfford = state.infinity.points.gte(cost);
+                      const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
+                      const currentMult = isBought && oomAbove > 0 ? (1 + 0.01 * oomAbove) : 1;
+
+                      return (
+                        <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                          isBought
+                            ? 'bg-purple-950/25 border-purple-500/40'
+                            : 'bg-slate-950/80 border-slate-700'
+                        }`}>
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-semibold text-sm text-slate-100">
+                                Vacuum Momentum
+                              </h4>
+                              {isBought ? (
+                                <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                  ACTIVE
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  ONE-TIME
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                              Увеличивает прирост Infinity Points (IP) от сброса Big Crunch на +1% за каждый порядок величины (OoM) очков свыше 1.79e308 (+1% за порядок).
+                            </p>
+                            <div className="mt-3 text-xs font-mono text-purple-300">
+                              Current IP boost: <strong>×{currentMult.toFixed(2)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
+                            </div>
+                          </div>
+                          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <span className="text-xs font-mono text-slate-400">
+                              Cost: <strong className="text-purple-400">1.00e22 IP</strong>
+                            </span>
+                            {isBought ? (
+                              <span className="text-xs font-mono text-purple-400 font-semibold">Active</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => onBuyBreakInfinityUpgrade?.('vacuumMomentum')}
+                                disabled={!canAfford}
+                                className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                  canAfford
+                                    ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                }`}
+                              >
+                                Buy Upgrade
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
