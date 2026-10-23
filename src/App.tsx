@@ -110,6 +110,9 @@ export default function App() {
       } else if (key === 't' || key === 'е') {
         e.preventDefault();
         buyTickspeed();
+      } else if ((key === 'c' || key === 'с') && canCrunch) {
+        e.preventDefault();
+        handleProceedInfinity();
       } else if (key >= '1' && key <= '8') {
         const num = parseInt(key, 10);
         buyGenerator(num);
@@ -123,6 +126,8 @@ export default function App() {
     performPrestige,
     buyTickspeed,
     buyGenerator,
+    canCrunch,
+    handleProceedInfinity,
   ]);
 
   return (
@@ -294,6 +299,8 @@ export default function App() {
             <span className="text-slate-400">T (Tickspeed)</span>
             <span>·</span>
             <span className="text-slate-400">P (Prestige)</span>
+            <span>·</span>
+            <span className="text-slate-400">C (Big Crunch)</span>
           </div>
 
           <div className="text-[11px] text-slate-600">

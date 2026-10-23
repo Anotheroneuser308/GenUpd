@@ -352,8 +352,7 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
 /**
  * Calculate Prestige Points gained on Prestige reset.
  * Requirement: 1.00e18 Points.
- * Curved progression: early Prestige gains grow quickly, then taper off toward Infinity.
- * At 1e200 this yields about 5.6 million PP before other bonuses.
+ * Formula: 10^(log10(Points) / 20), with a minimum requirement of 1e18 Points.
  * Pre-Infinity Node 3 multiplies PP gain by 3x.
  */
 export function calculatePrestigePointsGain(points: Decimal, state?: GameState): Decimal {
@@ -362,13 +361,9 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
   }
 
   const logPoints = points.log10();
-  const reqLog = PRESTIGE_REQUIREMENT.log10();
-  const excessLog = Math.max(0, logPoints - reqLog);
-  // Square-root scaling is generous early, but grows slower than a linear log curve
-  // as Points approach Infinity. Use Decimal exponentiation to support huge values.
-  const prestigeExponent = Math.sqrt(excessLog) * 0.5;
-  let gain = new Decimal(10).pow(prestigeExponent).floor();
-  if (gain.lt(1)) gain = new Decimal(1);
+  // Exact requested formula: 10^(log10(Points) / 20).
+  let gain = new Decimal(10).pow(logPoints / 20);
+  if (gain.lt(1)) gain = Decimal.one();
 
   if (state?.infinityTree?.pre_3) {
     gain = gain.mul(3);
