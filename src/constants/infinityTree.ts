@@ -54,7 +54,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'pre_4',
     branch: 'pre',
     title: 'Tickspeed Induction',
-    desc: 'Tickspeed multiplier also boosts all generators at a reduced power (tickspeed^0.5).',
+    desc: 'Tickspeed multiplier also boosts all generators at a reduced power (tickspeed^0.35).',
     cost: 3,
     req: 'pre_3',
     icon: '⚡',

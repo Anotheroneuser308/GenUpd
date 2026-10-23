@@ -152,6 +152,28 @@ export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
 }
 
 /**
+ * Order of Magnitude Surge: each stack needs 6 OoMs up to 1e308 Points,
+ * then each additional stack needs 20 more OoMs. No loss of stacks at the transition.
+ */
+export function getOrderMagnitudeSurgeIntervals(points: Decimal): number {
+  if (points.lte(0)) return 0;
+  const logPoints = Math.max(0, points.log10());
+  if (logPoints <= 308) return Math.floor(logPoints / 6);
+  return Math.floor(308 / 6) + Math.floor((logPoints - 308) / 20);
+}
+
+/**
+ * The earliest log10(Points) at which an Order of Magnitude Surge interval is reached.
+ * Used to preserve the full-strength Achievement Resonance bonuses earned before interval 308.
+ */
+export function getOrderMagnitudeSurgeLogThreshold(intervalCount: number): number {
+  const intervals = Math.max(0, Math.floor(intervalCount));
+  const initialIntervals = Math.floor(308 / 6);
+  if (intervals <= initialIntervals) return intervals * 6;
+  return 308 + (intervals - initialIntervals) * 20;
+}
+
+/**
  * Upgrade 10: Cosmic Resonance helper functions.
  * Every 10 total generator purchases multiplies each generator by 1.05x up to 1,000 purchases.
  * After 1,000 purchases, each group requires 50 total generator purchases instead of 10.
@@ -173,17 +195,24 @@ export function getCosmicResonanceMultiplier(totalPurchases: number): Decimal {
 }
 
 /**
- * Upgrade 2: Achievement Resonance helper function.
- * Multiplies by 1.05x per achievement up to 308, and 1.01x per achievement beyond 308.
+ * Achievement Resonance multiplier. Normal achievements and honorary achievements earned
+ * before the 308th Order of Magnitude Surge interval retain the full x1.05 effect.
+ * Honorary achievements earned after that point add a softer x1.01 each.
  */
-export function getAchievementResonanceMultiplier(totalAch: number): Decimal {
-  if (totalAch <= 0) return Decimal.one();
-  if (totalAch <= 308) {
-    return new Decimal(1.05).pow(totalAch);
-  }
-  const base = new Decimal(1.05).pow(308);
-  const extra = new Decimal(1.01).pow(totalAch - 308);
-  return base.mul(extra);
+export function getAchievementResonanceMultiplier(
+  unlockedAchievements: number,
+  honoraryAchievements: number,
+): Decimal {
+  const regular = Math.max(0, Math.floor(unlockedAchievements));
+  const honorary = Math.max(0, Math.floor(honoraryAchievements));
+  if (regular + honorary === 0) return Decimal.one();
+
+  const softcapLogPoints = getOrderMagnitudeSurgeLogThreshold(308);
+  const fullStrengthHonoraryCap = Math.floor(softcapLogPoints / 3);
+  const fullStrengthHonorary = Math.min(honorary, fullStrengthHonoraryCap);
+  const softenedHonorary = Math.max(0, honorary - fullStrengthHonoraryCap);
+  return new Decimal(1.05).pow(regular + fullStrengthHonorary)
+    .mul(new Decimal(1.01).pow(softenedHonorary));
 }
 
 /**
@@ -246,12 +275,11 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(new Decimal(3).pow(lifetimeIPLog));
   }
 
-  // Upgrade 2: Achievement Resonance boosts all generators based on unlocked achievements (+ honorary ones from Achievement Master)
+  // Upgrade 2: Achievement Resonance boosts all generators, including honorary achievements from Achievement Master.
   if (state.prestigeUpgrades?.achievementBoost) {
     const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
     const masterBonus = getAchievementMasterCompletions(state);
-    const totalAch = unlockedCount + masterBonus;
-    mult = mult.mul(getAchievementResonanceMultiplier(totalAch));
+    mult = mult.mul(getAchievementResonanceMultiplier(unlockedCount, masterBonus));
   }
 
   // Infinity Tree - Root Node (Infinity Nexus, 1 SP): 2^Infinities until 100, then an additional 1.05x per Infinity.
@@ -368,22 +396,19 @@ export function getAchievementMasterCompletions(state: GameState): number {
 export function getPointsGenerationMultiplier(state: GameState): Decimal {
   let mult = Decimal.one();
 
-  // Upgrade 1: 2x per 1e6 (6 OoM) Points
+  // Upgrade 1: x2 per 6 OoMs through 1e308, then x2 per additional 20 OoMs.
   if (state.prestigeUpgrades?.pointScaling && state.points.gte(1e6)) {
-    const oom6 = Math.floor(state.points.log10() / 6);
-    if (oom6 > 0) {
-      mult = mult.mul(new Decimal(2).pow(oom6));
+    const intervals = getOrderMagnitudeSurgeIntervals(state.points);
+    if (intervals > 0) {
+      mult = mult.mul(new Decimal(2).pow(intervals));
     }
   }
 
-  // Upgrade 2: 1.05x per achievement unlocked (multiplicative)
+  // Upgrade 2: uses the same full-strength / softened honorary achievement bonus as generator multipliers.
   if (state.prestigeUpgrades?.achievementBoost) {
     const unlockedCount = Object.values(state.achievements).filter(Boolean).length;
     const masterBonus = getAchievementMasterCompletions(state);
-    const totalAch = unlockedCount + masterBonus;
-    if (totalAch > 0) {
-      mult = mult.mul(new Decimal(1.05).pow(totalAch));
-    }
+    mult = mult.mul(getAchievementResonanceMultiplier(unlockedCount, masterBonus));
   }
 
   // Upgrade 5: Prestige Synergy (Points boosted by unspent PP without exponent: 1 + PP, hardcapped at 1e10)

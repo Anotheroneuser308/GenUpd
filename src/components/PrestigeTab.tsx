@@ -16,6 +16,10 @@ import {
   getGeneratorUnlockCost,
   MAX_GENERATOR_UNLOCKS,
   getAchievementMasterCompletions,
+  getOrderMagnitudeSurgeIntervals,
+  getAchievementResonanceMultiplier,
+  getCosmicResonanceGroups,
+  getCosmicResonanceMultiplier,
 } from '../utils/gameCalculations';
 
 interface PrestigeTabProps {
@@ -75,13 +79,15 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
     : 0;
   const canPrestigeEnergy = state.points.gte(PRESTIGE_ENERGY_THRESHOLD);
 
-  // Live effect previews
-  const oom6 = Math.floor(Math.max(0, state.points.log10()) / 6);
+  // Live previews use the same helpers as the actual production calculations.
+  const oom6 = getOrderMagnitudeSurgeIntervals(state.points);
   const upg1CurrentMult = upgs.pointScaling && oom6 > 0 ? new Decimal(2).pow(oom6) : Decimal.one();
   const unlockedAchCount = Object.values(state.achievements).filter(Boolean).length;
   const achMasterBonus = getAchievementMasterCompletions(state);
   const totalEffectiveAch = unlockedAchCount + achMasterBonus;
-  const upg2CurrentMult = upgs.achievementBoost && totalEffectiveAch > 0 ? new Decimal(1.05).pow(totalEffectiveAch) : Decimal.one();
+  const upg2CurrentMult = upgs.achievementBoost
+    ? getAchievementResonanceMultiplier(unlockedAchCount, achMasterBonus)
+    : Decimal.one();
 
   // Upgrade 3A (Cascading Boosts)
   const boostLevel = upgs.cascadingBoostsLevel || 0;
@@ -101,10 +107,12 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const logVal = Math.max(1, state.points.log10());
   const logCascadeMult = upgs.logarithmicCascade && state.points.gte(10) ? new Decimal(logVal * logVal) : Decimal.one();
 
-  // Upgrade 10 (Cosmic Resonance) - every 10 purchases multiplies each generator by 1.05x
+  // Upgrade 10 (Cosmic Resonance): every 10 purchases up to 1,000, then every 50 additional purchases.
   const totalPurchases = state.generators.reduce((sum, g) => sum + g.bought, 0);
-  const resonanceGroups = Math.floor(totalPurchases / 10);
-  const cosmicResonanceMult = upgs.cosmicResonance && resonanceGroups > 0 ? new Decimal(1.05).pow(resonanceGroups) : Decimal.one();
+  const resonanceGroups = getCosmicResonanceGroups(totalPurchases);
+  const cosmicResonanceMult = upgs.cosmicResonance
+    ? getCosmicResonanceMultiplier(totalPurchases)
+    : Decimal.one();
 
   return (
     <div className="space-y-6">
@@ -319,7 +327,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Points gain is multiplied by 2x for every 1e6 Points you possess (every 6 Orders of Magnitude).
+                    Points gain is multiplied by 2x every 6 orders of magnitude up to 1e308 Points. Beyond 1e308, each additional stack requires 20 more orders of magnitude.
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
                     Current: <span className="font-semibold">x{upg1CurrentMult.format(notation)}</span> ({oom6} intervals)
@@ -369,7 +377,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    All generators are boosted by 1.05x for each completed achievement, multiplicatively (1.05^achievements). Also factors in honorary achievements from Infinity's Achievement Master!
+                    All generators are boosted by 1.05x per achievement, including honorary achievements from Infinity's Achievement Master. After Order of Magnitude Surge reaches 308 intervals, additional honorary achievements grant 1.01x each.
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
                     Current: <span className="font-semibold">x{upg2CurrentMult.format(notation)}</span> to all generators ({totalEffectiveAch} achievements{achMasterBonus > 0 ? `, +${achMasterBonus} bonus` : ''})
@@ -883,10 +891,10 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Every 10 total generator purchases multiplies each generator by 1.05x multiplicatively.
+                    Every 10 total generator purchases grants one x1.05 multiplier stack up to 1,000 purchases. After that, each additional 50 purchases grants another stack.
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
-                    Current: <span className="font-semibold">x{cosmicResonanceMult.format(notation)} to each Generator</span> ({totalPurchases} purchases)
+                    Current: <span className="font-semibold">x{cosmicResonanceMult.format(notation)} to each Generator</span> ({resonanceGroups} stacks · {totalPurchases} purchases)
                   </div>
                 </div>
 
