@@ -37,6 +37,14 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     infinityCountRequired: 100,
   },
   {
+    id: 'milestone_1500_auto_infinity',
+    title: 'Auto Transcendence',
+    icon: '🤖',
+    reward: 'Unlocks the Infinity Autobuyer upgrade in the Automation Tree, with configurable settings like the Prestige Autobuyer (cost: 120 SP).',
+    requirement: '150 Infinities',
+    infinityCountRequired: 150,
+  },
+  {
     id: 'milestone_200_sp_boost',
     title: 'Skill Resonance',
     icon: '🔮',
@@ -56,17 +64,9 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_1000_gen_mult',
     title: 'Millennial Singularity',
     icon: '💥',
-    reward: 'All generators gain a ×10 multiplier for each unlocked milestone.',
+    reward: 'All generators gain a ×1000 multiplier for each unlocked milestone.'
     requirement: '1,000 Infinities',
     infinityCountRequired: 1000,
-  },
-  {
-    id: 'milestone_1500_auto_infinity',
-    title: 'Automated Transcendence',
-    icon: '🤖',
-    reward: 'Unlocks the Infinity Autobuyer upgrade in the Automation Tree, with configurable settings like the Prestige Autobuyer (cost: 120 SP).',
-    requirement: '150 Infinities',
-    infinityCountRequired: 150,
   },
   {
     id: 'milestone_2250_post_infinity',
