@@ -248,6 +248,16 @@ export const deserializeState = (raw: string): GameState | null => {
         }
         return rawPoints;
       })(),
+      achievements: (() => {
+        const achievements = { ...(parsed.achievements || {}) };
+        const hasRecordedPrestigeTime = typeof parsed.stats?.fastestPrestige === 'number' &&
+          Number.isFinite(parsed.stats.fastestPrestige) && parsed.stats.fastestPrestige > 0;
+        if (!hasRecordedPrestigeTime) {
+          achievements.speed_prestige = false;
+          achievements.rapid_prestige = false;
+        }
+        return achievements;
+      })(),
       pointsPerSecond: parsed.pointsPerSecond instanceof Decimal ? parsed.pointsPerSecond : Decimal.zero(),
       generatorCostSoftcapBought: Array.isArray(parsed.generatorCostSoftcapBought) &&
         parsed.generatorCostSoftcapBought.length === initial.generators.length &&
@@ -421,6 +431,11 @@ export const deserializeState = (raw: string): GameState | null => {
           : 0,
         // A reload starts a new session rather than restoring the previous session's counter.
         sessionTimePlayed: 0,
+        // JSON serializes Infinity as null. Restore the sentinel until a real Prestige time exists.
+        fastestPrestige: typeof parsed.stats?.fastestPrestige === 'number' &&
+          Number.isFinite(parsed.stats.fastestPrestige) && parsed.stats.fastestPrestige > 0
+          ? parsed.stats.fastestPrestige
+          : Infinity,
         timeThisInfinity: typeof parsed.stats?.timeThisInfinity === 'number' ? parsed.stats.timeThisInfinity : 0,
         peakPointsRate: parsed.stats?.peakPointsRate instanceof Decimal ? parsed.stats.peakPointsRate : Decimal.zero(),
         highestPointsEver: parsed.stats?.highestPointsEver instanceof Decimal ? parsed.stats.highestPointsEver : Decimal.zero(),
