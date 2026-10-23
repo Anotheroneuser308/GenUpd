@@ -362,10 +362,10 @@ export const StatsTab: React.FC<StatsTabProps> = ({
             <div>
               <div className="text-xs font-semibold text-rose-400 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                <span>Опасная зона / Danger Zone</span>
+                <span>Danger Zone</span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Полный сброс всех данных игры (Wipe Save). Стирает весь прогресс и резервные копии.
+                Permanently wipes all game progress and backup saves.
               </p>
             </div>
             <button
@@ -374,7 +374,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               className="flex items-center gap-2 px-4 py-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-lg text-xs font-bold border border-rose-500/40 transition-all cursor-pointer shadow-sm active:scale-95"
             >
               <Trash2 className="w-4 h-4" />
-              <span>Wipe / Стереть всё</span>
+              <span>Wipe Save</span>
             </button>
           </div>
         </div>
@@ -467,7 +467,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         </div>
       </div>
 
-      {/* Wipe Confirmation Modal Window (окно с выбором да или нет) */}
+      {/* Wipe Confirmation Modal Window */}
       {showWipeModal && (
         <div
           role="dialog"
@@ -485,7 +485,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               </div>
               <div className="flex-1">
                 <h3 className="text-base font-bold text-white flex items-center justify-between">
-                  <span>Стереть сохранение (Wipe)?</span>
+                  <span>Wipe Save?</span>
                   <button
                     type="button"
                     onClick={() => setShowWipeModal(false)}
@@ -495,20 +495,20 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                   </button>
                 </h3>
                 <p className="text-xs text-rose-300 font-medium mt-1">
-                  Внимание: это действие необратимо!
+                  Warning: This action is irreversible!
                 </p>
               </div>
             </div>
 
             <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-4 text-xs text-slate-300 space-y-2.5 leading-relaxed">
               <p className="font-semibold text-rose-200">
-                Вы действительно хотите полностью стереть весь прогресс игры?
+                Are you sure you want to permanently erase all game progress?
               </p>
               <ul className="list-disc list-inside text-slate-400 text-[11px] space-y-1">
-                <li>Будут удалены все Очки, Генераторы и Ускорители</li>
-                <li>Будут сброшены очки Престижа (PP) и уровни энергии</li>
-                <li>Будут удалены очки Бесконечности (IP), рубежи и ветки</li>
-                <li>Все резервные копии будут очищены</li>
+                <li>All Points, Generators, and Boosters will be deleted.</li>
+                <li>Prestige Points (PP) and Energy levels will be reset.</li>
+                <li>Infinity Points (IP), milestones, and branches will be deleted.</li>
+                <li>All backup saves will be cleared.</li>
               </ul>
             </div>
 
@@ -518,7 +518,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 onClick={() => setShowWipeModal(false)}
                 className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-colors cursor-pointer"
               >
-                Нет, отмена (No)
+                Cancel
               </button>
               <button
                 type="button"
@@ -529,7 +529,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-rose-600/30 transition-all cursor-pointer active:scale-95 flex items-center gap-2"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Да, стереть всё (Yes, Wipe)</span>
+                <span>Yes, Wipe</span>
               </button>
             </div>
           </div>
