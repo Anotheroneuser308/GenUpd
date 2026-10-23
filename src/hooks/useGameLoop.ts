@@ -35,6 +35,7 @@ import {
   calculatePrestigePointsGain,
   calculatePrestigeEnergyGain,
   getGeneratorEnergyAmplifierCost,
+  getPrestigeEnergyBoosterCost,
   calculateInfinityPointGain,
   getInfinityMilestoneExtraSP,
   calculateSkillPointsGain,
@@ -700,6 +701,7 @@ export function useGameLoop() {
                   totalEarned: newTotalEarned,
                   multiplier: Decimal.one(),
                   generatorUpgradeLevel: state.prestigeEnergy.generatorUpgradeLevel || 0,
+                  boosterLevel: state.prestigeEnergy.boosterLevel || 0,
                   resets: state.prestigeEnergy.resets + 1,
                 };
                 state.stats.timeThisPrestige = 0;
@@ -1188,6 +1190,27 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Buy Energy Booster: costs 10 PE initially, grows x10 each level, doubles PE gain.
+  const buyPrestigeEnergyBooster = useCallback(() => {
+    setGameState((prev) => {
+      const level = Math.max(0, Math.floor(prev.prestigeEnergy.boosterLevel || 0));
+      const cost = getPrestigeEnergyBoosterCost(level);
+      if (prev.prestigeEnergy.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        prestigeEnergy: {
+          ...prev.prestigeEnergy,
+          amount: prev.prestigeEnergy.amount.sub(cost),
+          boosterLevel: level + 1,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   // Buy any Prestige Upgrade
   const buyPrestigeUpgrade = useCallback((upgradeId: string) => {
     setGameState((prev) => {
@@ -1346,6 +1369,7 @@ export function useGameLoop() {
           totalEarned: Decimal.zero(),
           multiplier: Decimal.one(),
           generatorUpgradeLevel: 0,
+          boosterLevel: 0,
           resets: 0,
         },
         prestigeUpgrades: {
@@ -1380,10 +1404,34 @@ export function useGameLoop() {
 
   const buyInfinityTreeNode = useCallback((nodeId: string) => {
     setGameState((prev) => {
+      const tree = prev.infinityTree || {};
+
+      // MAX-buy the repeatable Generator Amplification node using the triangular cost sequence.
+      if (nodeId === 'pre_5_max') {
+        if (!tree.pre_4) return prev;
+        const level = typeof tree.pre_5Level === 'number' ? Math.max(0, Math.floor(tree.pre_5Level)) : 0;
+        const currentSP = Math.max(0, prev.infinity.skillPoints || 0);
+        const discriminant = 2 * level + 1;
+        let levelsToBuy = Math.max(0, Math.floor((-discriminant + Math.sqrt(discriminant * discriminant + 8 * currentSP)) / 2));
+        const costFor = (count: number) => count * (level + 1) + count * (count - 1) / 2;
+        for (let i = 0; i < 4 && levelsToBuy > 0 && costFor(levelsToBuy) > currentSP; i++) levelsToBuy -= 1;
+        for (let i = 0; i < 4 && costFor(levelsToBuy + 1) <= currentSP; i++) levelsToBuy += 1;
+        if (levelsToBuy <= 0) return prev;
+
+        const totalCost = costFor(levelsToBuy);
+        sound.playBuy();
+        const nextState: GameState = {
+          ...prev,
+          infinity: { ...prev.infinity, skillPoints: Math.max(0, currentSP - totalCost) },
+          infinityTree: { ...tree, pre_5: true, pre_5Level: level + levelsToBuy },
+        };
+        saveStateWithBackup(nextState);
+        return nextState;
+      }
+
       const def = INFINITY_TREE_NODES[nodeId];
       if (!def) return prev;
-      const tree = prev.infinityTree || {};
-      if (tree[nodeId]) return prev;
+      if (tree[nodeId] && !def.repeatable) return prev;
 
       // Check parent requirement
       if (def.req !== 'none' && !tree[def.req]) {
@@ -1400,7 +1448,9 @@ export function useGameLoop() {
         return prev;
       }
 
-      const costSP = def.cost;
+      const storedLevel = tree[nodeId + 'Level'];
+      const currentLevel = def.repeatable && typeof storedLevel === 'number' ? Math.max(0, Math.floor(storedLevel)) : 0;
+      const costSP = def.repeatable ? currentLevel + 1 : def.cost;
       const currentSP = prev.infinity.skillPoints ?? 0;
       if (currentSP < costSP) {
         return prev;
@@ -1408,7 +1458,9 @@ export function useGameLoop() {
 
       sound.playBuy();
       const nextSP = currentSP - costSP;
-      const nextTree = { ...tree, [nodeId]: true };
+      const nextTree = def.repeatable
+        ? { ...tree, [nodeId]: true, [nodeId + 'Level']: currentLevel + 1 }
+        : { ...tree, [nodeId]: true };
 
       // Unlock corresponding autobuyers immediately
       const nextAutobuyers = { ...prev.autobuyers };
@@ -2013,6 +2065,7 @@ export function useGameLoop() {
     performPrestigeEnergy,
     buyPrestigeEnergyUpgrade,
     buyMaxPrestigeEnergyUpgrade,
+    buyPrestigeEnergyBooster,
     buyPrestigeUpgrade,
     buyMaxPrestigeUpgrade,
     buyMaxPrestigeUpgrades,

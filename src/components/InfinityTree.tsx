@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GameState } from '../types/game';
 import { INFINITY_TREE_NODES, BRANCH_CONFIG, InfinityTreeNodeDef } from '../constants/infinityTree';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
-import { getInfinityGeneratorMultiplier, getTotalTickspeedSpeed, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';
+import { getInfinityGeneratorMultiplier, getPreInfinityGeneratorMultiplier, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';
 import { Decimal } from '../utils/decimal';
 import {
   Layers,
@@ -36,6 +36,7 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   pre_2: { x: -280, y: -90 },
   pre_3: { x: -410, y: -130 },
   pre_4: { x: -540, y: -170 },
+  pre_5: { x: -670, y: -240 },
 
   // Automation (North)
   auto_1: { x: 0, y: -130 },
@@ -54,11 +55,11 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   feat_3: { x: 410, y: -130 },
   feat_4: { x: 540, y: -170 }, // Break Infinity
 
-  // Post-Infinity (South-East extending from feat_4)
-  post_1: { x: 670, y: -130 },
-  post_2: { x: 780, y: -60 },
-  post_3: { x: 860, y: 40 },
-  post_4: { x: 910, y: 160 },
+  // Post-Infinity is a separate branch from Root Nexus (South-East).
+  post_1: { x: 430, y: 220 },
+  post_2: { x: 550, y: 310 },
+  post_3: { x: 650, y: 420 },
+  post_4: { x: 730, y: 540 },
 };
 
 // Tree Graph Connections (Parent -> Child)
@@ -67,6 +68,7 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['pre_1', 'pre_2'],
   ['pre_2', 'pre_3'],
   ['pre_3', 'pre_4'],
+  ['pre_4', 'pre_5'],
 
   ['root', 'auto_1'],
   ['auto_1', 'auto_2'],
@@ -83,7 +85,7 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['feat_2', 'feat_3'],
   ['feat_3', 'feat_4'],
 
-  ['feat_4', 'post_1'],
+  ['root', 'post_1'],
   ['post_1', 'post_2'],
   ['post_2', 'post_3'],
   ['post_3', 'post_4'],
@@ -125,19 +127,26 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
   // Check node requirements and status
   const getNodeStatus = useCallback(
     (def: InfinityTreeNodeDef) => {
-      const isBought = !!tree[def.id];
+      const isRepeatable = !!def.repeatable;
+      const levelValue = tree[def.id + 'Level'];
+      const level = isRepeatable && typeof levelValue === 'number' ? Math.max(0, Math.floor(levelValue)) : 0;
+      const isBought = isRepeatable ? level > 0 : !!tree[def.id];
+      const cost = isRepeatable ? level + 1 : def.cost;
       const hasParent = def.req === 'none' || !!tree[def.req];
       const hasUpgradeReq =
         !def.reqUpgrade ||
         (def.reqUpgrade === 'automationExpand' && !!state.infinity?.automationExpand);
       const hasMilestoneReq =
         !def.reqMilestone || isInfinityMilestoneUnlocked(state, def.reqMilestone as any);
-      const canAfford = currentSP >= def.cost;
-      const canBuy = !isBought && hasParent && hasUpgradeReq && hasMilestoneReq && canAfford;
-      const isAvailable = !isBought && hasParent && hasUpgradeReq && hasMilestoneReq;
+      const canAfford = currentSP >= cost;
+      const canBuy = (isRepeatable || !isBought) && hasParent && hasUpgradeReq && hasMilestoneReq && canAfford;
+      const isAvailable = (isRepeatable || !isBought) && hasParent && hasUpgradeReq && hasMilestoneReq;
 
       return {
         isBought,
+        isRepeatable,
+        level,
+        cost,
         hasParent,
         hasUpgradeReq,
         hasMilestoneReq,
@@ -163,7 +172,11 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'pre_1': return `Current generator bonus from time: ×${fmt(1 + (state.stats?.timeThisInfinity || 0) * 0.01)}.`;
       case 'pre_2': return 'On each Prestige/Infinity: start with 1,000,000 Points and 1 of each of the first 4 generators.';
       case 'pre_3': return 'Current Prestige Point reward multiplier: ×3.';
-      case 'pre_4': return `Current extra generator multiplier from Tickspeed: ×${fmt(getTotalTickspeedSpeed(state).pow(0.5))}.`;
+      case 'pre_4': return 'Current generator multiplier from the Pre-Infinity branch: x' + fmt(getPreInfinityGeneratorMultiplier(state)) + '.';
+      case 'pre_5': {
+        const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
+        return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + (level + 1) + ' SP.';
+      }
       case 'auto_1': return 'Unlocks automatic purchases for Generators 1–4.';
       case 'auto_2': return 'Unlocks automatic Tickspeed and Generators 5–8 purchases.';
       case 'auto_3': return 'Unlocks Prestige automation; current settings are shown in the Automation tab.';
@@ -275,7 +288,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
     else if (clusterKey === 'pre') handleCenter(-300, -100);
     else if (clusterKey === 'auto') handleCenter(0, -450);
     else if (clusterKey === 'feat') handleCenter(300, -100);
-    else if (clusterKey === 'post') handleCenter(750, 0);
+    else if (clusterKey === 'post') handleCenter(590, 390);
   };
 
   // Node Click
@@ -418,7 +431,8 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
               {/* Requirements row */}
               <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-slate-400">
                 <span>
-                  Cost: <strong className="text-amber-400 font-bold">{selectedDef.cost} SP</strong>
+                  Cost: <strong className="text-amber-400 font-bold">{selectedStatus.cost} SP</strong>
+                  {selectedStatus.isRepeatable && <span className="ml-1 text-slate-500">(Level {selectedStatus.level})</span>}
                 </span>
 
                 {selectedDef.req !== 'none' && (
@@ -462,51 +476,52 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
 
           {/* Action / Buy Button */}
           <div className="shrink-0 w-full lg:w-auto">
-            {selectedStatus.isBought ? (
+            {selectedStatus.isBought && !selectedStatus.isRepeatable ? (
               <div className="px-6 py-3 bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 <span>Узел активирован (Purchased)</span>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => onBuyInfinityTreeNode(selectedDef.id)}
-                disabled={!selectedStatus.canBuy}
-                className={`w-full lg:w-auto px-7 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
-                  selectedStatus.canBuy
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-amber-500/30 hover:scale-105 active:scale-95'
-                    : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed shadow-none'
-                }`}
-              >
-                {!selectedStatus.hasParent ? (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Требуется предыдущий узел</span>
-                  </>
-                ) : !selectedStatus.hasMilestoneReq ? (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Требуется майлстоун</span>
-                  </>
-                ) : !selectedStatus.hasUpgradeReq ? (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Требуется апгрейд матрицы</span>
-                  </>
-                ) : !selectedStatus.canAfford ? (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    <span>Нужно {selectedDef.cost} SP (Не хватает {selectedDef.cost - currentSP} SP)</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Купить за {selectedDef.cost} SP</span>
-                  </>
+              <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                <button
+                  type="button"
+                  onClick={() => onBuyInfinityTreeNode(selectedDef.id)}
+                  disabled={!selectedStatus.canBuy}
+                  className={selectedStatus.canBuy
+                    ? 'w-full lg:w-auto px-7 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform flex items-center justify-center gap-2 shadow-lg cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-amber-500/30 hover:scale-105 active:scale-95'
+                    : 'w-full lg:w-auto px-7 py-3 rounded-xl font-black text-sm uppercase tracking-wider transition-all transform flex items-center justify-center gap-2 shadow-lg bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed shadow-none'}
+                >
+                  {!selectedStatus.hasParent ? (
+                    <><Lock className="w-4 h-4" /><span>Требуется предыдущий узел</span></>
+                  ) : !selectedStatus.hasMilestoneReq ? (
+                    <><Lock className="w-4 h-4" /><span>Требуется майлстоун</span></>
+                  ) : !selectedStatus.hasUpgradeReq ? (
+                    <><Lock className="w-4 h-4" /><span>Требуется апгрейд матрицы</span></>
+                  ) : !selectedStatus.canAfford ? (
+                    <><Lock className="w-4 h-4" /><span>Нужно {selectedStatus.cost} SP (не хватает {selectedStatus.cost - currentSP} SP)</span></>
+                  ) : (
+                    <><Sparkles className="w-4 h-4" /><span>{selectedStatus.isRepeatable ? 'Buy Level ' + (selectedStatus.level + 1) + ' for ' + selectedStatus.cost + ' SP' : 'Купить за ' + selectedStatus.cost + ' SP'}</span></>
+                  )}
+                </button>
+                {selectedStatus.isRepeatable && (
+                  <button
+                    type="button"
+                    onClick={() => onBuyInfinityTreeNode(selectedDef.id + '_max')}
+                    disabled={!selectedStatus.hasParent || !selectedStatus.hasMilestoneReq || !selectedStatus.hasUpgradeReq || currentSP < selectedStatus.cost}
+                    className={!selectedStatus.hasParent || !selectedStatus.hasMilestoneReq || !selectedStatus.hasUpgradeReq || currentSP < selectedStatus.cost
+                      ? 'px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider border bg-slate-800 text-slate-600 border-slate-700 cursor-not-allowed'
+                      : 'px-6 py-3 rounded-xl font-black text-sm uppercase tracking-wider border bg-emerald-700 hover:bg-emerald-600 text-white border-emerald-500/50 cursor-pointer'}
+                    title="Buy as many Generator Amplification levels as possible"
+                  >
+                    MAX
+                  </button>
                 )}
-              </button>
+              </div>
             )}
           </div>
+        </div>
+      </div>
+
         </div>
       </div>
 

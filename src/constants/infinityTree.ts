@@ -6,6 +6,7 @@ export interface InfinityTreeNodeDef {
   cost: number; // Skill Points (SP)
   req: string; // parent node id ('none' for root)
   reqUpgrade?: string; // requires an Infinity Upgrade to be unlocked, e.g. 'automationExpand'
+  repeatable?: boolean;
   reqMilestone?: string; // requires a milestone to be unlocked
   icon?: string;
 }
@@ -57,6 +58,16 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     cost: 3,
     req: 'pre_3',
     icon: '⚡',
+  },
+  pre_5: {
+    id: 'pre_5',
+    branch: 'pre',
+    title: 'Generator Amplification',
+    desc: 'Repeatable: multiplies all generator production by x(1 + level). The next level costs one more SP than the previous level (1, 2, 3, 4 SP, and so on).',
+    cost: 1,
+    req: 'pre_4',
+    repeatable: true,
+    icon: '📈',
   },
 
   // Branch 2: Automation
@@ -191,7 +202,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     title: 'Cosmic SP Conduit',
     desc: 'Умножает получаемые SP от пойнтов по формуле: log10(Пойнты) / 500.',
     cost: 2500,
-    req: 'feat_4',
+    req: 'root',
     reqMilestone: 'milestone_2250_post_infinity',
     icon: '✨',
   },

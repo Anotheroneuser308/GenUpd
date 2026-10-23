@@ -32,6 +32,7 @@ export interface PrestigeEnergyState {
   /** @deprecated Legacy saved value; new runs use generatorUpgradeLevel instead. */
   multiplier: Decimal;
   generatorUpgradeLevel: number; // Purchased generator boosts bought with Prestige Energy
+  boosterLevel: number; // Prestige Energy gain booster level
   resets: number;
 }
 
@@ -164,7 +165,7 @@ export interface GameState {
   prestigeEnergy: PrestigeEnergyState;
   prestigeUpgrades: PrestigeUpgradesState;
   infinity: InfinityState;
-  infinityTree?: Record<string, boolean>;
+  infinityTree?: Record<string, boolean | number>;
 
   autobuyers: Record<string, Autobuyer>;
   achievements: Record<string, boolean>;

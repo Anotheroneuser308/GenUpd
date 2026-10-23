@@ -34,6 +34,12 @@ export function getGeneratorEnergyAmplifierCost(currentLevel: number): Decimal {
   return cost;
 }
 
+/** Next Energy Booster cost: starts at 10 PE and increases by x10 per level. */
+export function getPrestigeEnergyBoosterCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  return new Decimal(10).pow(level + 1);
+}
+
 // Infinity threshold (1.79e308 Points)
 export const INFINITY_THRESHOLD = new Decimal(1.7976931348623157, 308);
 
@@ -146,6 +152,21 @@ export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
 }
 
 /**
+ * Combined Pre-Infinity generator multiplier from Tickspeed Induction and the repeatable node.
+ */
+export function getPreInfinityGeneratorMultiplier(state: GameState): Decimal {
+  let multiplier = Decimal.one();
+  if (state.infinityTree?.pre_4) {
+    multiplier = multiplier.mul(getTotalTickspeedSpeed(state).pow(0.5));
+  }
+  const level = typeof state.infinityTree?.pre_5Level === 'number'
+    ? Math.max(0, Math.floor(state.infinityTree.pre_5Level))
+    : 0;
+  if (level > 0) multiplier = multiplier.mul(1 + level);
+  return multiplier;
+}
+
+/**
  * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
  * and the Infinity Tree Root Node with a softcap after 1024 Infinities.
  */
@@ -216,13 +237,8 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(new Decimal(timeMult));
   }
 
-  // Infinity Tree - Pre-Infinity Node 4 (Tickspeed Induction: tickspeed affects generators at reduced rate)
-  if (state.infinityTree?.pre_4) {
-    const tickspeedSpeed = getTotalTickspeedSpeed(state);
-    if (tickspeedSpeed.gt(1)) {
-      mult = mult.mul(tickspeedSpeed.pow(0.5));
-    }
-  }
+  // Pre-Infinity branch multipliers: Tickspeed Induction and repeatable Generator Amplification.
+  mult = mult.mul(getPreInfinityGeneratorMultiplier(state));
 
   // Milestone 1000: Multiplies all generators by 10 per milestone owned
   if (isInfinityMilestoneUnlocked(state, 'milestone_1000_gen_mult')) {
@@ -370,6 +386,10 @@ export function calculatePrestigeEnergyGain(points: Decimal, state?: GameState):
   if (points.lt(PRESTIGE_ENERGY_THRESHOLD)) return Decimal.zero();
 
   let gain = new Decimal(10).pow(points.log10() / 154);
+
+  // Each Energy Booster level doubles Prestige Energy gained from this reset.
+  const boosterLevel = Math.max(0, Math.floor(state?.prestigeEnergy?.boosterLevel || 0));
+  if (boosterLevel > 0) gain = gain.mul(new Decimal(2).pow(boosterLevel));
 
   // Infinity Upgrade: PE gain is multiplied by (unspent SP + 1).
   if (state?.infinity?.energySPBoost) {

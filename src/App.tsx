@@ -232,6 +232,7 @@ export default function App() {
             onPrestigeEnergy={performPrestigeEnergy}
             onBuyPrestigeEnergyUpgrade={buyPrestigeEnergyUpgrade}
             onBuyMaxPrestigeEnergyUpgrade={buyMaxPrestigeEnergyUpgrade}
+            onBuyPrestigeEnergyBooster={buyPrestigeEnergyBooster}
             onBuyUpgrade={buyPrestigeUpgrade}
             onBuyMaxUpgrade={buyMaxPrestigeUpgrade}
             onBuyMaxUpgrades={buyMaxPrestigeUpgrades}

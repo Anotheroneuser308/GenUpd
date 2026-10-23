@@ -109,6 +109,7 @@ export const createInitialState = (): GameState => ({
     totalEarned: Decimal.zero(),
     multiplier: Decimal.one(),
     generatorUpgradeLevel: 0,
+    boosterLevel: 0,
     resets: 0,
   },
 

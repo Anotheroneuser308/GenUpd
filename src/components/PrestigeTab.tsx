@@ -9,6 +9,7 @@ import {
   calculatePrestigeEnergyGain,
   getPassivePrestigeEnergyGeneratorMultiplier,
   getGeneratorEnergyAmplifierCost,
+  getPrestigeEnergyBoosterCost,
   getCascadingBoostCost,
   MAX_CASCADING_BOOSTS,
   getCascadingBoostMultiplierForGen,
@@ -22,6 +23,7 @@ interface PrestigeTabProps {
   onPrestigeEnergy: () => void;
   onBuyPrestigeEnergyUpgrade: () => void;
   onBuyMaxPrestigeEnergyUpgrade: () => void;
+  onBuyPrestigeEnergyBooster: () => void;
   onBuyUpgrade: (upgradeId: string) => void;
   onBuyMaxUpgrade?: (upgradeId: 'cascadingBoosts' | 'generatorUnlock') => void;
   onBuyMaxUpgrades?: () => void;
@@ -33,6 +35,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   onPrestigeEnergy,
   onBuyPrestigeEnergyUpgrade,
   onBuyMaxPrestigeEnergyUpgrade,
+  onBuyPrestigeEnergyBooster,
   onBuyUpgrade,
   onBuyMaxUpgrade,
   onBuyMaxUpgrades,
@@ -63,6 +66,9 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const passiveEnergyGeneratorMult = getPassivePrestigeEnergyGeneratorMultiplier(state);
   const lifetimePE = state.prestigeEnergy.totalEarned || state.prestigeEnergy.amount;
   const energyUpgradeCost = getGeneratorEnergyAmplifierCost(energyUpgradeLevel);
+  const energyBoosterLevel = Math.max(0, Math.floor(state.prestigeEnergy.boosterLevel || 0));
+  const energyBoosterCost = getPrestigeEnergyBoosterCost(energyBoosterLevel);
+  const energyBoosterMult = new Decimal(2).pow(energyBoosterLevel);
   const prestigeSkillSynergyBonus = upgs.prestigeSkillSynergy && state.prestige.count >= 10
     ? Math.floor(Math.log10(Math.max(1, state.prestige.count)))
     : 0;
@@ -1023,6 +1029,34 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   <button type="button" onClick={onBuyPrestigeEnergyUpgrade} disabled={state.prestigeEnergy.amount.lt(energyUpgradeCost)} className={`px-4 py-2 rounded-lg text-xs font-mono font-semibold ${state.prestigeEnergy.amount.gte(energyUpgradeCost) ? 'bg-purple-600 hover:bg-purple-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Level</button>
                   <button type="button" onClick={onBuyMaxPrestigeEnergyUpgrade} disabled={state.prestigeEnergy.amount.lt(energyUpgradeCost)} className={`px-4 py-2 rounded-lg text-xs font-mono font-bold ${state.prestigeEnergy.amount.gte(energyUpgradeCost) ? 'bg-purple-800/80 hover:bg-purple-700 text-white border border-purple-500/40 cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`} title="Buy as many Generator Energy Amplifier levels as possible">MAX</button>
                 </div>
+              </div>
+            </div>
+
+            {/* Energy Booster: doubles PE gained per Prestige Energy reset. */}
+            <div className="w-full max-w-xl rounded-xl border border-amber-500/30 bg-slate-950/70 p-5 text-left space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-100">Energy Booster</h3>
+                <span className="text-[10px] font-mono rounded border border-amber-500/30 bg-amber-950/50 px-2 py-1 text-amber-300">LEVEL {energyBoosterLevel}</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Each level doubles the Prestige Energy gained from every Energy reset. Cost starts at 10 PE and multiplies by x10 per level.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                <div className="text-xs font-mono text-slate-400">
+                  Current bonus: <strong className="text-emerald-300">x{energyBoosterMult.format(notation)} PE gain</strong>
+                  {' · '}Next level: <strong className="text-purple-300">x{new Decimal(2).pow(energyBoosterLevel + 1).format(notation)}</strong>
+                  {' · '}Cost: <strong className="text-amber-400">{energyBoosterCost.format(notation)} PE</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={onBuyPrestigeEnergyBooster}
+                  disabled={state.prestigeEnergy.amount.lt(energyBoosterCost)}
+                  className={state.prestigeEnergy.amount.gte(energyBoosterCost)
+                    ? 'px-4 py-2 rounded-lg text-xs font-mono font-semibold bg-amber-600 hover:bg-amber-500 text-white cursor-pointer'
+                    : 'px-4 py-2 rounded-lg text-xs font-mono font-semibold bg-slate-800 text-slate-600 cursor-not-allowed'}
+                >
+                  Buy Level
+                </button>
               </div>
             </div>
 
