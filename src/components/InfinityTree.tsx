@@ -522,9 +522,6 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
         </div>
       </div>
 
-        </div>
-      </div>
-
       {/* THE INTERACTIVE 2D MAP VIEWPORT */}
       <div
         ref={mapContainerRef}
