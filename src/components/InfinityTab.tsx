@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Decimal } from '../utils/decimal';
-import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode } from '../types/game';
+import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode, BreakInfinityUpgradeId } from '../types/game';
 import {
   INFINITY_THRESHOLD,
   calculateInfinityPointGain,
@@ -14,6 +14,107 @@ import { InfinityTree } from './InfinityTree';
 import { Layers, Atom, Cpu } from 'lucide-react';
 import { AutomationTab } from './AutomationTab';
 
+
+type AdvancedBreakInfinityUpgradeId =
+  | 'fractalIgnition'
+  | 'singularityOverdrive'
+  | 'hyperchargeOverdrive'
+  | 'vacuumCascade'
+  | 'transcendentCascade'
+  | 'absoluteHorizon';
+
+interface AdvancedBreakInfinityUpgradeDefinition {
+  id: AdvancedBreakInfinityUpgradeId;
+  title: string;
+  description: string;
+  cost: Decimal;
+  requirement?: 'singularityResonance' | 'hypercharge';
+}
+
+const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[] = [
+  { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains an additional ×(1 + 0.01 × OoMs) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
+  { id: 'singularityOverdrive', title: 'Singularity Overdrive', description: 'Squares the generator multiplier from Singularity Resonance. Requires Singularity Resonance.', cost: new Decimal(1, 50), requirement: 'singularityResonance' },
+  { id: 'hyperchargeOverdrive', title: 'Hypercharge Overdrive', description: 'Dimension Hypercharge grants ×2 every 25 OoMs instead of every 50. Requires Dimension Hypercharge.', cost: new Decimal(1, 60), requirement: 'hypercharge' },
+  { id: 'vacuumCascade', title: 'Vacuum Cascade', description: 'Infinity Point gains are multiplied by 10^(0.1 × sqrt(OoMs above 1e308)).', cost: new Decimal(1, 75) },
+  { id: 'transcendentCascade', title: 'Transcendent Cascade', description: 'Raises the final multiplier of every Generator to the power of 1.05.', cost: new Decimal(1, 90) },
+  { id: 'absoluteHorizon', title: 'Absolute Horizon', description: 'Raises the total Points generation multiplier to the power of 1.05.', cost: new Decimal(1, 110) },
+];
+
+function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, state: GameState, oomAbove: number): string {
+  switch (id) {
+    case 'fractalIgnition':
+      return 'Points gain ×' + new Decimal(1 + 0.01 * oomAbove).format(state.settings.notation);
+    case 'singularityOverdrive':
+      return 'Singularity Resonance becomes ×' + new Decimal(1 + 0.01 * oomAbove).pow(2).format(state.settings.notation);
+    case 'hyperchargeOverdrive':
+      return 'Hypercharge multiplier ×' + new Decimal(2).pow(Math.floor(oomAbove / 25)).format(state.settings.notation);
+    case 'vacuumCascade':
+      return 'IP gain ×' + new Decimal(10).pow(Math.sqrt(oomAbove) * 0.1).format(state.settings.notation);
+    case 'transcendentCascade':
+      return 'Generator multiplier exponent ^1.05';
+    case 'absoluteHorizon':
+      return 'Points generation multiplier exponent ^1.05';
+  }
+}
+
+interface AdvancedBreakInfinityUpgradeCardProps {
+  state: GameState;
+  definition: AdvancedBreakInfinityUpgradeDefinition;
+  onBuy: (id: BreakInfinityUpgradeId) => void;
+}
+
+const AdvancedBreakInfinityUpgradeCard: React.FC<AdvancedBreakInfinityUpgradeCardProps> = ({ state, definition, onBuy }) => {
+  const isBought = !!state.infinity.breakInfinityUpgrades?.[definition.id];
+  const canAfford = state.infinity.points.gte(definition.cost);
+  const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
+  const requirementMet = !definition.requirement || !!state.infinity.breakInfinityUpgrades?.[definition.requirement];
+  const disabled = !canAfford || !requirementMet;
+
+  return (
+    <div className={isBought
+      ? 'p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all bg-purple-950/25 border-purple-500/40'
+      : 'p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all bg-slate-950/80 border-slate-700'}>
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="font-semibold text-sm text-slate-100">{definition.title}</h4>
+          {isBought
+            ? <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">ACTIVE</span>
+            : <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>}
+        </div>
+        <p className="text-xs text-slate-400 mt-2 leading-relaxed">{definition.description}</p>
+        <div className="mt-3 text-xs font-mono text-purple-300">
+          <span>{isBought ? 'Current effect: ' : 'Potential effect: '}</span>
+          <strong>{getAdvancedBreakInfinityPreview(definition.id, state, oomAbove)}</strong>
+        </div>
+        {definition.requirement && !requirementMet && (
+          <p className="mt-2 text-[11px] text-amber-300">
+            Requires {definition.requirement === 'hypercharge' ? 'Dimension Hypercharge' : 'Singularity Resonance'} first.
+          </p>
+        )}
+      </div>
+      <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+        <span className="text-xs font-mono text-slate-400">
+          Cost: <strong className="text-purple-400">{definition.cost.format(state.settings.notation)} IP</strong>
+        </span>
+        {isBought
+          ? <span className="text-xs font-mono text-purple-400 font-semibold">Active</span>
+          : (
+            <button
+              type="button"
+              onClick={() => onBuy(definition.id)}
+              disabled={disabled}
+              className={disabled
+                ? 'px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold bg-slate-800 text-slate-600 cursor-not-allowed'
+                : 'px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30 transition-all cursor-pointer'}
+            >
+              Buy Upgrade
+            </button>
+          )}
+      </div>
+    </div>
+  );
+};
+
 interface InfinityTabProps {
   state: GameState;
   onBuyInfinityTreeNode: (nodeId: string) => void;
@@ -25,7 +126,7 @@ interface InfinityTabProps {
   onBuyTimeIPBoost?: () => void;
   onBuyEnergySPBoost?: () => void;
   onBuySpDoublerUpgrade?: () => void;
-  onBuyBreakInfinityUpgrade?: (upgradeId: 'limitless' | 'singularityResonance' | 'hypercharge' | 'vacuumMomentum') => void;
+  onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
   onToggleAutobuyer: (id: string) => void;
   onSetAutobuyerTarget: (id: string, target: number) => void;
@@ -826,6 +927,14 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                         </div>
                       );
                     })()}
+                    {ADVANCED_BREAK_INFINITY_UPGRADES.map((upgrade) => (
+                      <AdvancedBreakInfinityUpgradeCard
+                        key={upgrade.id}
+                        state={state}
+                        definition={upgrade}
+                        onBuy={(upgradeId) => onBuyBreakInfinityUpgrade?.(upgradeId)}
+                      />
+                    ))}
                   </div>
                 </div>
               )}

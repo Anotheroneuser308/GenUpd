@@ -51,6 +51,18 @@ export interface PrestigeUpgradesState {
   prestigeSkillSynergy: boolean; // Unlocked by Infinity Tree feat_2; boosts SP gain from Prestige resets
 }
 
+export type BreakInfinityUpgradeId =
+  | 'limitless'
+  | 'singularityResonance'
+  | 'hypercharge'
+  | 'vacuumMomentum'
+  | 'fractalIgnition'
+  | 'singularityOverdrive'
+  | 'hyperchargeOverdrive'
+  | 'vacuumCascade'
+  | 'transcendentCascade'
+  | 'absoluteHorizon';
+
 export interface InfinityState {
   count: number;
   points: Decimal; // Infinity Points (IP)
@@ -65,10 +77,16 @@ export interface InfinityState {
   totalEarnedIP: Decimal; // Lifetime IP earned, including IP later spent on upgrades
   spDoublerUpgrade?: boolean; // Infinity Upgrade: 1,000 IP, multiplies gained SP by 2x
   breakInfinityUpgrades?: {
-    limitless?: boolean; // Break Infinity Upgrade: generator multiplier based on points > 1e308
-    singularityResonance?: boolean; // Break Infinity Upgrade: +1% generator power per OoM > 1e308
-    hypercharge?: boolean; // Break Infinity Upgrade: 2x per 50 OoMs > 1e308
-    vacuumMomentum?: boolean; // Break Infinity Upgrade: +1% IP gain per OoM > 1e308
+    limitless?: boolean; // Points gain scales above 1e308
+    singularityResonance?: boolean; // +1% generator power per OoM above 1e308
+    hypercharge?: boolean; // x2 generator bonus per 50 OoMs above 1e308
+    vacuumMomentum?: boolean; // +1% IP gain per OoM above 1e308
+    fractalIgnition?: boolean; // Additional linear Points gain bonus per OoM
+    singularityOverdrive?: boolean; // Squares Singularity Resonance's generator multiplier
+    hyperchargeOverdrive?: boolean; // Improves Hypercharge from every 50 to every 25 OoMs
+    vacuumCascade?: boolean; // Additional IP gain scaling from sqrt(OoMs)
+    transcendentCascade?: boolean; // Raises generator multipliers to ^1.05
+    absoluteHorizon?: boolean; // Raises Points generation multiplier to ^1.05
   };
 }
 

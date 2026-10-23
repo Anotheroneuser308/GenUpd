@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ToastNotification, Achievement } from '../types/game';
+import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId } from '../types/game';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import {
   createInitialState,
@@ -1683,19 +1683,27 @@ export function useGameLoop() {
     });
   }, []);
 
-  // Break Infinity Upgrades (costs > 1e15 IP)
-  const buyBreakInfinityUpgrade = useCallback((upgradeId: 'limitless' | 'singularityResonance' | 'hypercharge' | 'vacuumMomentum') => {
-    const costs: Record<'limitless' | 'singularityResonance' | 'hypercharge' | 'vacuumMomentum', Decimal> = {
+  // Break Infinity Upgrades, including the new late-game extension from 1e40 IP.
+  const buyBreakInfinityUpgrade = useCallback((upgradeId: BreakInfinityUpgradeId) => {
+    const costs: Record<BreakInfinityUpgradeId, Decimal> = {
       limitless: new Decimal(1e16),
       singularityResonance: new Decimal(1e18),
       hypercharge: new Decimal(1e20),
       vacuumMomentum: new Decimal(1e22),
+      fractalIgnition: new Decimal(1, 40),
+      singularityOverdrive: new Decimal(1, 50),
+      hyperchargeOverdrive: new Decimal(1, 60),
+      vacuumCascade: new Decimal(1, 75),
+      transcendentCascade: new Decimal(1, 90),
+      absoluteHorizon: new Decimal(1, 110),
     };
 
     setGameState((prev) => {
       if (!prev.infinityTree?.feat_5) return prev;
       const currentUpgs = prev.infinity.breakInfinityUpgrades || {};
       if (currentUpgs[upgradeId]) return prev;
+      if (upgradeId === 'singularityOverdrive' && !currentUpgs.singularityResonance) return prev;
+      if (upgradeId === 'hyperchargeOverdrive' && !currentUpgs.hypercharge) return prev;
 
       const cost = costs[upgradeId];
       if (!cost) return prev;

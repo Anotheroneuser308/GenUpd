@@ -317,21 +317,28 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.pow(1.02);
   }
 
-  // Break Infinity Upgrade 2: Singularity Resonance (+1% generator power per OoM above 1e308)
+  // Singularity Overdrive squares the multiplier from Singularity Resonance.
   if (state.infinity?.breakInfinityUpgrades?.singularityResonance && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
     if (oomAbove > 0) {
-      mult = mult.mul(new Decimal(1 + 0.01 * oomAbove));
+      const resonance = new Decimal(1 + 0.01 * oomAbove);
+      mult = mult.mul(state.infinity.breakInfinityUpgrades?.singularityOverdrive ? resonance.pow(2) : resonance);
     }
   }
 
-  // Break Infinity Upgrade 3: Hypercharge (2x per 50 OoMs above 1e308)
+  // Hypercharge Overdrive improves the interval from 50 OoMs to 25 OoMs.
   if (state.infinity?.breakInfinityUpgrades?.hypercharge && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
-    const groupsOf50 = Math.floor(oomAbove / 50);
-    if (groupsOf50 > 0) {
-      mult = mult.mul(new Decimal(2).pow(groupsOf50));
+    const interval = state.infinity.breakInfinityUpgrades?.hyperchargeOverdrive ? 25 : 50;
+    const groups = Math.floor(oomAbove / interval);
+    if (groups > 0) {
+      mult = mult.mul(new Decimal(2).pow(groups));
     }
+  }
+
+  // Transcendent Cascade raises the final generator multiplier to ^1.05.
+  if (state.infinity?.breakInfinityUpgrades?.transcendentCascade) {
+    mult = mult.pow(1.05);
   }
 
   return mult;
@@ -422,6 +429,17 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
   if (state.infinity?.breakInfinityUpgrades?.limitless && state.points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, state.points.log10() - 308);
     mult = mult.mul(new Decimal(10).pow(oomAbove * 0.03));
+  }
+
+  // Fractal Ignition adds a separate linear Points-generation multiplier per OoM above 1e308.
+  if (state.infinity?.breakInfinityUpgrades?.fractalIgnition && state.points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, state.points.log10() - 308);
+    mult = mult.mul(new Decimal(1 + 0.01 * oomAbove));
+  }
+
+  // Absolute Horizon raises the complete Points-generation multiplier to ^1.05.
+  if (state.infinity?.breakInfinityUpgrades?.absoluteHorizon) {
+    mult = mult.pow(1.05);
   }
 
   return mult;
@@ -529,6 +547,14 @@ export function calculateInfinityPointGain(
     const oomAbove = Math.max(0, points.log10() - 308);
     if (oomAbove > 0) {
       gain = gain.mul(new Decimal(1 + 0.01 * oomAbove));
+    }
+  }
+
+  // Vacuum Cascade: additional IP gain scaling by 10^(0.1 * sqrt(OoMs above 1e308)).
+  if (state.infinity?.breakInfinityUpgrades?.vacuumCascade && points.gt(new Decimal(1, 308))) {
+    const oomAbove = Math.max(0, points.log10() - 308);
+    if (oomAbove > 0) {
+      gain = gain.mul(new Decimal(10).pow(Math.sqrt(oomAbove) * 0.1));
     }
   }
 
