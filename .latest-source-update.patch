@@ -1,0 +1,12 @@
+from pathlib import Path
+p = Path("src/components/InfinityTree.tsx")
+text = p.read_text(encoding="utf-8")
+old = """        </div>
+      </div>
+
+      {/* THE INTERACTIVE 2D MAP VIEWPORT */}"""
+new = """      {/* THE INTERACTIVE 2D MAP VIEWPORT */}"""
+if text.count(old) != 1:
+    raise SystemExit(f"Expected one duplicate wrapper, found {text.count(old)}")
+p.write_text(text.replace(old, new, 1), encoding="utf-8")
+print("Removed duplicate closing JSX wrappers.")
