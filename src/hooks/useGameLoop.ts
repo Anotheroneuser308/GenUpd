@@ -45,6 +45,15 @@ import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 
 
 /**
+ * Keeps a valid best Prestige time. Infinity/zero/invalid legacy values mean no record yet.
+ */
+function getUpdatedFastestPrestige(currentFastest: number, completedTime: number): number {
+  if (!Number.isFinite(completedTime) || completedTime <= 0) return currentFastest;
+  if (!Number.isFinite(currentFastest) || currentFastest <= 0) return completedTime;
+  return Math.min(currentFastest, completedTime);
+}
+
+/**
  * Calculates the maximum number of consecutive geometric-cost purchases affordable
  * with a Decimal balance, without iterating once per level. Costs are firstCost,
  * firstCost * ratio, firstCost * ratio^2, and so on.
@@ -236,8 +245,10 @@ export function useGameLoop() {
     check('trillion_points', state.points.gte(1e12));
     check('prestige_ready', state.points.gte(PRESTIGE_REQUIREMENT));
     check('first_prestige', state.stats.totalPrestiges >= 1);
-    check('speed_prestige', state.stats.fastestPrestige <= 600);
-    check('rapid_prestige', state.stats.fastestPrestige <= 180);
+    // A speed achievement requires a real, recorded Prestige time. Zero/Infinity means no valid record.
+    const hasRecordedPrestigeTime = Number.isFinite(state.stats.fastestPrestige) && state.stats.fastestPrestige > 0;
+    check('speed_prestige', state.stats.totalPrestiges >= 1 && hasRecordedPrestigeTime && state.stats.fastestPrestige < 600);
+    check('rapid_prestige', state.stats.totalPrestiges >= 1 && hasRecordedPrestigeTime && state.stats.fastestPrestige < 180);
     check('ten_prestiges', state.stats.totalPrestiges >= 10);
     check('hundred_prestige_points', state.prestige.points.gte(100));
     check('all_eight_gens', state.prestige.unlockedGenerators >= 8);
@@ -582,7 +593,7 @@ export function useGameLoop() {
               state.prestige.count++;
               state.prestige.points = totalPP;
               state.stats.totalPrestiges++;
-              state.stats.fastestPrestige = Math.min(state.stats.fastestPrestige, completedPrestigeTime);
+              state.stats.fastestPrestige = getUpdatedFastestPrestige(state.stats.fastestPrestige, completedPrestigeTime);
               state.stats.highestPPEver = totalPP.gt(state.stats.highestPPEver) ? totalPP : state.stats.highestPPEver;
               state.autobuyers['prestige'] = { ...autoPres, previousPPGain: ppGain };
               state.stats.timeThisPrestige = 0;
@@ -1059,7 +1070,7 @@ export function useGameLoop() {
       sound.playCollapse();
 
       const totalPrestiges = prev.stats.totalPrestiges + 1;
-      const fastest = Math.min(prev.stats.fastestPrestige, prev.stats.timeThisPrestige);
+      const fastest = getUpdatedFastestPrestige(prev.stats.fastestPrestige, prev.stats.timeThisPrestige);
       const resetGenerators = INITIAL_GENERATORS();
       const newPP = prev.prestige.points.add(ppGain);
 
