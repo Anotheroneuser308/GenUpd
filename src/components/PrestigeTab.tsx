@@ -952,7 +952,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 Prestige Energy
               </h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE using 10^(log10(Points) / 154). Purchased amplifier levels and the passive PE generator bonus both reset when you Big Crunch into Infinity.
+                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE using 10^(log10(Points) / 154). Purchased Generator Energy Amplifier levels, Energy Booster levels, and the passive PE generator bonus reset when you Big Crunch into Infinity.
               </p>
             </div>
 
@@ -1081,7 +1081,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   Retained on Energy Channel
                 </span>
                 <ul className="space-y-1 text-slate-400">
-                  <li>• Unspent Prestige Energy and purchased Energy Amplifier levels</li>
+                  <li>• Unspent Prestige Energy, Generator Energy Amplifier levels, and Energy Booster levels</li>
                   <li>• Total Energy Resets count</li>
                   <li>• Permanent Achievements and Lifetime Statistics</li>
                 </ul>
