@@ -26,6 +26,20 @@ jobs:
               git push origin HEAD:main
             fi
           fi
+      - name: Apply direct source patch if provided
+        shell: bash
+        run: |
+          if [[ -f .latest-source-update.patch ]]; then
+            git apply .latest-source-update.patch
+            rm .latest-source-update.patch
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m "Add softcap to Generator Energy Amplifier price growth"
+              git push origin HEAD:main
+            fi
+          fi
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run build
