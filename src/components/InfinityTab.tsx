@@ -367,7 +367,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                   const level = state.infinity.ipDoublerLevel || 0;
                   const cost = new Decimal(10).mul(new Decimal(10).pow(level));
                   const canAfford = state.infinity.points.gte(cost);
-                  const currentBonus = Math.pow(2, level);
+                  const currentBonus = new Decimal(2).pow(level);
 
                   return (
                     <div className="p-5 rounded-xl border border-amber-500/40 bg-slate-950/80 flex flex-col justify-between gap-4">
@@ -384,7 +384,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           Doubles the amount of IP gained on each subsequent Infinity. Each purchase increases cost by 10x. Can be purchased infinitely many times!
                         </p>
                         <div className="mt-3 text-xs font-mono text-amber-300">
-                          Multiplier: <span className="font-bold">x{currentBonus} IP</span>
+                          Multiplier: <span className="font-bold">x{currentBonus.exponent >= 3 ? `${currentBonus.mantissa.toFixed(2)}e${currentBonus.exponent}` : currentBonus.toNumber().toLocaleString('en-US')} IP</span>
                         </div>
                       </div>
 
