@@ -64,7 +64,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_1000_gen_mult',
     title: 'Millennial Singularity',
     icon: '💥',
-    reward: 'All generators gain a ×1000 multiplier for each unlocked milestone.'
+    reward: 'All generators gain a ×1000 multiplier for each unlocked milestone.',
     requirement: '1,000 Infinities',
     infinityCountRequired: 1000,
   },
