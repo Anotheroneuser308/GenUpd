@@ -34,6 +34,7 @@ import {
   getUnlockedGeneratorsCount,
   calculatePrestigePointsGain,
   calculatePrestigeEnergyGain,
+  getGeneratorEnergyAmplifierCost,
   calculateInfinityPointGain,
   getInfinityMilestoneExtraSP,
   calculateSkillPointsGain,
@@ -653,7 +654,7 @@ export function useGameLoop() {
           if (state.infinityTree?.auto_8 && state.prestigeEnergy?.unlocked) {
             let pLvl = Math.max(0, Math.floor(state.prestigeEnergy.generatorUpgradeLevel || 0));
             while (true) {
-              const cost = new Decimal(2).pow(pLvl);
+              const cost = getGeneratorEnergyAmplifierCost(pLvl);
               if (state.prestigeEnergy.amount.lt(cost)) break;
               if (!isFreeAuto) {
                 state.prestigeEnergy.amount = state.prestigeEnergy.amount.sub(cost);
@@ -1133,7 +1134,7 @@ export function useGameLoop() {
   const buyPrestigeEnergyUpgrade = useCallback(() => {
     setGameState((prev) => {
       const level = Math.max(0, Math.floor(prev.prestigeEnergy.generatorUpgradeLevel || 0));
-      const cost = new Decimal(2).pow(level);
+      const cost = getGeneratorEnergyAmplifierCost(level);
       if (prev.prestigeEnergy.amount.lt(cost)) return prev;
 
       sound.playBuy();
@@ -1155,18 +1156,31 @@ export function useGameLoop() {
   const buyMaxPrestigeEnergyUpgrade = useCallback(() => {
     setGameState((prev) => {
       const level = Math.max(0, Math.floor(prev.prestigeEnergy.generatorUpgradeLevel || 0));
-      const firstCost = new Decimal(2).pow(level);
-      const boughtNow = getMaxGeometricPurchases(prev.prestigeEnergy.amount, firstCost, new Decimal(2));
-      if (boughtNow.count === 0) return prev;
+      let currentLevel = level;
+      let currentCost = getGeneratorEnergyAmplifierCost(currentLevel);
+      let remainingEnergy = prev.prestigeEnergy.amount;
+      let totalCost = Decimal.zero();
+      let boughtCount = 0;
+
+      // Costs no longer follow one fixed geometric ratio after the softcap.
+      while (remainingEnergy.gte(currentCost) && boughtCount < 100000) {
+        remainingEnergy = remainingEnergy.sub(currentCost);
+        totalCost = totalCost.add(currentCost);
+        const growthMultiplier = 2 + 0.1 * Math.floor(currentLevel / 10);
+        currentCost = currentCost.mul(growthMultiplier);
+        currentLevel += 1;
+        boughtCount += 1;
+      }
+      if (boughtCount === 0) return prev;
 
       sound.playBuy();
       const nextState: GameState = {
         ...prev,
         prestigeEnergy: {
           ...prev.prestigeEnergy,
-          amount: prev.prestigeEnergy.amount.sub(boughtNow.totalCost),
+          amount: prev.prestigeEnergy.amount.sub(totalCost),
           multiplier: Decimal.one(),
-          generatorUpgradeLevel: level + boughtNow.count,
+          generatorUpgradeLevel: level + boughtCount,
         },
       };
       saveStateWithBackup(nextState);

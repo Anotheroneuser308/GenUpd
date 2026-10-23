@@ -12,6 +12,28 @@ export function getPrestigeRequirement(_state?: GameState): Decimal {
 // Prestige Energy unlock threshold (1.00e154 Points)
 export const PRESTIGE_ENERGY_THRESHOLD = new Decimal(1, 154);
 
+/**
+ * Price for the next Generator Energy Amplifier level. The first 10 levels
+ * retain the original x2 price growth; each subsequent 10-level band raises
+ * the per-level price multiplier by +0.1x (x2.1 after level 10, x2.2 after 20, etc.).
+ */
+export function getGeneratorEnergyAmplifierCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  let cost = Decimal.one();
+  let levelsLeft = level;
+  let band = 0;
+
+  while (levelsLeft > 0) {
+    const levelsInBand = Math.min(10, levelsLeft);
+    const growthMultiplier = 2 + band * 0.1;
+    cost = cost.mul(new Decimal(growthMultiplier).pow(levelsInBand));
+    levelsLeft -= levelsInBand;
+    band += 1;
+  }
+
+  return cost;
+}
+
 // Infinity threshold (1.79e308 Points)
 export const INFINITY_THRESHOLD = new Decimal(1.7976931348623157, 308);
 

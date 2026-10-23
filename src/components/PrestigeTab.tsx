@@ -8,6 +8,7 @@ import {
   calculatePrestigePointsGain,
   calculatePrestigeEnergyGain,
   getPassivePrestigeEnergyGeneratorMultiplier,
+  getGeneratorEnergyAmplifierCost,
   getCascadingBoostCost,
   MAX_CASCADING_BOOSTS,
   getCascadingBoostMultiplierForGen,
@@ -61,7 +62,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const energyGeneratorMult = new Decimal(2).pow(energyUpgradeLevel);
   const passiveEnergyGeneratorMult = getPassivePrestigeEnergyGeneratorMultiplier(state);
   const lifetimePE = state.prestigeEnergy.totalEarned || state.prestigeEnergy.amount;
-  const energyUpgradeCost = new Decimal(2).pow(energyUpgradeLevel);
+  const energyUpgradeCost = getGeneratorEnergyAmplifierCost(energyUpgradeLevel);
   const prestigeSkillSynergyBonus = upgs.prestigeSkillSynergy && state.prestige.count >= 10
     ? Math.floor(Math.log10(Math.max(1, state.prestige.count)))
     : 0;
@@ -1015,7 +1016,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 <h3 className="text-sm font-semibold text-slate-100">Generator Energy Amplifier</h3>
                 <span className="text-[10px] font-mono rounded border border-purple-500/30 bg-purple-950/50 px-2 py-1 text-purple-300">LEVEL {energyUpgradeLevel}</span>
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. PE earned during the current Infinity also grants a passive generator multiplier, doubled: 1 PE gives ×4, 2 gives about ×5.10, 3 gives ×7.07, and 4 gives ×10.4. This passive bonus resets on Big Crunch and growth softcaps after 10 PE.</p>
+              <p className="text-xs text-slate-400 leading-relaxed">Spend Prestige Energy to buy levels. Each level doubles all generator production. The price multiplier starts at x2 and increases by +0.1x for every 10 levels (x2.1 after level 10, x2.2 after level 20, etc.). PE earned during the current Infinity also grants a passive generator multiplier, doubled: 1 PE gives ×4, 2 gives about ×5.10, 3 gives ×7.07, and 4 gives ×10.4. This passive bonus resets on Big Crunch and growth softcaps after 10 PE.</p>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
                 <div className="text-xs font-mono text-slate-400">Next level: <strong className="text-purple-300">x{new Decimal(2).pow(energyUpgradeLevel + 1).format(notation)}</strong> all generators · Cost: <strong className="text-amber-400">{energyUpgradeCost.format(notation)} PE</strong></div>
                 <div className="flex items-center gap-2">
