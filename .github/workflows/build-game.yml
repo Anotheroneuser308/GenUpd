@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           if [[ -f .latest-source-update.patch ]]; then
-            git apply .latest-source-update.patch
+            git apply --recount .latest-source-update.patch
             rm .latest-source-update.patch
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
