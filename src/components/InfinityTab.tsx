@@ -5,6 +5,7 @@ import {
   INFINITY_THRESHOLD,
   calculateInfinityPointGain,
   calculateSkillPointsGain,
+  formatSkillPoints,
   getInfinityMilestoneExtraSP,
   getTemporalInfinityMultiplier,
   getAchievementMasterCompletions,
@@ -45,7 +46,7 @@ const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[]
   { id: 'vacuumCascade', title: 'Vacuum Cascade', description: 'Infinity Point gains are multiplied by 10^(0.1 × sqrt(OoMs above 1e308)).', cost: new Decimal(1, 75) },
   { id: 'transcendentCascade', title: 'Transcendent Cascade', description: 'Raises the final multiplier of every Generator to the power of 1.05.', cost: new Decimal(1, 90) },
   { id: 'absoluteHorizon', title: 'Absolute Horizon', description: 'Raises the total Points generation multiplier to the power of 1.05.', cost: new Decimal(1, 110) },
-  { id: 'prestigePreservationUnlock', title: 'Eternal Continuity Matrix', description: 'Unlocks Prestige Point Preservation (auto_10, 12,000 SP), Stardust Genesis (feat_6), and Infinite Amplification Mastery (pre_6) in the Infinity Tree.', cost: new Decimal(1, 200) },
+  { id: 'prestigePreservationUnlock', title: 'Eternal Continuity Matrix', description: 'Unlocks Prestige Point Preservation (auto_10, 1.20e4 SP), Stardust Genesis (feat_6), and Infinite Amplification Mastery (pre_6) in the Infinity Tree.', cost: new Decimal(1, 200) },
 ];
 
 function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, state: GameState, oomAbove: number): string {
@@ -200,7 +201,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
           <div className="bg-slate-950/70 border border-amber-500/40 p-4 rounded-xl min-w-[160px]">
             <span className="text-slate-500 uppercase text-[10px] block">Skill Points (SP)</span>
             <span className="text-xl font-bold text-amber-300 mt-1 block">
-              {state.infinity.skillPoints ?? 0} SP
+              {formatSkillPoints(state.infinity.skillPoints ?? 0)} SP
             </span>
           </div>
 
@@ -315,7 +316,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               >
                 {isCrunchCooldown && canCrunch
                   ? 'Crunch Cooldown (0.1s)...'
-                  : `Big Crunch — +${crunchIPGain.format(notation)} IP · +${crunchSPGain} SP`}
+                  : `Big Crunch — +${crunchIPGain.format(notation)} IP · +${formatSkillPoints(crunchSPGain)} SP`}
               </button>
               <p className="text-[11px] text-slate-500 font-mono">
                 {isCrunchCooldown && canCrunch
@@ -653,7 +654,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           )}
                         </div>
                         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                          Unlocks 2 new advanced automation nodes in the Infinity Tree: <strong>Auto: Prestige Upgrades (15 SP)</strong> and <strong>Prestige Energy Autobuyer (30 SP)</strong>.
+                          Unlocks 2 new advanced automation nodes in the Infinity Tree: <strong>Auto: Prestige Upgrades (1.50e1 SP)</strong> and <strong>Prestige Energy Autobuyer (3.00e1 SP)</strong>.
                         </p>
                         <div className="mt-3 text-xs font-mono text-emerald-300">
                           Status: {isBought ? 'Branch Expanded' : 'Available'}
@@ -852,10 +853,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                         <div className="mt-3 text-xs font-mono text-amber-300">
                           {isBought ? (
                             <span>
-                              Current SP multiplier: <strong>×{totalBonus} SP</strong>
+                              Current SP multiplier: <strong>×{formatSkillPoints(totalBonus)} SP</strong>
                               {hasPre6 && (
                                 <span className="text-slate-400 ml-2">
-                                  → Next: <strong className="text-amber-200">×{nextBonus} SP</strong>
+                                  → Next: <strong className="text-amber-200">×{formatSkillPoints(nextBonus)} SP</strong>
                                 </span>
                               )}
                             </span>
