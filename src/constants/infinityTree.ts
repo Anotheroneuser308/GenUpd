@@ -16,7 +16,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'root',
     branch: 'root',
     title: 'Infinity Nexus',
-    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, each extra Infinity adds a softcapped x1.01 multiplier. After reaching a 1.00e200 multiplier (at 39,416 Infinities), a second softcap activates: only every 2nd Infinity counts, granting a x1.005 multiplier. Unlocks all branches.',
+    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. From 101 to 39,416 Infinities, gain ×1.01 per Infinity; afterwards, every 2nd Infinity adds ×1.005. The total Infinity Nexus bonus is hardcapped at 1.00e500. Unlocks all branches.',
     cost: 1, // Purchasable for 1 SP
     req: 'none',
     icon: '⚡',
@@ -63,7 +63,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'pre_5',
     branch: 'pre',
     title: 'Generator Amplification',
-    desc: 'Repeatable: multiplies all generator production by x(1 + level). Up to level 1,000, each level costs +1 SP more (1, 2, 3... SP). After level 1,000, price growth scales by x1.5 per level instead of +1.',
+    desc: 'Repeatable: multiplies all generator production by x(1 + level). Up to level 1,000, costs rise by 1 SP per level (1.00e0, 2.00e0, 3.00e0 ... 1.00e3 SP). After level 1,000, price growth scales by ×1.5 per level, starting at 1.50e3 SP.',
     cost: 1,
     req: 'pre_4',
     repeatable: true,
