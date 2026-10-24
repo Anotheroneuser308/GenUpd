@@ -33,7 +33,7 @@ interface AdvancedBreakInfinityUpgradeDefinition {
 
 const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[] = [
   { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains a controlled ×10^(0.01 × OoMs^0.8) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
-  { id: 'singularityOverdrive', title: 'Badass Singularity', description: 'Upgrades Singularity Resonance to +2% per OoM, then raises that multiplier to ^7.77. Requires Singularity Resonance.', cost: new Decimal(1, 50), requirement: 'singularityResonance' },
+  { id: 'singularityOverdrive', title: 'Badass Singularity', description: 'Upgrades Singularity Resonance and Vacuum Momentum to +2% per OoM, then raises both multipliers to ^7.77. Requires Singularity Resonance.', cost: new Decimal(1, 50), requirement: 'singularityResonance' },
   { id: 'hyperchargeOverdrive', title: 'Hypercharge Overdrive', description: 'Adds an extra generator multiplier of ×10^(0.5 × √OoMs above 1e308 Points). Requires Dimension Hypercharge.', cost: new Decimal(1, 60), requirement: 'hypercharge' },
   { id: 'vacuumCascade', title: 'Vacuum Cascade', description: 'Infinity Point gains are multiplied by 10^(0.1 × sqrt(OoMs above 1e308)).', cost: new Decimal(1, 75) },
   { id: 'transcendentCascade', title: 'Transcendent Cascade', description: 'Raises the final multiplier of every Generator to the power of 1.05.', cost: new Decimal(1, 90) },
@@ -877,7 +877,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const cost = new Decimal(1e22);
                       const canAfford = state.infinity.points.gte(cost);
                       const oomAbove = state.points.gt(new Decimal(1, 308)) ? Math.max(0, state.points.log10() - 308) : 0;
-                      const currentMult = isBought && oomAbove > 0 ? (1 + 0.01 * oomAbove) : 1;
+                      const hasBadassSingularity = !!state.infinity.breakInfinityUpgrades?.singularityOverdrive;
+                      const currentMult = isBought && oomAbove > 0
+                        ? new Decimal(1 + (hasBadassSingularity ? 0.02 : 0.01) * oomAbove).pow(hasBadassSingularity ? 7.77 : 1)
+                        : Decimal.one();
 
                       return (
                         <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
@@ -904,7 +907,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               Increases Infinity Point (IP) gains from Big Crunch by +1% per order of magnitude (OoM) of Points above 1.79e308 (+1% per OoM).
                             </p>
                             <div className="mt-3 text-xs font-mono text-purple-300">
-                              Current IP boost: <strong>×{currentMult.toFixed(2)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
+                              Current IP boost: <strong>×{currentMult.format(notation)}</strong> {oomAbove > 0 && <span className="text-slate-400 font-mono">({Math.floor(oomAbove)} OoMs above 1e308)</span>}
                             </div>
                           </div>
                           <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
