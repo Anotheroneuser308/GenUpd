@@ -21,6 +21,7 @@ import {
   getCosmicResonanceGroups,
   getCosmicResonanceMultiplier,
   formatSkillPoints,
+  getPrestigeSynergyMultiplier,
 } from '../utils/gameCalculations';
 
 interface PrestigeTabProps {
@@ -100,9 +101,10 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const unlockCost = getGeneratorUnlockCost(unlockLevel);
   const canAffordUnlock = unlockLevel < MAX_GENERATOR_UNLOCKS && currentPP.gte(unlockCost);
 
-  // Upgrade 5 (PP Synergy) - without exponent: 1 + PP, hardcapped at 1e10
-  const rawSynergy = upgs.prestigeSynergy && currentPP.gt(0) ? currentPP.add(1) : Decimal.one();
-  const ppSynergyMult = rawSynergy.gt(1e10) ? new Decimal(1e10) : rawSynergy;
+  // Upgrade 5 (Prestige Synergy) - matches the live production multiplier, including its 0.05 softcap.
+  const ppSynergyMult = upgs.prestigeSynergy
+    ? getPrestigeSynergyMultiplier(currentPP)
+    : Decimal.one();
 
   // Upgrade 8 (Log Cascade)
   const logVal = Math.max(1, state.points.log10());
