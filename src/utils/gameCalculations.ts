@@ -442,14 +442,14 @@ export function getAchievementMasterCompletions(state: GameState): number {
 
 /**
  * Prestige Synergy multiplier: 1 + unspent Prestige Points up to 1e10 PP,
- * then a continuous square-root softcap above that threshold.
+ * then a continuous power softcap with exponent 0.05 above that threshold.
  */
 export function getPrestigeSynergyMultiplier(prestigePoints: Decimal): Decimal {
   if (!prestigePoints || prestigePoints.lte(0)) return Decimal.one();
 
   const threshold = new Decimal(1, 10);
   if (prestigePoints.gt(threshold)) {
-    return new Decimal(1).add(threshold.mul(prestigePoints.div(threshold).pow(0.5)));
+    return new Decimal(1).add(threshold.mul(prestigePoints.div(threshold).pow(0.05)));
   }
   return prestigePoints.add(1);
 }
