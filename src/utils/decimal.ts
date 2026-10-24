@@ -206,8 +206,11 @@ export class Decimal {
     if (trimmed.includes('e') || trimmed.includes('E')) {
       const parts = trimmed.split(/e|E/);
       const m = parseFloat(parts[0]);
-      const e = parseInt(parts[1], 10);
-      if (isNaN(m) || isNaN(e)) return Decimal.zero();
+      // Supports nested scientific notation such as 1e1e9 = 10^(1,000,000,000).
+      const e = parts.length >= 3
+        ? parseFloat(`${parts[1]}e${parts.slice(2).join('e')}`)
+        : parseFloat(parts[1]);
+      if (isNaN(m) || !isFinite(e)) return Decimal.zero();
       return new Decimal(m, e);
     }
 
@@ -232,6 +235,16 @@ export class Decimal {
 
     if (this.exponent < 6) {
       return Math.floor(this.toNumber()).toLocaleString('en-US');
+    }
+
+    // Keep the exponent compact once it reaches one billion:
+    // 10^1,000,000,000 is displayed as 1e1e9 instead of 1e1000000000.
+    if (this.exponent >= 1e9 && notation !== 'logarithm') {
+      const exponentText = this.exponent.toExponential(0).replace('e+', 'e');
+      const mantissaText = Math.abs(this.mantissa - 1) < 1e-10
+        ? '1'
+        : this.mantissa.toFixed(2);
+      return `${mantissaText}e${exponentText}`;
     }
 
     if (notation === 'logarithm') {
