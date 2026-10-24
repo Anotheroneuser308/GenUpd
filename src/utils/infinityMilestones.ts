@@ -50,7 +50,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_200_sp_boost',
     title: 'Skill Resonance',
     icon: '🔮',
-    reward: 'Gain +1 additional Skill Point for each unlocked milestone.',
+    reward: 'Gain +1.00e0 additional Skill Point for each unlocked milestone.',
     requirement: '200 Infinities',
     infinityCountRequired: 200,
   },
