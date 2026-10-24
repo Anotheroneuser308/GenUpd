@@ -20,6 +20,7 @@ import {
   getAchievementResonanceMultiplier,
   getCosmicResonanceGroups,
   getCosmicResonanceMultiplier,
+  formatSkillPoints,
 } from '../utils/gameCalculations';
 
 interface PrestigeTabProps {
@@ -934,7 +935,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                       Unlocks after purchasing Prestige Transcendence (feat_2). When you Infinity, grants extra SP based on Prestige resets in this run: +1.00e0 SP at 10 Prestiges, +2.00e0 SP at 100, +3.00e0 SP at 1.00e3, and so on.
                     </p>
-                    <div className="mt-3 text-xs font-mono text-purple-300">Current bonus on next Infinity: <strong>+{prestigeSkillSynergyBonus} SP</strong> ({state.prestige.count} Prestige resets)</div>
+                    <div className="mt-3 text-xs font-mono text-purple-300">Current bonus on next Infinity: <strong>+{formatSkillPoints(prestigeSkillSynergyBonus)} SP</strong> ({state.prestige.count} Prestige resets)</div>
                   </div>
                   <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                     <span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">1e8 PP</strong></span>
