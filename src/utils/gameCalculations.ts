@@ -136,6 +136,7 @@ export function getGeneratorUnlockCost(currentLevel: number): Decimal {
   return GENERATOR_UNLOCK_COSTS[currentLevel];
 }
 
+export const INFINITY_NEXUS_HARD_CAP = new Decimal(1, 500);
 export const INFINITY_NEXUS_TIER1_MAX = 100;
 // Infinities required in Tier 1 to reach a 1.00e200 multiplier:
 // 2^100 * 1.01^39316 >= 1.0088e200 >= 1e200
@@ -169,10 +170,11 @@ export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
   const baseAtTier2 = baseAtTier1.mul(new Decimal(1.01).pow(INFINITY_NEXUS_TIER2_EXTRA));
   const extraTier2 = count - INFINITY_NEXUS_TIER2_THRESHOLD;
   const countedInfinities = Math.floor(extraTier2 / 2);
-
-  return countedInfinities > 0
+  const multiplier = countedInfinities > 0
     ? baseAtTier2.mul(new Decimal(1.005).pow(countedInfinities))
     : baseAtTier2;
+
+  return multiplier.gt(INFINITY_NEXUS_HARD_CAP) ? INFINITY_NEXUS_HARD_CAP : multiplier;
 }
 
 /**
@@ -262,7 +264,7 @@ export function getPreInfinityGeneratorMultiplier(state: GameState): Decimal {
 
 /**
  * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
- * and the Infinity Tree Root Node with a softcap after 1024 Infinities.
+ * and the Infinity Tree Root Node, which softcaps and hardcaps at 1e500.
  */
 export function getGeneratorMultiplier(genId: number, state: GameState): Decimal {
   const gen = state.generators[genId - 1];
@@ -312,7 +314,7 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.mul(getAchievementResonanceMultiplier(unlockedCount, masterBonus));
   }
 
-  // Infinity Tree - Root Node (Infinity Nexus, 1 SP): 2^Infinities until 100, then an additional 1.05x per Infinity.
+  // Infinity Tree - Root Node (Infinity Nexus): softcapped growth with a hard cap at 1e500.
   const totalInfinities = state.infinity?.count || state.stats?.totalInfinities || 0;
   if (state.infinityTree?.root && totalInfinities > 0) {
     mult = mult.mul(getInfinityGeneratorMultiplier(totalInfinities));
@@ -459,10 +461,15 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
     mult = mult.mul(getAchievementResonanceMultiplier(unlockedCount, masterBonus));
   }
 
-  // Upgrade 5: Prestige Synergy (Points boosted by unspent PP without exponent: 1 + PP, hardcapped at 1e10)
+  // Upgrade 5: Prestige Synergy. Above 1e10 unspent Prestige Points, the bonus softcaps
+  // with a square-root curve while remaining continuous at the threshold.
   if (state.prestigeUpgrades?.prestigeSynergy && state.prestige.points.gt(0)) {
-    const rawPpBoost = state.prestige.points.add(1);
-    const ppBoost = rawPpBoost.gt(1e10) ? new Decimal(1e10) : rawPpBoost;
+    const prestigePoints = state.prestige.points;
+    const rawPpBoost = prestigePoints.add(1);
+    const softcapThreshold = new Decimal(1, 10);
+    const ppBoost = prestigePoints.gt(softcapThreshold)
+      ? new Decimal(1).add(softcapThreshold.mul(prestigePoints.div(softcapThreshold).pow(0.5)))
+      : rawPpBoost;
     mult = mult.mul(ppBoost);
   }
 
@@ -650,6 +657,16 @@ export function calculateSkillPointsGain(state: GameState, infinityCount: number
   }
 
   return Math.max(1, totalSP);
+}
+
+/** Format every Skill Point amount consistently in scientific notation. */
+export function formatSkillPoints(value: number): string {
+  if (value === 0 || Number.isNaN(value)) return '0';
+  if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
+
+  const absolute = new Decimal(Math.abs(value));
+  const sign = value < 0 ? '-' : '';
+  return `${sign}${absolute.mantissa.toFixed(2)}e${absolute.exponent}`;
 }
 
 /** Number of Infinities awarded upon Big Crunch / Infinity reset. */
