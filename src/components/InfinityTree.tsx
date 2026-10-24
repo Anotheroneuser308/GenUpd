@@ -8,6 +8,8 @@ import {
   calculateSkillPointsGain,
   calculateInfinitiesGain,
   getGeneratorAmplificationCost,
+  formatSkillPoints,
+  INFINITY_NEXUS_HARD_CAP,
 } from '../utils/gameCalculations';
 import { Decimal } from '../utils/decimal';
 import {
@@ -185,7 +187,9 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
     switch (id) {
       case 'root': {
         const mult = getInfinityGeneratorMultiplier(infCount);
-        const tierNote = infCount > 39416
+        const tierNote = mult.gte(INFINITY_NEXUS_HARD_CAP)
+          ? ' · Hardcap active: maximum ×1.00e500'
+          : infCount > 39416
           ? ' · Softcap Tier 2 active: ×1.005 every 2nd Infinity past 1.00e200'
           : infCount > 100
           ? ' · Softcap Tier 1 active: ×1.01 per extra Infinity'
@@ -200,7 +204,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
         const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
         const nextCost = getGeneratorAmplificationCost(level);
         const scalingNote = level >= 1000 ? ' (1.5x price scaling active)' : '';
-        return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + nextCost + ' SP' + scalingNote + '.';
+        return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + formatSkillPoints(nextCost) + ' SP' + scalingNote + '.';
       }
       case 'pre_6': return 'Infinite Amplification Mastery: generator amplification bonus x1.1^level, and Skill Amplification is repeatable infinitely.';
       case 'auto_1': return 'Unlocks automatic purchases for Generators 1–4.';
@@ -223,7 +227,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'feat_4': return `Break Infinity: IP gain formula is 10^(log10(Points) / 308); at current Points, the base reward is ×${fmt(new Decimal(10).pow(logPoints / 308))} IP before bonuses.`;
       case 'feat_5': return 'Unlocks Break Infinity upgrades in the Infinity Upgrades section.';
       case 'feat_6': return 'Stardust Genesis: Unlocks the Stardust celestial currency and management tab.';
-      case 'post_1': return `Current SP reward from the next Infinity: ${calculateSkillPointsGain(state)} SP (includes this upgrade only if purchased).`;
+      case 'post_1': return `Current SP reward from the next Infinity: ${formatSkillPoints(calculateSkillPointsGain(state))} SP (includes this upgrade only if purchased).`;
       case 'post_2': return `Current Infinities gained on the next reset: ${calculateInfinitiesGain(state)}.`;
       case 'post_3': return `Current generator multiplier from IP: ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}.`;
       case 'post_4': return 'Raises the resulting generator multipliers to the power of 1.02.';
@@ -365,7 +369,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
           <div className="bg-slate-950 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-mono text-xs flex items-center gap-2 shadow-sm">
             <span className="text-slate-400">Skill Points:</span>
             <span className="text-amber-400 font-bold text-sm tracking-wide">
-              {currentSP} SP
+              {formatSkillPoints(currentSP)} SP
             </span>
           </div>
 
@@ -464,7 +468,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
               {/* Requirements row */}
               <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-slate-400">
                 <span>
-                  Cost: <strong className="text-amber-400 font-bold">{selectedStatus.cost} SP</strong>
+                  Cost: <strong className="text-amber-400 font-bold">{formatSkillPoints(selectedStatus.cost)} SP</strong>
                   {selectedStatus.isRepeatable && <span className="ml-1 text-slate-500">(Level {selectedStatus.level})</span>}
                 </span>
 
@@ -535,9 +539,9 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                   ) : !selectedStatus.hasUpgradeReq ? (
                     <><Lock className="w-4 h-4" /><span>Requires {selectedDef.reqUpgrade === 'prestigePreservationUnlock' ? 'Eternal Continuity Matrix (1e200 IP)' : 'Matrix upgrade'}</span></>
                   ) : !selectedStatus.canAfford ? (
-                    <><Lock className="w-4 h-4" /><span>Need {selectedStatus.cost} SP ({selectedStatus.cost - currentSP} SP short)</span></>
+                    <><Lock className="w-4 h-4" /><span>Need {formatSkillPoints(selectedStatus.cost)} SP ({formatSkillPoints(selectedStatus.cost - currentSP)} SP short)</span></>
                   ) : (
-                    <><Sparkles className="w-4 h-4" /><span>{selectedStatus.isRepeatable ? 'Buy Level ' + (selectedStatus.level + 1) + ' for ' + selectedStatus.cost + ' SP' : 'Buy for ' + selectedStatus.cost + ' SP'}</span></>
+                    <><Sparkles className="w-4 h-4" /><span>{selectedStatus.isRepeatable ? 'Buy Level ' + (selectedStatus.level + 1) + ' for ' + formatSkillPoints(selectedStatus.cost) + ' SP' : 'Buy for ' + formatSkillPoints(selectedStatus.cost) + ' SP'}</span></>
                   )}
                 </button>
                 {selectedStatus.isRepeatable && (
