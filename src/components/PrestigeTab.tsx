@@ -932,7 +932,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                       {upgs.prestigeSkillSynergy && <span className="text-[10px] font-mono text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30">BOUGHT</span>}
                     </div>
                     <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                      Unlocks after purchasing Prestige Transcendence (feat_2). When you Infinity, grants extra SP based on Prestige resets in this run: +1 SP at 10 Prestiges, +2 at 100, +3 at 1,000, and so on.
+                      Unlocks after purchasing Prestige Transcendence (feat_2). When you Infinity, grants extra SP based on Prestige resets in this run: +1.00e0 SP at 10 Prestiges, +2.00e0 SP at 100, +3.00e0 SP at 1.00e3, and so on.
                     </p>
                     <div className="mt-3 text-xs font-mono text-purple-300">Current bonus on next Infinity: <strong>+{prestigeSkillSynergyBonus} SP</strong> ({state.prestige.count} Prestige resets)</div>
                   </div>
