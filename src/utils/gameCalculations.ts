@@ -548,11 +548,13 @@ export function calculateInfinityPointGain(
     gain = gain.mul(new Decimal(2).pow(state.infinity.ipDoublerLevel));
   }
 
-  // Break Infinity Upgrade 4: Vacuum Momentum (+1% IP gain per OoM above 1e308)
+  // Break Infinity Upgrade 4: Vacuum Momentum (+1% IP gain per OoM; Badass Singularity upgrades it to +2% and ^7.77)
   if (state.infinity?.breakInfinityUpgrades?.vacuumMomentum && points.gt(new Decimal(1, 308))) {
     const oomAbove = Math.max(0, points.log10() - 308);
     if (oomAbove > 0) {
-      gain = gain.mul(new Decimal(1 + 0.01 * oomAbove));
+      const badassSingularity = !!state.infinity?.breakInfinityUpgrades?.singularityOverdrive;
+      const momentum = new Decimal(1 + (badassSingularity ? 0.02 : 0.01) * oomAbove);
+      gain = gain.mul(badassSingularity ? momentum.pow(7.77) : momentum);
     }
   }
 
