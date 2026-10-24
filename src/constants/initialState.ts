@@ -141,6 +141,7 @@ export const createInitialState = (): GameState => ({
     energySPBoost: false,
     totalEarnedIP: Decimal.zero(),
     spDoublerUpgrade: false,
+    spDoublerLevel: 0,
     breakInfinityUpgrades: {
       limitless: false,
       singularityResonance: false,
@@ -152,10 +153,19 @@ export const createInitialState = (): GameState => ({
       vacuumCascade: false,
       transcendentCascade: false,
       absoluteHorizon: false,
+      prestigePreservationUnlock: false,
     },
   },
 
   infinityTree: {},
+
+  stardust: {
+    unlocked: false,
+    amount: Decimal.zero(),
+    totalEarned: Decimal.zero(),
+    doublerLevel: 0,
+    baseUpgradeLevel: 0,
+  },
 
   autobuyers: {
     gen1: { id: 'gen1', name: 'Auto: Generator 1', enabled: false, unlocked: false },
@@ -330,6 +340,9 @@ export const deserializeState = (raw: string): GameState | null => {
           ? parsed.infinity.totalEarnedIP
           : (parsed.infinity?.points instanceof Decimal ? parsed.infinity.points : Decimal.zero()),
         spDoublerUpgrade: !!parsed.infinity?.spDoublerUpgrade,
+        spDoublerLevel: typeof parsed.infinity?.spDoublerLevel === 'number'
+          ? Math.max(0, Math.floor(parsed.infinity.spDoublerLevel))
+          : (parsed.infinity?.spDoublerUpgrade ? 1 : 0),
         breakInfinityUpgrades: {
           limitless: !!parsed.infinity?.breakInfinityUpgrades?.limitless,
           singularityResonance: !!parsed.infinity?.breakInfinityUpgrades?.singularityResonance,
@@ -341,9 +354,23 @@ export const deserializeState = (raw: string): GameState | null => {
           vacuumCascade: !!parsed.infinity?.breakInfinityUpgrades?.vacuumCascade,
           transcendentCascade: !!parsed.infinity?.breakInfinityUpgrades?.transcendentCascade,
           absoluteHorizon: !!parsed.infinity?.breakInfinityUpgrades?.absoluteHorizon,
+          prestigePreservationUnlock: !!parsed.infinity?.breakInfinityUpgrades?.prestigePreservationUnlock,
         },
       },
       infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
+      stardust: {
+        unlocked: !!parsed.stardust?.unlocked || !!parsed.infinityTree?.feat_6,
+        amount: parsed.stardust?.amount instanceof Decimal ? parsed.stardust.amount : Decimal.zero(),
+        totalEarned: parsed.stardust?.totalEarned instanceof Decimal
+          ? parsed.stardust.totalEarned
+          : (parsed.stardust?.amount instanceof Decimal ? parsed.stardust.amount : Decimal.zero()),
+        doublerLevel: typeof parsed.stardust?.doublerLevel === 'number'
+          ? Math.max(0, Math.floor(parsed.stardust.doublerLevel))
+          : 0,
+        baseUpgradeLevel: typeof parsed.stardust?.baseUpgradeLevel === 'number'
+          ? Math.max(0, Math.floor(parsed.stardust.baseUpgradeLevel))
+          : 0,
+      },
       autobuyers: {
         ...initial.autobuyers,
         ...(parsed.autobuyers || {}),

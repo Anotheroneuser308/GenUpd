@@ -136,19 +136,43 @@ export function getGeneratorUnlockCost(currentLevel: number): Decimal {
   return GENERATOR_UNLOCK_COSTS[currentLevel];
 }
 
+export const INFINITY_NEXUS_TIER1_MAX = 100;
+// Infinities required in Tier 1 to reach a 1.00e200 multiplier:
+// 2^100 * 1.01^39316 >= 1.0088e200 >= 1e200
+export const INFINITY_NEXUS_TIER2_EXTRA = 39316;
+export const INFINITY_NEXUS_TIER2_THRESHOLD = INFINITY_NEXUS_TIER1_MAX + INFINITY_NEXUS_TIER2_EXTRA; // 39,416 Infinities
+
 /**
- * Infinity generator multiplier: 2^Infinities up to 100 Infinities, then
- * retains that entire bonus and adds a strongly softcapped x1.05 multiplier per extra Infinity.
+ * Infinity generator multiplier (Infinity Nexus):
+ * - Base (up to 100 Infinities): 2^Infinities.
+ * - Softcap 1 (100 to 39,416 Infinities): x1.01 per extra Infinity until multiplier reaches 1.00e200.
+ * - Softcap 2 (after 1.00e200 multiplier, at >39,416 Infinities):
+ *   Only counts every second Infinity (Math.floor(extra / 2)), each granting a x1.005 multiplier.
  */
 export function getInfinityGeneratorMultiplier(infinities: number): Decimal {
   const count = Math.max(0, Math.floor(Number.isFinite(infinities) ? infinities : 0));
-  const beforeSoftcap = Math.min(count, 100);
-  const afterSoftcap = Math.max(0, count - 100);
+  if (count <= 0) return Decimal.one();
 
-  const multiplier = new Decimal(2).pow(beforeSoftcap);
-  return afterSoftcap > 0
-    ? multiplier.mul(new Decimal(1.05).pow(afterSoftcap))
-    : multiplier;
+  if (count <= INFINITY_NEXUS_TIER1_MAX) {
+    return new Decimal(2).pow(count);
+  }
+
+  const baseAtTier1 = new Decimal(2).pow(INFINITY_NEXUS_TIER1_MAX); // 2^100
+
+  if (count <= INFINITY_NEXUS_TIER2_THRESHOLD) {
+    const extraTier1 = count - INFINITY_NEXUS_TIER1_MAX;
+    return baseAtTier1.mul(new Decimal(1.01).pow(extraTier1));
+  }
+
+  // Softcap 2: starts after 1e200 multiplier threshold (39,416 Infinities).
+  // Counts every 2nd Infinity, multiplying by x1.005.
+  const baseAtTier2 = baseAtTier1.mul(new Decimal(1.01).pow(INFINITY_NEXUS_TIER2_EXTRA));
+  const extraTier2 = count - INFINITY_NEXUS_TIER2_THRESHOLD;
+  const countedInfinities = Math.floor(extraTier2 / 2);
+
+  return countedInfinities > 0
+    ? baseAtTier2.mul(new Decimal(1.005).pow(countedInfinities))
+    : baseAtTier2;
 }
 
 /**
@@ -226,7 +250,13 @@ export function getPreInfinityGeneratorMultiplier(state: GameState): Decimal {
   const level = typeof state.infinityTree?.pre_5Level === 'number'
     ? Math.max(0, Math.floor(state.infinityTree.pre_5Level))
     : 0;
-  if (level > 0) multiplier = multiplier.mul(1 + level);
+  if (level > 0) {
+    let boost = new Decimal(1 + level);
+    if (state.infinityTree?.pre_6) {
+      boost = boost.mul(new Decimal(1.1).pow(level));
+    }
+    multiplier = multiplier.mul(boost);
+  }
   return multiplier;
 }
 
@@ -347,6 +377,14 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
     mult = mult.pow(1.05);
   }
 
+  // Stardust powers all generators with an exponent scaling gently from ^1.001
+  if (state.stardust?.amount && state.stardust.amount.gt(0)) {
+    const stardustExp = getStardustGeneratorExponent(state.stardust.amount);
+    if (stardustExp > 1) {
+      mult = mult.pow(stardustExp);
+    }
+  }
+
   return mult;
 }
 
@@ -386,7 +424,10 @@ export function getTickspeedCost(state: GameState): Decimal {
  * Base is 1.10x, upgraded to 1.15x with Upgrade 7 (Chronos Flow).
  */
 export function getTotalTickspeedSpeed(state: GameState): Decimal {
-  const basePower = state.prestigeUpgrades?.chronosFlow ? 1.15 : state.tickspeed.multiplier;
+  let basePower = state.prestigeUpgrades?.chronosFlow ? 1.15 : state.tickspeed.multiplier;
+  if (isInfinityMilestoneUnlocked(state, 'milestone_3350_tickspeed_boost')) {
+    basePower += 0.02;
+  }
   return new Decimal(basePower).pow(state.tickspeed.bought);
 }
 
@@ -456,6 +497,7 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
  * Requirement: 1.00e18 Points.
  * Formula: 10^(log10(Points) / 20), with a minimum requirement of 1e18 Points.
  * Pre-Infinity Node 3 multiplies PP gain by 3x.
+ * Milestone 2500 raises PP gain to ^1.01.
  */
 export function calculatePrestigePointsGain(points: Decimal, state?: GameState): Decimal {
   if (points.lt(PRESTIGE_REQUIREMENT)) {
@@ -469,6 +511,10 @@ export function calculatePrestigePointsGain(points: Decimal, state?: GameState):
 
   if (state?.infinityTree?.pre_3) {
     gain = gain.mul(3);
+  }
+
+  if (state && isInfinityMilestoneUnlocked(state, 'milestone_2500_pp_power')) {
+    gain = gain.pow(1.01);
   }
 
   return gain;
@@ -592,16 +638,15 @@ export function calculateSkillPointsGain(state: GameState, infinityCount: number
     : 0;
   let totalSP = 1 + prestigeSPBonus + getInfinityMilestoneExtraSP(state, count);
 
-  // Infinity Upgrade: multiplies gained SP by 2x (cost: 1000 IP)
-  if (state.infinity?.spDoublerUpgrade) {
-    totalSP *= 2;
-  }
+  // Infinity Upgrade: multiplies gained SP by 2x (cost: 1000 IP) or repeatable Skill Amplification
+  const spMult = getSkillAmplificationSPMultiplier(state);
+  totalSP = Math.floor(totalSP * spMult);
 
   // Post-Infinity Upgrade 1:
   // "First: multiplies Skill Points gained from Points using the log10(Points) / 500 scaling."
   if (state.infinityTree?.post_1 && state.points.gt(1)) {
-    const spMult = Math.max(1, state.points.log10() / 500);
-    totalSP = Math.floor(totalSP * spMult);
+    const spScale = Math.max(1, state.points.log10() / 500);
+    totalSP = Math.floor(totalSP * spScale);
   }
 
   return Math.max(1, totalSP);
@@ -622,5 +667,151 @@ export function calculateInfinitiesGain(state: GameState): number {
 /** Convenience export for UI previews of the new passive PE generator bonus. */
 export function getPassivePrestigeEnergyGeneratorMultiplier(state: GameState): Decimal {
   return getPassivePEGeneratorMultiplier(state);
+}
+
+/**
+ * Stardust calculation helpers
+ * Base rate: 0.01/s + 0.005/s per base upgrade level.
+ * Doubler: multiplies stardust gain by 2^doublerLevel.
+ * Online only: not generated offline.
+ */
+export function getStardustPerSecond(state: GameState): Decimal {
+  if (!state.stardust?.unlocked && !state.infinityTree?.feat_6) return Decimal.zero();
+  const baseLvl = Math.max(0, Math.floor(state.stardust?.baseUpgradeLevel || 0));
+  const baseRate = 0.01 + 0.005 * baseLvl;
+  const doublerLvl = Math.max(0, Math.floor(state.stardust?.doublerLevel || 0));
+  return new Decimal(baseRate).mul(new Decimal(2).pow(doublerLvl));
+}
+
+/**
+ * Computes effective Stardust after softcaps:
+ * - Up to 10 Stardust: full 1x rate
+ * - 10 to 1,000 Stardust: growth slows by 10x (rate = 0.1x)
+ * - Above 1,000 Stardust: growth slows by another 10x (rate = 0.01x, 100x slower total)
+ */
+export function getEffectiveStardust(stardustAmount: Decimal): Decimal {
+  if (!stardustAmount || stardustAmount.lte(0)) return Decimal.zero();
+  if (stardustAmount.lte(10)) {
+    return stardustAmount;
+  }
+  if (stardustAmount.lte(1000)) {
+    return new Decimal(10).add(stardustAmount.sub(10).mul(0.1));
+  }
+  // Above 1,000: 10 + (990 * 0.1) + (stardust - 1000) * 0.01 = 109 + (stardust - 1000) * 0.01
+  return new Decimal(109).add(stardustAmount.sub(1000).mul(0.01));
+}
+
+/**
+ * Generator exponent boost from Stardust.
+ * Starts gently at ^1.001 at 1 Stardust (+0.001 per effective Stardust).
+ * Softcapped at 10 Stardust (10x slower growth) and at 1,000 Stardust (another 10x slower growth).
+ */
+export function getStardustGeneratorExponent(stardustAmount: Decimal): number {
+  if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
+  const effective = getEffectiveStardust(stardustAmount);
+  const bonus = effective.mul(0.001).toNumber();
+  // Bound to a safe maximum to protect float precision in Decimal pow
+  return Math.min(1e6, 1 + (Number.isFinite(bonus) ? bonus : 0));
+}
+
+/** Stardust Doubler cost: 1 Stardust base, 4x per level */
+export function getStardustDoublerCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(currentLevel));
+  return new Decimal(4).pow(level);
+}
+
+/** Stardust Base cost: 1 Stardust base, 2x per level */
+export function getStardustBaseCost(currentLevel: number): Decimal {
+  const level = Math.max(0, Math.floor(currentLevel));
+  return new Decimal(2).pow(level);
+}
+
+/**
+ * Skill Amplification helpers:
+ * Level 0 = unbought (cost: 1,000 IP)
+ * Level 1 = bought initial 1,000 IP upgrade (2x SP)
+ * Level L (L >= 1) with pre_6 unlocked:
+ * Next level cost = 1e120 IP base, scaling by 1e20 IP per level:
+ * cost = 10^(120 + 20 * (L - 1)) IP
+ * Each level multiplies SP gain by 2x (2^level).
+ */
+export function getSkillAmplificationLevel(state: GameState): number {
+  if (typeof state.infinity?.spDoublerLevel === 'number') {
+    return Math.max(0, state.infinity.spDoublerLevel);
+  }
+  return state.infinity?.spDoublerUpgrade ? 1 : 0;
+}
+
+export function getSkillAmplificationCost(level: number): Decimal {
+  if (level <= 0) return new Decimal(1000);
+  return new Decimal(10).pow(120 + 20 * (level - 1));
+}
+
+export function getSkillAmplificationSPMultiplier(state: GameState): number {
+  const level = getSkillAmplificationLevel(state);
+  if (level <= 0) return 1;
+  return Math.pow(2, level);
+}
+
+/**
+ * Cost in SP for Generator Amplification (pre_5) at a given level.
+ * Up to level 1,000: costs level + 1 SP (1, 2, 3... 1,000 SP for buying level 1,000).
+ * Beyond level 1,000: price growth scales by x1.5 per level instead of +1.
+ * Level 1,000 (buying level 1,001) costs Math.round(1,000 * 1.5) = 1,500 SP, then x1.5 per level.
+ */
+export function getGeneratorAmplificationCost(currentLevel: number): number {
+  const lvl = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  if (lvl < 1000) {
+    return lvl + 1;
+  }
+  const extraLevels = lvl - 1000;
+  const cost = 1000 * Math.pow(1.5, extraLevels + 1);
+  return Math.min(Number.MAX_SAFE_INTEGER, Math.round(cost));
+}
+
+/**
+ * Calculates maximum affordable Generator Amplification (pre_5) levels.
+ * Handles both the arithmetic progression up to level 1,000 and the geometric (x1.5) progression beyond.
+ */
+export function getMaxGeneratorAmplificationPurchases(
+  currentLevel: number,
+  availableSP: number
+): { levelsToBuy: number; totalCost: number } {
+  let sp = Math.max(0, Math.floor(Number.isFinite(availableSP) ? availableSP : 0));
+  let lvl = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
+  let levelsToBuy = 0;
+  let totalCost = 0;
+
+  // Phase 1: Purchases up to level 1,000 (arithmetic progression)
+  if (lvl < 1000) {
+    const maxInPhase = 1000 - lvl;
+    const discriminant = 2 * lvl + 1;
+    let k = Math.max(0, Math.floor((-discriminant + Math.sqrt(discriminant * discriminant + 8 * sp)) / 2));
+    k = Math.min(k, maxInPhase);
+    const costForK = (count: number) => count * (lvl + 1) + count * (count - 1) / 2;
+    while (k > 0 && costForK(k) > sp) k--;
+    while (k < maxInPhase && costForK(k + 1) <= sp) k++;
+
+    if (k > 0) {
+      const c = costForK(k);
+      sp -= c;
+      totalCost += c;
+      levelsToBuy += k;
+      lvl += k;
+    }
+  }
+
+  // Phase 2: Purchases beyond level 1,000 (1.5x geometric progression)
+  while (lvl >= 1000) {
+    const nextCost = getGeneratorAmplificationCost(lvl);
+    if (sp < nextCost) break;
+    sp -= nextCost;
+    totalCost += nextCost;
+    levelsToBuy++;
+    lvl++;
+    if (levelsToBuy >= 100000) break;
+  }
+
+  return { levelsToBuy, totalCost };
 }
 

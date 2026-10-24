@@ -40,6 +40,13 @@ import {
   getInfinityMilestoneExtraSP,
   calculateSkillPointsGain,
   calculateInfinitiesGain,
+  getStardustPerSecond,
+  getStardustDoublerCost,
+  getStardustBaseCost,
+  getSkillAmplificationLevel,
+  getSkillAmplificationCost,
+  getGeneratorAmplificationCost,
+  getMaxGeneratorAmplificationPurchases,
 } from '../utils/gameCalculations';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 
@@ -111,6 +118,7 @@ export function useGameLoop() {
   showInfinityOverlayRef.current = showInfinityOverlay;
   const infinityTriggeredRef = useRef<boolean>(false);
   const proceedInfinityRef = useRef<() => void>(() => {});
+  const lastInfinityResetTimeRef = useRef<number>(0);
 
   const stateRef = useRef<GameState>(gameState);
   stateRef.current = gameState;
@@ -405,6 +413,24 @@ export function useGameLoop() {
           state.prestigeEnergy.unlocked = true;
         }
 
+        // Online Stardust generation (only active while game is open, not offline)
+        if (state.infinityTree?.feat_6 || state.stardust?.unlocked) {
+          if (!state.stardust) {
+            state.stardust = {
+              unlocked: true,
+              amount: Decimal.zero(),
+              totalEarned: Decimal.zero(),
+              doublerLevel: 0,
+              baseUpgradeLevel: 0,
+            };
+          } else {
+            state.stardust.unlocked = true;
+          }
+          const stardustRate = getStardustPerSecond(state);
+          state.stardust.amount = state.stardust.amount.add(stardustRate.mul(dt));
+          state.stardust.totalEarned = state.stardust.totalEarned.add(stardustRate.mul(dt));
+        }
+
 
         // Stats tracking
         state.stats.totalTimePlayed += dt;
@@ -597,7 +623,9 @@ export function useGameLoop() {
               state.stats.highestPPEver = totalPP.gt(state.stats.highestPPEver) ? totalPP : state.stats.highestPPEver;
               state.autobuyers['prestige'] = { ...autoPres, previousPPGain: ppGain };
               state.stats.timeThisPrestige = 0;
-              state.points = state.infinityTree?.pre_2 ? new Decimal(1e6) : (state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10));
+              if (!state.infinityTree?.auto_10) {
+                state.points = state.infinityTree?.pre_2 ? new Decimal(1e6) : (state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10));
+              }
               state.generators = INITIAL_GENERATORS();
               if (state.infinityTree?.pre_2) {
                 for (let k = 0; k < 4; k++) {
@@ -749,30 +777,39 @@ export function useGameLoop() {
           // Auto: Infinity (Branch 2 Node 7, unlocked via Milestone 1500)
           const autoInf = state.autobuyers['autoInfinity'];
           if (autoInf && autoInf.unlocked && autoInf.enabled && state.points.gte(INFINITY_THRESHOLD)) {
-            const ipGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
-            const infTarget = typeof autoInf.infinityTarget === 'number' ? autoInf.infinityTarget : 1;
-            const infMode = autoInf.infinityMode || 'targetIP';
-            const prevIPGain = autoInf.previousIPGain instanceof Decimal ? autoInf.previousIPGain : Decimal.zero();
-            const infTimeTarget = Math.max(1, autoInf.infinityTimeTarget || 60);
-            const infRatioTarget = Math.max(1.01, autoInf.infinityRatioTarget || 2);
-            let shouldCrunch = false;
+            const now = Date.now();
+            const lastInfTime = state.infinity.lastInfinityTime ?? 0;
+            const timeSinceLastInf = state.stats.timeThisInfinity || 0;
 
-            if (infMode === 'time') {
-              shouldCrunch = (state.stats.timeThisInfinity || 0) >= infTimeTarget;
-            } else if (infMode === 'ipMultiplier') {
-              shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : ipGain.gte(infTarget);
-            } else {
-              shouldCrunch = ipGain.gte(infTarget);
-            }
+            // Enforce fast infinity cooldown of 0.1s (100ms)
+            if (now - lastInfTime >= 100 && timeSinceLastInf >= 0.1) {
+              const ipGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
+              const infTarget = typeof autoInf.infinityTarget === 'number' ? autoInf.infinityTarget : 1;
+              const infMode = autoInf.infinityMode || 'targetIP';
+              const prevIPGain = autoInf.previousIPGain instanceof Decimal ? autoInf.previousIPGain : Decimal.zero();
+              const infTimeTarget = Math.max(1, autoInf.infinityTimeTarget || 60);
+              const infRatioTarget = Math.max(1.01, autoInf.infinityRatioTarget || 2);
+              let shouldCrunch = false;
 
-            if (shouldCrunch) {
-              state.autobuyers['autoInfinity'] = {
-                ...autoInf,
-                previousIPGain: ipGain,
-              };
-              setTimeout(() => {
-                proceedInfinityRef.current();
-              }, 0);
+              if (infMode === 'time') {
+                shouldCrunch = (state.stats.timeThisInfinity || 0) >= infTimeTarget;
+              } else if (infMode === 'ipMultiplier') {
+                shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : ipGain.gte(infTarget);
+              } else {
+                shouldCrunch = ipGain.gte(infTarget);
+              }
+
+              if (shouldCrunch) {
+                lastInfinityResetTimeRef.current = now;
+                state.infinity.lastInfinityTime = now;
+                state.autobuyers['autoInfinity'] = {
+                  ...autoInf,
+                  previousIPGain: ipGain,
+                };
+                setTimeout(() => {
+                  proceedInfinityRef.current();
+                }, 0);
+              }
             }
           }
         }
@@ -1075,8 +1112,10 @@ export function useGameLoop() {
       const newPP = prev.prestige.points.add(ppGain);
 
       const baseTickCost = prev.prestigeUpgrades.tickspeedDiscount ? new Decimal(10) : new Decimal(1000);
-      let startingPoints = prev.prestigeUpgrades.tickspeedDiscount ? new Decimal(110) : new Decimal(10);
-      if (prev.infinityTree?.pre_2) {
+      let startingPoints = prev.infinityTree?.auto_10
+        ? prev.points
+        : (prev.prestigeUpgrades.tickspeedDiscount ? new Decimal(110) : new Decimal(10));
+      if (!prev.infinityTree?.auto_10 && prev.infinityTree?.pre_2) {
         startingPoints = new Decimal(1e6);
         for (let i = 0; i < 4; i++) {
           resetGenerators[i].amount = new Decimal(1);
@@ -1353,11 +1392,21 @@ export function useGameLoop() {
 
   // Complete reset to Infinity layer: grants IP & SP, unlocks Infinity tab, and resets pre-infinity progress
   const proceedInfinity = useCallback(() => {
+    const now = Date.now();
+    // Fast infinity cooldown: at most once every 0.1 seconds (100ms)
+    if (now - lastInfinityResetTimeRef.current < 100) return;
+
     setShowInfinityOverlay(false);
     showInfinityOverlayRef.current = false;
 
     setGameState((prev) => {
       if (prev.points.lt(INFINITY_THRESHOLD)) return prev;
+      const curTime = Date.now();
+      if (prev.infinity.lastInfinityTime && curTime - prev.infinity.lastInfinityTime < 100) {
+        return prev;
+      }
+      lastInfinityResetTimeRef.current = curTime;
+
       const infGain = calculateInfinitiesGain(prev);
       const newCount = prev.infinity.count + infGain;
       const spGain = calculateSkillPointsGain(prev, newCount);
@@ -1422,6 +1471,7 @@ export function useGameLoop() {
           skillPoints: newSP,
           totalEarnedIP,
           unlocked: true,
+          lastInfinityTime: curTime,
         },
         autobuyers: {
           ...prev.autobuyers,
@@ -1455,19 +1505,14 @@ export function useGameLoop() {
     setGameState((prev) => {
       const tree = prev.infinityTree || {};
 
-      // MAX-buy the repeatable Generator Amplification node using the triangular cost sequence.
+      // MAX-buy the repeatable Generator Amplification node using arithmetic/geometric cost scaling.
       if (nodeId === 'pre_5_max') {
         if (!tree.pre_4) return prev;
         const level = typeof tree.pre_5Level === 'number' ? Math.max(0, Math.floor(tree.pre_5Level)) : 0;
         const currentSP = Math.max(0, prev.infinity.skillPoints || 0);
-        const discriminant = 2 * level + 1;
-        let levelsToBuy = Math.max(0, Math.floor((-discriminant + Math.sqrt(discriminant * discriminant + 8 * currentSP)) / 2));
-        const costFor = (count: number) => count * (level + 1) + count * (count - 1) / 2;
-        for (let i = 0; i < 4 && levelsToBuy > 0 && costFor(levelsToBuy) > currentSP; i++) levelsToBuy -= 1;
-        for (let i = 0; i < 4 && costFor(levelsToBuy + 1) <= currentSP; i++) levelsToBuy += 1;
+        const { levelsToBuy, totalCost } = getMaxGeneratorAmplificationPurchases(level, currentSP);
         if (levelsToBuy <= 0) return prev;
 
-        const totalCost = costFor(levelsToBuy);
         sound.playBuy();
         const nextState: GameState = {
           ...prev,
@@ -1487,8 +1532,11 @@ export function useGameLoop() {
         return prev;
       }
 
-      // Check Infinity Upgrade requirement (e.g. automationExpand)
+      // Check Infinity Upgrade requirement (e.g. automationExpand, prestigePreservationUnlock)
       if (def.reqUpgrade === 'automationExpand' && !prev.infinity.automationExpand) {
+        return prev;
+      }
+      if (def.reqUpgrade === 'prestigePreservationUnlock' && !prev.infinity.breakInfinityUpgrades?.prestigePreservationUnlock) {
         return prev;
       }
 
@@ -1499,7 +1547,9 @@ export function useGameLoop() {
 
       const storedLevel = tree[nodeId + 'Level'];
       const currentLevel = def.repeatable && typeof storedLevel === 'number' ? Math.max(0, Math.floor(storedLevel)) : 0;
-      const costSP = def.repeatable ? currentLevel + 1 : def.cost;
+      const costSP = nodeId === 'pre_5'
+        ? getGeneratorAmplificationCost(currentLevel)
+        : (def.repeatable ? currentLevel + 1 : def.cost);
       const currentSP = prev.infinity.skillPoints ?? 0;
       if (currentSP < costSP) {
         return prev;
@@ -1531,6 +1581,19 @@ export function useGameLoop() {
         if (nextAutobuyers['autoInfinity']) nextAutobuyers['autoInfinity'] = { ...nextAutobuyers['autoInfinity'], unlocked: true };
       }
 
+      const nextStardust = nodeId === 'feat_6'
+        ? {
+            ...(prev.stardust || {
+              unlocked: true,
+              amount: Decimal.zero(),
+              totalEarned: Decimal.zero(),
+              doublerLevel: 0,
+              baseUpgradeLevel: 0,
+            }),
+            unlocked: true,
+          }
+        : prev.stardust;
+
       const nextState: GameState = {
         ...prev,
         infinity: {
@@ -1539,6 +1602,7 @@ export function useGameLoop() {
         },
         infinityTree: nextTree,
         autobuyers: nextAutobuyers,
+        ...(nextStardust ? { stardust: nextStardust } : {}),
       };
 
       saveStateWithBackup(nextState);
@@ -1673,11 +1737,14 @@ export function useGameLoop() {
     });
   }, []);
 
-  // Infinity Upgrade: Multiplies gained SP by 2x (cost: 1000 IP)
+  // Infinity Upgrade: Skill Amplification (cost: 1000 IP initially; repeatable with pre_6)
   const buySpDoublerUpgrade = useCallback(() => {
     setGameState((prev) => {
-      if (prev.infinity.spDoublerUpgrade) return prev;
-      const cost = new Decimal(1000);
+      const isRepeatable = !!prev.infinityTree?.pre_6;
+      const currentLevel = getSkillAmplificationLevel(prev);
+      if (!isRepeatable && currentLevel >= 1) return prev;
+
+      const cost = getSkillAmplificationCost(currentLevel);
       if (prev.infinity.points.lt(cost)) return prev;
 
       sound.playBuy();
@@ -1687,6 +1754,7 @@ export function useGameLoop() {
           ...prev.infinity,
           points: prev.infinity.points.sub(cost),
           spDoublerUpgrade: true,
+          spDoublerLevel: currentLevel + 1,
         },
       };
       saveStateWithBackup(nextState);
@@ -1694,7 +1762,82 @@ export function useGameLoop() {
     });
   }, []);
 
-  // Break Infinity Upgrades, including the new late-game extension from 1e40 IP.
+  const buyMaxSkillAmplification = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.infinityTree?.pre_6) return prev;
+      let currentLevel = getSkillAmplificationLevel(prev);
+      let remainingIP = prev.infinity.points;
+      let cost = getSkillAmplificationCost(currentLevel);
+      let purchases = 0;
+
+      while (remainingIP.gte(cost) && purchases < 500) {
+        remainingIP = remainingIP.sub(cost);
+        currentLevel++;
+        purchases++;
+        cost = getSkillAmplificationCost(currentLevel);
+      }
+
+      if (purchases === 0) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        infinity: {
+          ...prev.infinity,
+          points: remainingIP,
+          spDoublerUpgrade: true,
+          spDoublerLevel: currentLevel,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Stardust Upgrades
+  const buyStardustDoubler = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust) return prev;
+      const currentLevel = prev.stardust.doublerLevel || 0;
+      const cost = getStardustDoublerCost(currentLevel);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          doublerLevel: currentLevel + 1,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buyStardustBase = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust) return prev;
+      const currentLevel = prev.stardust.baseUpgradeLevel || 0;
+      const cost = getStardustBaseCost(currentLevel);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          baseUpgradeLevel: currentLevel + 1,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Break Infinity Upgrades, including the new late-game extension from 1e40 IP and 1e200 IP.
   const buyBreakInfinityUpgrade = useCallback((upgradeId: BreakInfinityUpgradeId) => {
     const costs: Record<BreakInfinityUpgradeId, Decimal> = {
       limitless: new Decimal(1e16),
@@ -1707,6 +1850,7 @@ export function useGameLoop() {
       vacuumCascade: new Decimal(1, 75),
       transcendentCascade: new Decimal(1, 90),
       absoluteHorizon: new Decimal(1, 110),
+      prestigePreservationUnlock: new Decimal(1, 200),
     };
 
     setGameState((prev) => {
@@ -2191,6 +2335,9 @@ export function useGameLoop() {
     buyTimeIPBoost,
     buyEnergySPBoost,
     buySpDoublerUpgrade,
+    buyMaxSkillAmplification,
+    buyStardustDoubler,
+    buyStardustBase,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,

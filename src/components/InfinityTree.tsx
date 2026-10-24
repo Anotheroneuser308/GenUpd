@@ -2,7 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GameState } from '../types/game';
 import { INFINITY_TREE_NODES, BRANCH_CONFIG, InfinityTreeNodeDef } from '../constants/infinityTree';
 import { getUnlockedInfinityMilestonesCount, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
-import { getInfinityGeneratorMultiplier, getPreInfinityGeneratorMultiplier, calculateSkillPointsGain, calculateInfinitiesGain } from '../utils/gameCalculations';
+import {
+  getInfinityGeneratorMultiplier,
+  getPreInfinityGeneratorMultiplier,
+  calculateSkillPointsGain,
+  calculateInfinitiesGain,
+  getGeneratorAmplificationCost,
+} from '../utils/gameCalculations';
 import { Decimal } from '../utils/decimal';
 import {
   Layers,
@@ -37,6 +43,7 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   pre_3: { x: -410, y: -130 },
   pre_4: { x: -540, y: -170 },
   pre_5: { x: -670, y: -240 },
+  pre_6: { x: -800, y: -310 },
 
   // Automation (North)
   auto_1: { x: 0, y: -130 },
@@ -47,6 +54,7 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   auto_6: { x: -90, y: -630 },
   auto_8: { x: -90, y: -730 }, // Auto PE Upgrades
   auto_9: { x: -90, y: -830 }, // Free Automation Matrix
+  auto_10: { x: -90, y: -930 }, // Prestige Point Preservation
   auto_7: { x: 90, y: -630 },  // Auto Infinity
 
   // New Features (East)
@@ -55,6 +63,7 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   feat_3: { x: 410, y: -130 },
   feat_4: { x: 540, y: -170 }, // Break Infinity
   feat_5: { x: 670, y: -210 }, // Break Infinity Upgrades Matrix
+  feat_6: { x: 800, y: -250 }, // Stardust Genesis
 
   // Post-Infinity is a separate branch from Root Nexus (South-East).
   post_1: { x: 430, y: 220 },
@@ -70,6 +79,7 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['pre_2', 'pre_3'],
   ['pre_3', 'pre_4'],
   ['pre_4', 'pre_5'],
+  ['pre_5', 'pre_6'],
 
   ['root', 'auto_1'],
   ['auto_1', 'auto_2'],
@@ -79,6 +89,7 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['auto_5', 'auto_6'],
   ['auto_6', 'auto_8'],
   ['auto_8', 'auto_9'],
+  ['auto_9', 'auto_10'],
   ['auto_6', 'auto_7'],
 
   ['root', 'feat_1'],
@@ -86,6 +97,7 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['feat_2', 'feat_3'],
   ['feat_3', 'feat_4'],
   ['feat_4', 'feat_5'],
+  ['feat_5', 'feat_6'],
 
   ['root', 'post_1'],
   ['post_1', 'post_2'],
@@ -133,11 +145,12 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       const levelValue = tree[def.id + 'Level'];
       const level = isRepeatable && typeof levelValue === 'number' ? Math.max(0, Math.floor(levelValue)) : 0;
       const isBought = isRepeatable ? level > 0 : !!tree[def.id];
-      const cost = isRepeatable ? level + 1 : def.cost;
+      const cost = isRepeatable ? (def.id === 'pre_5' ? getGeneratorAmplificationCost(level) : level + 1) : def.cost;
       const hasParent = def.req === 'none' || !!tree[def.req];
       const hasUpgradeReq =
         !def.reqUpgrade ||
-        (def.reqUpgrade === 'automationExpand' && !!state.infinity?.automationExpand);
+        (def.reqUpgrade === 'automationExpand' && !!state.infinity?.automationExpand) ||
+        (def.reqUpgrade === 'prestigePreservationUnlock' && !!state.infinity?.breakInfinityUpgrades?.prestigePreservationUnlock);
       const hasMilestoneReq =
         !def.reqMilestone || isInfinityMilestoneUnlocked(state, def.reqMilestone as any);
       const canAfford = currentSP >= cost;
@@ -170,15 +183,26 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
     const notation = state.settings?.notation;
     const fmt = (value: Decimal | number) => value instanceof Decimal ? value.format(notation) : String(Number.isFinite(value) ? Number(value.toFixed(3)) : value);
     switch (id) {
-      case 'root': return `Generator multiplier from Infinities: ×${fmt(getInfinityGeneratorMultiplier(infCount))} (currently ${infCount} Infinities; after 100, growth is ×1.05 per extra Infinity).`;
+      case 'root': {
+        const mult = getInfinityGeneratorMultiplier(infCount);
+        const tierNote = infCount > 39416
+          ? ' · Softcap Tier 2 active: ×1.005 every 2nd Infinity past 1.00e200'
+          : infCount > 100
+          ? ' · Softcap Tier 1 active: ×1.01 per extra Infinity'
+          : '';
+        return `Generator multiplier from Infinities: ×${fmt(mult)} (currently ${infCount} Infinities${tierNote}).`;
+      }
       case 'pre_1': return `Current generator bonus from time: ×${fmt(1 + (state.stats?.timeThisInfinity || 0) * 0.01)}.`;
       case 'pre_2': return 'On each Prestige/Infinity: start with 1,000,000 Points and 1 of each of the first 4 generators.';
       case 'pre_3': return 'Current Prestige Point reward multiplier: ×3.';
       case 'pre_4': return 'Current generator multiplier from the Pre-Infinity branch: x' + fmt(getPreInfinityGeneratorMultiplier(state)) + '.';
       case 'pre_5': {
         const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
-        return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + (level + 1) + ' SP.';
+        const nextCost = getGeneratorAmplificationCost(level);
+        const scalingNote = level >= 1000 ? ' (1.5x price scaling active)' : '';
+        return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + nextCost + ' SP' + scalingNote + '.';
       }
+      case 'pre_6': return 'Infinite Amplification Mastery: generator amplification bonus x1.1^level, and Skill Amplification is repeatable infinitely.';
       case 'auto_1': return 'Unlocks automatic purchases for Generators 1–4.';
       case 'auto_2': return 'Unlocks automatic Tickspeed and Generators 5–8 purchases.';
       case 'auto_3': return 'Unlocks Prestige automation; current settings are shown in the Automation tab.';
@@ -188,6 +212,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'auto_7': return 'Unlocks automatic Infinity resets.';
       case 'auto_8': return 'Unlocks automatic PE amplifier purchases.';
       case 'auto_9': return 'Automated purchases cost 0 currency.';
+      case 'auto_10': return 'Prestige Point Preservation: Prestige resets no longer reset Points!';
       case 'feat_1': return 'Unlocks the Infinity Upgrades Matrix.';
       case 'feat_2': return 'Unlocks Prestige Skill Synergy.';
       case 'feat_3': {
@@ -196,7 +221,8 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
         return `Currently ${unlockedMilestones} Infinity Milestones are unlocked. Millennial Singularity currently grants ×${fmt(milestoneBonus)} to all generators.`;
       }
       case 'feat_4': return `Break Infinity: IP gain formula is 10^(log10(Points) / 308); at current Points, the base reward is ×${fmt(new Decimal(10).pow(logPoints / 308))} IP before bonuses.`;
-      case 'feat_5': return 'Unlocks Break Infinity upgrades in the Infinity Upgrades section.'
+      case 'feat_5': return 'Unlocks Break Infinity upgrades in the Infinity Upgrades section.';
+      case 'feat_6': return 'Stardust Genesis: Unlocks the Stardust celestial currency and management tab.';
       case 'post_1': return `Current SP reward from the next Infinity: ${calculateSkillPointsGain(state)} SP (includes this upgrade only if purchased).`;
       case 'post_2': return `Current Infinities gained on the next reset: ${calculateInfinitiesGain(state)}.`;
       case 'post_3': return `Current generator multiplier from IP: ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}.`;
@@ -470,10 +496,14 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
 
                 {selectedDef.reqUpgrade && (
                   <span className="flex items-center gap-1">
-                    · Matrix:{' '}
-                    <strong className={state.infinity?.automationExpand ? 'text-emerald-400' : 'text-purple-400'}>
-                      {selectedDef.reqUpgrade}
-                      {state.infinity?.automationExpand ? ' ✓' : ' 🔒'}
+                    · Requirement:{' '}
+                    <strong className={selectedStatus.hasUpgradeReq ? 'text-emerald-400' : 'text-purple-400'}>
+                      {selectedDef.reqUpgrade === 'prestigePreservationUnlock'
+                        ? 'Eternal Continuity Matrix (1e200 IP)'
+                        : selectedDef.reqUpgrade === 'automationExpand'
+                        ? 'Automation Expansion'
+                        : selectedDef.reqUpgrade}
+                      {selectedStatus.hasUpgradeReq ? ' ✓' : ' 🔒'}
                     </strong>
                   </span>
                 )}
@@ -503,7 +533,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                   ) : !selectedStatus.hasMilestoneReq ? (
                     <><Lock className="w-4 h-4" /><span>Requires a milestone</span></>
                   ) : !selectedStatus.hasUpgradeReq ? (
-                    <><Lock className="w-4 h-4" /><span>Requires a Matrix upgrade</span></>
+                    <><Lock className="w-4 h-4" /><span>Requires {selectedDef.reqUpgrade === 'prestigePreservationUnlock' ? 'Eternal Continuity Matrix (1e200 IP)' : 'Matrix upgrade'}</span></>
                   ) : !selectedStatus.canAfford ? (
                     <><Lock className="w-4 h-4" /><span>Need {selectedStatus.cost} SP ({selectedStatus.cost - currentSP} SP short)</span></>
                   ) : (

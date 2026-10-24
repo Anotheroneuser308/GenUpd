@@ -8,10 +8,16 @@ import {
   getInfinityMilestoneExtraSP,
   getTemporalInfinityMultiplier,
   getAchievementMasterCompletions,
+  getStardustPerSecond,
+  getStardustGeneratorExponent,
+  getStardustDoublerCost,
+  getStardustBaseCost,
+  getSkillAmplificationLevel,
+  getSkillAmplificationCost,
 } from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { InfinityTree } from './InfinityTree';
-import { Layers, Atom, Cpu } from 'lucide-react';
+import { Layers, Atom, Cpu, Sparkles } from 'lucide-react';
 import { AutomationTab } from './AutomationTab';
 
 
@@ -21,7 +27,8 @@ type AdvancedBreakInfinityUpgradeId =
   | 'hyperchargeOverdrive'
   | 'vacuumCascade'
   | 'transcendentCascade'
-  | 'absoluteHorizon';
+  | 'absoluteHorizon'
+  | 'prestigePreservationUnlock';
 
 interface AdvancedBreakInfinityUpgradeDefinition {
   id: AdvancedBreakInfinityUpgradeId;
@@ -38,6 +45,7 @@ const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[]
   { id: 'vacuumCascade', title: 'Vacuum Cascade', description: 'Infinity Point gains are multiplied by 10^(0.1 × sqrt(OoMs above 1e308)).', cost: new Decimal(1, 75) },
   { id: 'transcendentCascade', title: 'Transcendent Cascade', description: 'Raises the final multiplier of every Generator to the power of 1.05.', cost: new Decimal(1, 90) },
   { id: 'absoluteHorizon', title: 'Absolute Horizon', description: 'Raises the total Points generation multiplier to the power of 1.05.', cost: new Decimal(1, 110) },
+  { id: 'prestigePreservationUnlock', title: 'Eternal Continuity Matrix', description: 'Unlocks Prestige Point Preservation (auto_10, 12,000 SP), Stardust Genesis (feat_6), and Infinite Amplification Mastery (pre_6) in the Infinity Tree.', cost: new Decimal(1, 200) },
 ];
 
 function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, state: GameState, oomAbove: number): string {
@@ -54,6 +62,8 @@ function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, sta
       return 'Generator multiplier exponent ^1.05';
     case 'absoluteHorizon':
       return 'Points generation multiplier exponent ^1.05';
+    case 'prestigePreservationUnlock':
+      return 'Unlocks "Prestige Point Preservation", "Stardust Genesis", and "Infinite Amplification Mastery" in Infinity Tree';
   }
 }
 
@@ -126,6 +136,9 @@ interface InfinityTabProps {
   onBuyTimeIPBoost?: () => void;
   onBuyEnergySPBoost?: () => void;
   onBuySpDoublerUpgrade?: () => void;
+  onBuyMaxSkillAmplification?: () => void;
+  onBuyStardustDoubler?: () => void;
+  onBuyStardustBase?: () => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
   onToggleAutobuyer: (id: string) => void;
@@ -147,6 +160,9 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyTimeIPBoost,
   onBuyEnergySPBoost,
   onBuySpDoublerUpgrade,
+  onBuyMaxSkillAmplification,
+  onBuyStardustDoubler,
+  onBuyStardustBase,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
   onToggleAutobuyer,
@@ -156,7 +172,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onSetAutoPrestigeEnergySettings,
   onSetAutoInfinitySettings,
 }) => {
-  const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation' | 'milestones'>('tree');
+  const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation' | 'milestones' | 'stardust'>('tree');
   const notation = state.settings.notation;
   const canCrunch = state.points.gte(INFINITY_THRESHOLD);
   const crunchIPGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
@@ -264,26 +280,53 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               <span>Milestones</span>
             </button>
           )}
-        </div>
-        {(state.infinityTree?.feat_4 || totalInfinities >= 10 || state.points.gte(INFINITY_THRESHOLD)) && (
-          <div className="flex flex-col items-center gap-2 border-t border-slate-800/80 pt-4 w-full">
+
+          {(state.infinityTree?.feat_6 || state.stardust?.unlocked) && (
             <button
               type="button"
-              onClick={onInfinityReset}
-              disabled={!canCrunch}
-              className={`px-8 py-3 rounded-xl text-sm font-bold font-mono transition-all ${
-                canCrunch
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 active:scale-95 cursor-pointer animate-pulse'
-                  : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+              onClick={() => setSubTab('stardust')}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                subTab === 'stardust'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30'
+                  : 'text-slate-400 hover:text-white bg-slate-900 border border-slate-800'
               }`}
             >
-              Big Crunch — +{crunchIPGain.format(notation)} IP · +{crunchSPGain} SP
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Stardust</span>
             </button>
-            <p className="text-[11px] text-slate-500 font-mono">
-              {canCrunch ? 'Reset your current run to gain IP and Skill Points.' : `Reach ${INFINITY_THRESHOLD.format(notation)} Points to Crunch.`}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
+        {(state.infinityTree?.feat_4 || totalInfinities >= 10 || state.points.gte(INFINITY_THRESHOLD)) && (() => {
+          const isCrunchCooldown = (state.stats?.timeThisInfinity || 0) < 0.1;
+          const crunchDisabled = !canCrunch || isCrunchCooldown;
+          return (
+            <div className="flex flex-col items-center gap-2 border-t border-slate-800/80 pt-4 w-full">
+              <button
+                type="button"
+                onClick={onInfinityReset}
+                disabled={crunchDisabled}
+                className={`px-8 py-3 rounded-xl text-sm font-bold font-mono transition-all ${
+                  !crunchDisabled
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 active:scale-95 cursor-pointer animate-pulse'
+                    : isCrunchCooldown && canCrunch
+                    ? 'bg-amber-950/60 text-amber-400/80 border border-amber-600/40 cursor-wait'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                }`}
+              >
+                {isCrunchCooldown && canCrunch
+                  ? 'Crunch Cooldown (0.1s)...'
+                  : `Big Crunch — +${crunchIPGain.format(notation)} IP · +${crunchSPGain} SP`}
+              </button>
+              <p className="text-[11px] text-slate-500 font-mono">
+                {isCrunchCooldown && canCrunch
+                  ? 'Fast Infinity rate limited to once per 0.1s.'
+                  : canCrunch
+                  ? 'Reset your current run to gain IP and Skill Points.'
+                  : `Reach ${INFINITY_THRESHOLD.format(notation)} Points to Crunch.`}
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       {subTab === 'tree' ? (
@@ -331,6 +374,165 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             })}
           </div>
           <p className="text-[11px] text-slate-500">Additional Skill Points from unlocked Skill Point milestones are included in the Big Crunch reward preview.</p>
+        </div>
+      ) : subTab === 'stardust' ? (
+        <div className="bg-slate-900 border border-purple-500/30 rounded-2xl p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+                <h3 className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-300 to-amber-300 font-mono">
+                  Stardust Nexus
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/60 text-amber-400 border border-amber-500/30">
+                  ONLINE ONLY
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                Stardust is a subtle celestial element forged in real-time. It cannot be accumulated while offline. Stardust elevates every generator's output by exponentiating their multipliers gently, starting at ^1.001 and scaling with softcaps (growth slows by 10x after 10 Stardust, and by another 10x after 1,000 Stardust).
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] uppercase font-mono text-slate-500 block">Current Stardust</span>
+              <span className="text-2xl font-bold font-mono text-purple-300">
+                {(state.stardust?.amount || Decimal.zero()).format(notation)}
+              </span>
+            </div>
+          </div>
+
+          {/* Stardust Stat Gauges */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+            <div className="bg-slate-950/70 border border-purple-500/20 p-4 rounded-xl">
+              <span className="text-slate-500 text-[10px] uppercase block">Production Rate</span>
+              <span className="text-lg font-bold text-purple-300 mt-1 block">
+                +{getStardustPerSecond(state).format(notation)} / sec
+              </span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Active real-time tick</span>
+            </div>
+
+            <div className="bg-slate-950/70 border border-amber-500/20 p-4 rounded-xl">
+              <span className="text-slate-500 text-[10px] uppercase block">Generator Power Exponent</span>
+              <span className="text-lg font-bold text-amber-300 mt-1 block">
+                ^{getStardustGeneratorExponent(state.stardust?.amount || Decimal.zero()).toFixed(5)}
+              </span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">
+                {(() => {
+                  const amt = (state.stardust?.amount || Decimal.zero()).toNumber();
+                  if (amt > 1000) return 'Softcap tier 2 active (100x slower growth)';
+                  if (amt > 10) return 'Softcap tier 1 active (10x slower growth)';
+                  return 'Applied to all 8 generators';
+                })()}
+              </span>
+            </div>
+
+            <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl">
+              <span className="text-slate-500 text-[10px] uppercase block">Lifetime Stardust</span>
+              <span className="text-lg font-bold text-slate-200 mt-1 block">
+                {(state.stardust?.totalEarned || Decimal.zero()).format(notation)}
+              </span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Total ever forged</span>
+            </div>
+          </div>
+
+          {/* Stardust Upgrades Section */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <span>Celestial Upgrades</span>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Upgrade 1: Stardust Doubler */}
+              {(() => {
+                const doublerLevel = state.stardust?.doublerLevel || 0;
+                const cost = getStardustDoublerCost(doublerLevel);
+                const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                const currentGainMult = Math.pow(2, doublerLevel);
+                const nextGainMult = Math.pow(2, doublerLevel + 1);
+
+                return (
+                  <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-semibold text-sm text-slate-100">Stardust Doubler</h4>
+                        <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                          LEVEL {doublerLevel}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        Doubles total Stardust generated per second. Cost scales by 4x per level (1, 4, 16, 64...).
+                      </p>
+                      <div className="mt-3 text-xs font-mono text-purple-300">
+                        Current multiplier: <strong>×{currentGainMult}</strong>
+                        <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">×{nextGainMult}</strong></span>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-xs font-mono text-slate-400">
+                        Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onBuyStardustDoubler}
+                        disabled={!canAfford}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          canAfford
+                            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Doubler
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Upgrade 2: Stardust Base */}
+              {(() => {
+                const baseLvl = state.stardust?.baseUpgradeLevel || 0;
+                const cost = getStardustBaseCost(baseLvl);
+                const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                const currentBase = 0.01 + 0.005 * baseLvl;
+                const nextBase = 0.01 + 0.005 * (baseLvl + 1);
+
+                return (
+                  <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-semibold text-sm text-slate-100">Stardust Base Generator</h4>
+                        <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                          LEVEL {baseLvl}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                        Increases the base Stardust generation rate by +0.005/s each level. Cost scales by 2x per level (1, 2, 4, 8...).
+                      </p>
+                      <div className="mt-3 text-xs font-mono text-purple-300">
+                        Base rate: <strong>+{currentBase.toFixed(4)}/s</strong>
+                        <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">+{nextBase.toFixed(4)}/s</strong></span>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                      <span className="text-xs font-mono text-slate-400">
+                        Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onBuyStardustBase}
+                        disabled={!canAfford}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          canAfford
+                            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Base (+0.005)
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
         </div>
       ) : (
         /* Infinity Chamber Protocols */
@@ -607,10 +809,16 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                   );
                 })()}
 
-                {/* Upgrade 7: Skill Amplification (2x SP Gain) */}
+                {/* Upgrade 7: Skill Amplification (Repeatable with pre_6) */}
                 {(() => {
-                  const isBought = !!state.infinity.spDoublerUpgrade;
-                  const canAfford = state.infinity.points.gte(1000);
+                  const hasPre6 = !!state.infinityTree?.pre_6;
+                  const currentLevel = getSkillAmplificationLevel(state);
+                  const isBought = currentLevel > 0;
+                  const cost = getSkillAmplificationCost(currentLevel);
+                  const canAfford = state.infinity.points.gte(cost);
+                  const totalBonus = Math.pow(2, currentLevel);
+                  const nextBonus = Math.pow(2, currentLevel + 1);
+
                   return (
                     <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
                       isBought
@@ -620,9 +828,13 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       <div>
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="font-semibold text-sm text-slate-100">
-                            Skill Amplification
+                            Skill Amplification {hasPre6 && currentLevel > 0 ? `(Level ${currentLevel})` : ''}
                           </h4>
-                          {isBought ? (
+                          {hasPre6 ? (
+                            <span className="text-[10px] font-mono text-cyan-400 px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 font-bold">
+                              REPEATABLE (pre_6)
+                            </span>
+                          ) : isBought ? (
                             <span className="text-[10px] font-mono text-amber-400 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">
                               ACTIVE
                             </span>
@@ -633,31 +845,69 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           )}
                         </div>
                         <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                          Doubles all Skill Points (SP) gained from each Infinity reset (×2 SP gain).
+                          {hasPre6
+                            ? 'Doubles all Skill Points (SP) gained from each Infinity reset per level (2^level). Unlocked to scale infinitely by Infinite Amplification Mastery.'
+                            : 'Doubles all Skill Points (SP) gained from each Infinity reset (×2 SP gain).'}
                         </p>
                         <div className="mt-3 text-xs font-mono text-amber-300">
-                          Status: <strong>{isBought ? '×2 SP Active' : 'Available'}</strong>
+                          {isBought ? (
+                            <span>
+                              Current SP multiplier: <strong>×{totalBonus} SP</strong>
+                              {hasPre6 && (
+                                <span className="text-slate-400 ml-2">
+                                  → Next: <strong className="text-amber-200">×{nextBonus} SP</strong>
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span>Status: <strong>Available (×2 SP gain)</strong></span>
+                          )}
                         </div>
+                        {!hasPre6 && isBought && (
+                          <div className="text-[11px] font-mono text-slate-500 mt-1">
+                            Unlock "Infinite Amplification Mastery" in the Pre-Infinity Tree to purchase infinitely!
+                          </div>
+                        )}
                       </div>
-                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
                         <span className="text-xs font-mono text-slate-400">
-                          Cost: <strong className="text-amber-400">1,000 IP</strong>
+                          {(!hasPre6 && isBought) ? (
+                            <span className="text-amber-400 font-semibold">Active</span>
+                          ) : (
+                            <>Cost: <strong className="text-amber-400">{cost.format(notation)} IP</strong></>
+                          )}
                         </span>
-                        {isBought ? (
-                          <span className="text-xs font-mono text-amber-400 font-semibold">Active</span>
+                        {(!hasPre6 && isBought) ? (
+                          <span className="text-xs font-mono text-amber-400 font-semibold">Maxed (1/1)</span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={onBuySpDoublerUpgrade}
-                            disabled={!canAfford}
-                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                              canAfford
-                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
-                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                            }`}
-                          >
-                            Buy Upgrade
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {hasPre6 && onBuyMaxSkillAmplification && (
+                              <button
+                                type="button"
+                                onClick={onBuyMaxSkillAmplification}
+                                disabled={!canAfford}
+                                className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                                  canAfford
+                                    ? 'bg-amber-700/70 hover:bg-amber-600 text-white'
+                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                }`}
+                              >
+                                MAX
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={onBuySpDoublerUpgrade}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              {hasPre6 && isBought ? 'Upgrade' : 'Buy Upgrade'}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>

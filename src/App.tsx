@@ -47,6 +47,9 @@ export default function App() {
     buyTimeIPBoost,
     buyEnergySPBoost,
     buySpDoublerUpgrade,
+    buyMaxSkillAmplification,
+    buyStardustDoubler,
+    buyStardustBase,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
@@ -202,6 +205,9 @@ export default function App() {
             onBuyTimeIPBoost={buyTimeIPBoost}
             onBuyEnergySPBoost={buyEnergySPBoost}
             onBuySpDoublerUpgrade={buySpDoublerUpgrade}
+            onBuyMaxSkillAmplification={buyMaxSkillAmplification}
+            onBuyStardustDoubler={buyStardustDoubler}
+            onBuyStardustBase={buyStardustBase}
             onBuyBreakInfinityUpgrade={buyBreakInfinityUpgrade}
             onInfinityReset={proceedInfinity}
             onToggleAutobuyer={toggleAutobuyer}

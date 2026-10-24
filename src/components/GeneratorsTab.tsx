@@ -6,6 +6,7 @@ import {
   getTotalTickspeedSpeed,
   getPreInfinityGeneratorMultiplier,
 } from '../utils/gameCalculations';
+import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 
 interface GeneratorsTabProps {
   state: GameState;
@@ -31,6 +32,10 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
   const canAffordTickspeed = state.points.gte(state.tickspeed.cost);
   const unlockedCount = state.prestige.unlockedGenerators;
 
+  const tickspeedPerLevel = (state.prestigeUpgrades?.chronosFlow ? 1.15 : state.tickspeed.multiplier) +
+    (isInfinityMilestoneUnlocked(state, 'milestone_3350_tickspeed_boost') ? 0.02 : 0);
+  const tickspeedPercent = Math.round((tickspeedPerLevel - 1) * 100);
+
   return (
     <div className="space-y-6">
       {/* Tickspeed Controller Bar */}
@@ -54,7 +59,11 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
               </>
             )}
             <span>
-              Speed: <strong className="text-cyan-300">{totalTickspeed.format(notation)}x</strong>
+              Total Speed: <strong className="text-cyan-300">{totalTickspeed.format(notation)}x</strong>
+            </span>
+            <span aria-hidden="true" className="text-slate-600">·</span>
+            <span>
+              Speed/Lvl: <strong className="text-cyan-400">+{tickspeedPercent}% (x{tickspeedPerLevel.toFixed(2)})</strong>
             </span>
             <span aria-hidden="true" className="text-slate-600">·</span>
             <span>

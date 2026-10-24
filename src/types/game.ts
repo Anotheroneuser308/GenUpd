@@ -61,13 +61,23 @@ export type BreakInfinityUpgradeId =
   | 'hyperchargeOverdrive'
   | 'vacuumCascade'
   | 'transcendentCascade'
-  | 'absoluteHorizon';
+  | 'absoluteHorizon'
+  | 'prestigePreservationUnlock';
+
+export interface StardustState {
+  unlocked: boolean;
+  amount: Decimal;
+  totalEarned: Decimal;
+  doublerLevel: number;
+  baseUpgradeLevel: number;
+}
 
 export interface InfinityState {
   count: number;
   points: Decimal; // Infinity Points (IP)
   skillPoints: number; // Skill Points (SP) - 1 awarded per Infinity
   unlocked: boolean; // unlocked when reaching 1.79e308
+  lastInfinityTime?: number; // Timestamp of the last Infinity reset (ms) for 0.1s cooldown
   ipDoublerLevel?: number; // Infinity Upgrade: Doubles IP gain on each Infinity
   automationExpand?: boolean; // Infinity Upgrade: Unlocks auto_5 and auto_6 in tree
   achievementMaster?: boolean; // Infinity Upgrade: 15 IP, grants 1 honorary achievement per 3 OoMs of points
@@ -76,6 +86,7 @@ export interface InfinityState {
   energySPBoost: boolean; // Prestige Energy gain scales with unspent SP + 1
   totalEarnedIP: Decimal; // Lifetime IP earned, including IP later spent on upgrades
   spDoublerUpgrade?: boolean; // Infinity Upgrade: 1,000 IP, multiplies gained SP by 2x
+  spDoublerLevel?: number; // Repeatable Skill Amplification level unlocked via pre_6
   breakInfinityUpgrades?: {
     limitless?: boolean; // Points gain scales above 1e308
     singularityResonance?: boolean; // +1% generator power per OoM above 1e308, upgraded by Badass Singularity
@@ -87,6 +98,7 @@ export interface InfinityState {
     vacuumCascade?: boolean; // Additional IP gain scaling from sqrt(OoMs)
     transcendentCascade?: boolean; // Raises generator multipliers to ^1.05
     absoluteHorizon?: boolean; // Raises Points generation multiplier to ^1.05
+    prestigePreservationUnlock?: boolean; // Unlocks auto_10 (Prestige no longer resets Points) in tree
   };
 }
 
@@ -191,6 +203,7 @@ export interface GameState {
   prestigeUpgrades: PrestigeUpgradesState;
   infinity: InfinityState;
   infinityTree?: Record<string, boolean | number>;
+  stardust?: StardustState;
 
   autobuyers: Record<string, Autobuyer>;
   achievements: Record<string, boolean>;

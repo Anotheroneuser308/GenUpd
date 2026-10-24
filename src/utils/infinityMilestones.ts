@@ -8,7 +8,9 @@ export type InfinityMilestoneId =
   | 'milestone_1000_gen_mult'
   | 'milestone_100_infinities_auto_pe'
   | 'milestone_1500_auto_infinity'
-  | 'milestone_2250_post_infinity';
+  | 'milestone_2250_post_infinity'
+  | 'milestone_2500_pp_power'
+  | 'milestone_3350_tickspeed_boost';
 
 export interface InfinityMilestoneDefinition {
   id: InfinityMilestoneId;
@@ -73,8 +75,24 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     title: 'Post-Infinity Gateway',
     icon: '🌌',
     reward: 'Unlocks the Post-Infinity branch in the Infinity Tree, containing 4 powerful upgrades.',
-    requirement: '2,250 Infinities',
-    infinityCountRequired: 2250,
+    requirement: '1,500 Infinities',
+    infinityCountRequired: 1500,
+  },
+  {
+    id: 'milestone_2500_pp_power',
+    title: 'Prestige Exponential Surge',
+    icon: '✨',
+    reward: 'Raises Prestige Points (PP) gained on Prestige reset to the power of 1.01 (^1.01).',
+    requirement: '2,500 Infinities',
+    infinityCountRequired: 2500,
+  },
+  {
+    id: 'milestone_3350_tickspeed_boost',
+    title: 'Temporal Acceleration Core',
+    icon: '⏳',
+    reward: 'Adds +0.02 to tickspeed speed boost per level (from 1.10x / 1.15x to 1.12x / 1.17x per level).',
+    requirement: '3,350 Infinities',
+    infinityCountRequired: 3350,
   },
 ];
 
@@ -120,7 +138,11 @@ export function isInfinityMilestoneUnlocked(
     case 'milestone_1500_auto_infinity':
       return infinities >= 150;
     case 'milestone_2250_post_infinity':
-      return infinities >= 2250;
+      return infinities >= 1500;
+    case 'milestone_2500_pp_power':
+      return infinities >= 2500;
+    case 'milestone_3350_tickspeed_boost':
+      return infinities >= 3350;
     default:
       return false;
   }
@@ -160,7 +182,11 @@ export function getInfinityMilestoneRequirementProgress(
     case 'milestone_1500_auto_infinity':
       return [fmtInfinities(150)];
     case 'milestone_2250_post_infinity':
-      return [fmtInfinities(2250)];
+      return [fmtInfinities(1500)];
+    case 'milestone_2500_pp_power':
+      return [fmtInfinities(2500)];
+    case 'milestone_3350_tickspeed_boost':
+      return [fmtInfinities(3350)];
     default:
       return [];
   }

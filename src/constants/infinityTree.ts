@@ -16,7 +16,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'root',
     branch: 'root',
     title: 'Infinity Nexus',
-    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, the full 2^100 bonus is retained and each extra Infinity adds a strongly softcapped x1.05 multiplier. Unlocks all branches.',
+    desc: 'All generators gain a 2^Infinities multiplier up to 100 Infinities. Beyond that, each extra Infinity adds a softcapped x1.01 multiplier. After reaching a 1.00e200 multiplier (at 39,416 Infinities), a second softcap activates: only every 2nd Infinity counts, granting a x1.005 multiplier. Unlocks all branches.',
     cost: 1, // Purchasable for 1 SP
     req: 'none',
     icon: '⚡',
@@ -63,11 +63,21 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'pre_5',
     branch: 'pre',
     title: 'Generator Amplification',
-    desc: 'Repeatable: multiplies all generator production by x(1 + level). The next level costs one more SP than the previous level (1, 2, 3, 4 SP, and so on).',
+    desc: 'Repeatable: multiplies all generator production by x(1 + level). Up to level 1,000, each level costs +1 SP more (1, 2, 3... SP). After level 1,000, price growth scales by x1.5 per level instead of +1.',
     cost: 1,
     req: 'pre_4',
     repeatable: true,
     icon: '📈',
+  },
+  pre_6: {
+    id: 'pre_6',
+    branch: 'pre',
+    title: 'Infinite Amplification Mastery',
+    desc: 'Strengthens Generator Amplification: each level now multiplies all generators by an additional 1.1x per level (1.1^level). Also enables Skill Amplification to be purchased infinitely for IP (starting at 1.00e120 IP, scaling by 1e20 IP per level). Requires the Eternal Continuity Matrix Break Infinity upgrade (1.00e200 IP).',
+    cost: 1250,
+    req: 'pre_5',
+    reqUpgrade: 'prestigePreservationUnlock',
+    icon: '🌌',
   },
 
   // Branch 2: Automation
@@ -156,6 +166,16 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     reqMilestone: 'milestone_1500_auto_infinity',
     icon: '♾️',
   },
+  auto_10: {
+    id: 'auto_10',
+    branch: 'auto',
+    title: 'Prestige Point Preservation',
+    desc: 'Prestige resets no longer reset Points! Your Points are completely preserved across all Prestige resets.',
+    cost: 12000,
+    req: 'auto_9',
+    reqUpgrade: 'prestigePreservationUnlock',
+    icon: '🛡️',
+  },
 
   // Branch 3: New Features
   feat_1: {
@@ -202,6 +222,16 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     cost: 2500,
     req: 'feat_4',
     icon: '⚡',
+  },
+  feat_6: {
+    id: 'feat_6',
+    branch: 'feat',
+    title: 'Stardust Genesis',
+    desc: 'Unlocks the Stardust celestial currency and opens the dedicated Stardust management tab in the Infinity section. Requires the Eternal Continuity Matrix Break Infinity upgrade (1.00e200 IP).',
+    cost: 3500,
+    req: 'feat_5',
+    reqUpgrade: 'prestigePreservationUnlock',
+    icon: '✨',
   },
 
   // Branch 4: Post-Infinity
