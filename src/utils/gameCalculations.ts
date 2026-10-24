@@ -441,6 +441,20 @@ export function getAchievementMasterCompletions(state: GameState): number {
 }
 
 /**
+ * Prestige Synergy multiplier: 1 + unspent Prestige Points up to 1e10 PP,
+ * then a continuous square-root softcap above that threshold.
+ */
+export function getPrestigeSynergyMultiplier(prestigePoints: Decimal): Decimal {
+  if (!prestigePoints || prestigePoints.lte(0)) return Decimal.one();
+
+  const threshold = new Decimal(1, 10);
+  if (prestigePoints.gt(threshold)) {
+    return new Decimal(1).add(threshold.mul(prestigePoints.div(threshold).pow(0.5)));
+  }
+  return prestigePoints.add(1);
+}
+
+/**
  * Points generation multiplier derived from Prestige Upgrades
  */
 export function getPointsGenerationMultiplier(state: GameState): Decimal {
@@ -461,16 +475,9 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
     mult = mult.mul(getAchievementResonanceMultiplier(unlockedCount, masterBonus));
   }
 
-  // Upgrade 5: Prestige Synergy. Above 1e10 unspent Prestige Points, the bonus softcaps
-  // with a square-root curve while remaining continuous at the threshold.
-  if (state.prestigeUpgrades?.prestigeSynergy && state.prestige.points.gt(0)) {
-    const prestigePoints = state.prestige.points;
-    const rawPpBoost = prestigePoints.add(1);
-    const softcapThreshold = new Decimal(1, 10);
-    const ppBoost = prestigePoints.gt(softcapThreshold)
-      ? new Decimal(1).add(softcapThreshold.mul(prestigePoints.div(softcapThreshold).pow(0.5)))
-      : rawPpBoost;
-    mult = mult.mul(ppBoost);
+  // Upgrade 5: Prestige Synergy uses the same multiplier shown in the Prestige UI.
+  if (state.prestigeUpgrades?.prestigeSynergy) {
+    mult = mult.mul(getPrestigeSynergyMultiplier(state.prestige.points));
   }
 
   // Upgrade 8: Logarithmic Cascade (Points boosted by log10(points)^2)
