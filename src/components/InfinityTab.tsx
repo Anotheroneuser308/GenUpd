@@ -433,7 +433,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
                 {stardustView === 'stars'
                   ? 'Stars are condensed celestial singularities. Forming a Star resets current Stardust, lifetime Stardust, buyables, and unpreserved upgrades in exchange for a permanent Star that grants linear generator exponent power, exponential Stardust multipliers, and unique milestones.'
-                  : "Stardust is a subtle celestial element forged in real-time. It cannot be accumulated while offline. Stardust raises every generator multiplier by an exponent starting at ^1.001. The first eight softcap tiers scale normally; from 1e9 Stardust onward, each additional magnitude is softcapped 2x more strongly."}
+                  : "Stardust is a subtle celestial element forged in real-time and cannot be accumulated offline. It raises every generator multiplier by an exponent that starts at ^1.001 and is capped at ^1.5. From 1e9 Stardust onward, the softcap divisor increases by a fixed +2 instead of doubling at every magnitude; without softcap-reducing upgrades, ^1.5 is reached at 1e30 Stardust."}
               </p>
             </div>
             <div className="text-right">
@@ -688,13 +688,14 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const hasAstralFocus = !!state.stardust?.astralLens;
                       const hasRefraction = !!state.stardust?.singularityRefraction;
                       const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0) - (hasRefraction ? 2 : 0);
+                      const strongerFactor = factor + 2;
                       if (magnitude >= 9) {
-                        return `Enhanced softcap active: 2x stronger after 8 tiers (base divisor ${factor.toFixed(1)}x)`;
+                        return `Enhanced softcap active after 8 tiers (divisor ${factor.toFixed(1)}x → ${strongerFactor.toFixed(1)}x); exponent cap ^1.5`;
                       }
                       if (magnitude >= 1) {
-                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); stronger tier starts at 1e9 Stardust`;
+                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); divisor increases by +2 at 1e9; exponent cap ^1.5`;
                       }
-                      return 'Full unsoftcapped growth (up to 10 Stardust)';
+                      return 'Full unsoftcapped growth (up to 10 Stardust); exponent cap ^1.5';
                     })()}
                   </span>
                 </div>
