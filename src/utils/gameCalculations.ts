@@ -55,6 +55,7 @@ export function getUnlockedGeneratorsCount(state: GameState): number {
 
 /** Threshold is tracked per run; the game UI does not expose this balance rule. */
 export const GENERATOR_COST_SOFTCAP_THRESHOLD = new Decimal(1, 100);
+export const GENERATOR_COST_HARDCAP_THRESHOLD = new Decimal(1, 500000);
 
 /**
  * Returns the cost for the next generator purchase.
@@ -68,29 +69,42 @@ export function getGeneratorCost(
   bought: number,
   generatorId: number,
   softcapStartBought?: number | null,
+  hardcapStartBought?: number | null,
 ): Decimal {
   const purchaseCount = Math.max(0, Math.floor(bought));
 
-  // No per-run activation yet: keep the standard generator price progression.
+  let cost: Decimal;
+
+  // No per-run softcap activation yet: keep the standard generator price progression.
   if (softcapStartBought === undefined || softcapStartBought === null) {
-    return baseCost.mul(costMult.pow(purchaseCount));
+    cost = baseCost.mul(costMult.pow(purchaseCount));
+  } else {
+    const pivot = Math.max(0, Math.floor(softcapStartBought));
+    const normalPurchases = Math.min(purchaseCount, pivot);
+    const acceleratedPurchases = Math.max(0, purchaseCount - pivot);
+
+    // Post-threshold per-purchase growth is strictly tiered. Generator 1 starts
+    // at 1e3; every later tier grows faster, avoiding equal Generator 1/2 rates.
+    const originalMagnitude = Math.round(costMult.log10());
+    const acceleratedMagnitude = generatorId === 1
+      ? 3
+      : Math.max(generatorId + 2, originalMagnitude + 1);
+    const acceleratedCostMult = new Decimal(10).pow(acceleratedMagnitude);
+
+    cost = baseCost
+      .mul(costMult.pow(normalPurchases))
+      .mul(acceleratedCostMult.pow(acceleratedPurchases));
   }
 
-  const pivot = Math.max(0, Math.floor(softcapStartBought));
-  const normalPurchases = Math.min(purchaseCount, pivot);
-  const acceleratedPurchases = Math.max(0, purchaseCount - pivot);
+  // After reaching 1e500000 Points, add another ×1e10 for each purchase
+  // beyond this generator's purchase-count anchor.
+  if (hardcapStartBought !== undefined && hardcapStartBought !== null) {
+    const hardcapPivot = Math.max(0, Math.floor(hardcapStartBought));
+    const hardcapPurchases = Math.max(0, purchaseCount - hardcapPivot);
+    if (hardcapPurchases > 0) cost = cost.mul(new Decimal(1, 10).pow(hardcapPurchases));
+  }
 
-  // Post-threshold per-purchase growth is strictly tiered. Generator 1 starts
-  // at 1e3; every later tier grows faster, avoiding equal Generator 1/2 rates.
-  const originalMagnitude = Math.round(costMult.log10());
-  const acceleratedMagnitude = generatorId === 1
-    ? 3
-    : Math.max(generatorId + 2, originalMagnitude + 1);
-  const acceleratedCostMult = new Decimal(10).pow(acceleratedMagnitude);
-
-  return baseCost
-    .mul(costMult.pow(normalPurchases))
-    .mul(acceleratedCostMult.pow(acceleratedPurchases));
+  return cost;
 }
 
 /**
@@ -817,12 +831,13 @@ export function getStardustPerSecond(state: GameState): Decimal {
  * the ninth tier (1e9 Stardust), every additional magnitude uses a divisor
  * that is 2x stronger than the original softcap, compounded per tier.
  * The existing upgrades still affect D: 10 normally, 9 with dust_4, and
- * Astral Focus reduces D by 0.5.
+ * Astral Focus reduces D by 0.5; Softcap Mastery reduces it by another 2.
  */
 export function getEffectiveStardust(
   stardustAmount: Decimal,
   hasDust4: boolean = false,
   hasAstralFocus: boolean = false,
+  hasSoftcapMastery: boolean = false,
 ): Decimal {
   if (!stardustAmount || stardustAmount.lte(0)) return Decimal.zero();
   if (stardustAmount.lte(10)) return stardustAmount;
@@ -832,6 +847,7 @@ export function getEffectiveStardust(
   // stronger per additional magnitude while keeping the function continuous.
   let D = hasDust4 ? 9 : 10;
   if (hasAstralFocus) D -= 0.5;
+  if (hasSoftcapMastery) D -= 2;
 
   const magnitude = Math.floor(stardustAmount.log10());
   const normalTierCount = Math.min(Math.max(0, magnitude - 1), 8);
@@ -878,7 +894,8 @@ export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: Ga
   if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
   const hasDust4 = !!state?.infinityTree?.dust_4;
   const hasAstralFocus = !!state?.stardust?.astralLens;
-  const effective = getEffectiveStardust(stardustAmount, hasDust4, hasAstralFocus);
+  const hasSoftcapMastery = !!state?.stardust?.stardustSoftcapMastery;
+  const effective = getEffectiveStardust(stardustAmount, hasDust4, hasAstralFocus, hasSoftcapMastery);
   const bonus = effective.mul(0.001).toNumber();
   // Bound to a safe maximum to protect float precision in Decimal pow
   return Math.min(1e6, 1 + (Number.isFinite(bonus) ? bonus : 0));
@@ -901,12 +918,14 @@ export function getStardustBaseCost(currentLevel: number, state?: GameState): De
 
 /**
  * Star Reset Cost:
- * Starts at 1e10 for the first Star, then scales by x100 per completed Star reset:
- * 10^(10 + 2 * currentStars) Stardust.
+ * Starts at 1e10 for the first Star and scales by ×1e2 until 15 Stars.
+ * After 15 Stars, the next reset requirement scales by ×1e5 per Star.
  */
 export function getStarResetCost(currentStars: number): Decimal {
   const stars = Math.max(0, Math.floor(currentStars));
-  return new Decimal(10).pow(10 + 2 * stars);
+  // Preserve the original ×1e2 scaling through Star 15. Afterwards, each
+  // additional Star multiplies the next reset requirement by ×1e5.
+  return new Decimal(10).pow(10 + 2 * Math.min(stars, 14) + 5 * Math.max(0, stars - 14));
 }
 
 /**
@@ -959,8 +978,8 @@ export function getSkillAmplificationSPMultiplier(state: GameState): number {
 /**
  * Cost in SP for Generator Amplification (pre_5) at a given level.
  * Up to level 1,000: costs level + 1 SP (1, 2, 3... 1,000 SP for buying level 1,000).
- * Beyond level 1,000: price growth scales by x1.5 per level instead of +1.
- * Level 1,000 (buying level 1,001) costs Math.round(1,000 * 1.5) = 1,500 SP, then x1.5 per level.
+ * Beyond level 1,000: price growth scales by x1.1 per level instead of +1.
+ * Level 1,000 (buying level 1,001) costs 1,100 SP, then x1.1 per level.
  */
 export function getGeneratorAmplificationCost(currentLevel: number): number {
   const lvl = Math.max(0, Math.floor(Number.isFinite(currentLevel) ? currentLevel : 0));
@@ -968,13 +987,15 @@ export function getGeneratorAmplificationCost(currentLevel: number): number {
     return lvl + 1;
   }
   const extraLevels = lvl - 1000;
-  const cost = 1000 * Math.pow(1.5, extraLevels + 1);
-  return Math.min(Number.MAX_SAFE_INTEGER, Math.round(cost));
+  const cost = 1000 * Math.pow(1.1, extraLevels + 1);
+  // Avoid the old Number.MAX_SAFE_INTEGER clamp that made the displayed price
+  // appear frozen after enough MAX purchases. Cap only at finite-number limits.
+  return Number.isFinite(cost) ? Math.max(1, Math.round(cost)) : Number.MAX_VALUE;
 }
 
 /**
  * Calculates maximum affordable Generator Amplification (pre_5) levels.
- * Handles both the arithmetic progression up to level 1,000 and the geometric (x1.5) progression beyond.
+ * Handles both the arithmetic progression up to level 1,000 and the geometric (x1.1) progression beyond.
  */
 export function getMaxGeneratorAmplificationPurchases(
   currentLevel: number,
@@ -1004,7 +1025,7 @@ export function getMaxGeneratorAmplificationPurchases(
     }
   }
 
-  // Phase 2: Purchases beyond level 1,000 (1.5x geometric progression)
+  // Phase 2: Purchases beyond level 1,000 (1.1x geometric progression)
   while (lvl >= 1000) {
     const nextCost = getGeneratorAmplificationCost(lvl);
     if (sp < nextCost) break;

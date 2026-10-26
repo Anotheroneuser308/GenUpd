@@ -282,7 +282,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'pre_5': {
         const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
         const nextCost = getGeneratorAmplificationCost(level);
-        const scalingNote = level >= 1000 ? ' (1.5x price scaling active)' : '';
+        const scalingNote = level >= 1000 ? ' (1.1x price scaling active)' : '';
         return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + formatSkillPoints(nextCost) + ' SP' + scalingNote + '.';
       }
       case 'pre_6': {

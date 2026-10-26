@@ -60,6 +60,8 @@ export default function App() {
     buyAstralConvergence,
     buyStarsUnlock,
     buyRadiantMultiplicity,
+    buyStardustSoftcapMastery,
+    toggleStardustAutoBuyer,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
@@ -229,6 +231,8 @@ export default function App() {
             onBuyAstralConvergence={buyAstralConvergence}
             onBuyStarsUnlock={buyStarsUnlock}
             onBuyRadiantMultiplicity={buyRadiantMultiplicity}
+            onBuyStardustSoftcapMastery={buyStardustSoftcapMastery}
+            onToggleStardustAutoBuyer={toggleStardustAutoBuyer}
             onPerformStarReset={performStarReset}
             onBuyBreakInfinityUpgrade={buyBreakInfinityUpgrade}
             onInfinityReset={proceedInfinity}

@@ -54,6 +54,18 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
     desc: 'Real-time Stardust production is multiplied by an additional 10×.',
     icon: '👑',
   },
+  {
+    starsRequired: 13,
+    name: 'Cool QoL',
+    desc: 'Gain Prestige Points passively at 1% of the PP currently available from Prestige per second. Prestige Energy no longer resets Points, Prestige Points, Prestige count, or Prestige upgrades.',
+    icon: '🛠️',
+  },
+  {
+    starsRequired: 15,
+    name: 'Stardust Autopilot',
+    desc: 'Unlocks an Auto: ON/OFF toggle for automatically buying Stardust upgrades. Star reset costs now grow by ×1e5 per additional Star instead of ×1e2.',
+    icon: '⚙️',
+  },
 ];
 
 export function isStarMilestoneUnlocked(currentStars: number, requiredStars: number): boolean {
