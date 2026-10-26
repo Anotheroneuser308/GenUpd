@@ -20,6 +20,7 @@ import {
   PRESTIGE_ENERGY_THRESHOLD,
   INFINITY_THRESHOLD,
   GENERATOR_COST_SOFTCAP_THRESHOLD,
+  GENERATOR_COST_HARDCAP_THRESHOLD,
   getGeneratorCost,
   getGeneratorMultiplier,
   getTotalTickspeedSpeed,
@@ -151,6 +152,11 @@ export function useGameLoop() {
       const state = {
         ...stateRef.current,
         generators: stateRef.current.generators.map((g) => ({ ...g })),
+        prestige: { ...stateRef.current.prestige },
+        prestigeEnergy: { ...stateRef.current.prestigeEnergy },
+        prestigeUpgrades: { ...stateRef.current.prestigeUpgrades },
+        stats: { ...stateRef.current.stats },
+        stardust: stateRef.current.stardust ? { ...stateRef.current.stardust } : undefined,
       };
 
       // Cap simulated time to 3 days (259,200s)
@@ -189,8 +195,19 @@ export function useGameLoop() {
           state.points = state.points.add(pointsRate.mul(subDt));
         }
 
+        if (isStarMilestoneUnlocked(state.stardust?.stars || 0, 13)) {
+          const passivePPGain = calculatePrestigePointsGain(state.points, state).mul(0.01 * subDt);
+          if (passivePPGain.gt(0)) {
+            state.prestige.points = state.prestige.points.add(passivePPGain);
+            if (state.prestige.points.gt(state.stats.highestPPEver)) state.stats.highestPPEver = state.prestige.points;
+          }
+        }
+
         if (state.generatorCostSoftcapBought === null && state.points.gte(GENERATOR_COST_SOFTCAP_THRESHOLD)) {
           state.generatorCostSoftcapBought = state.generators.map((generator) => generator.bought);
+        }
+        if (state.generatorCostHardcapBought === null && state.points.gte(GENERATOR_COST_HARDCAP_THRESHOLD)) {
+          state.generatorCostHardcapBought = state.generators.map((generator) => generator.bought);
         }
 
       }
@@ -362,6 +379,7 @@ export function useGameLoop() {
           prestigeEnergy: { ...prev.prestigeEnergy },
           prestigeUpgrades: { ...prev.prestigeUpgrades },
           infinity: { ...prev.infinity },
+          stardust: prev.stardust ? { ...prev.stardust } : undefined,
           autobuyers: Object.fromEntries(
             Object.entries(prev.autobuyers).map(([key, buyer]) => [key, { ...buyer }] as const)
           ),
@@ -400,6 +418,14 @@ export function useGameLoop() {
         }
         state.pointsPerSecond = pointsRate;
 
+        if (isStarMilestoneUnlocked(state.stardust?.stars || 0, 13)) {
+          const passivePPGain = calculatePrestigePointsGain(state.points, state).mul(0.01 * dt);
+          if (passivePPGain.gt(0)) {
+            state.prestige.points = state.prestige.points.add(passivePPGain);
+            if (state.prestige.points.gt(state.stats.highestPPEver)) state.stats.highestPPEver = state.prestige.points;
+          }
+        }
+
         // Anti-softlock safety: if player has 0 generators and cannot afford Generator 1 (< 10 points)
         if (state.points.lt(10) && state.generators.every((g) => g.amount.lte(0))) {
           const startingCapital = state.prestigeUpgrades?.tickspeedDiscount ? new Decimal(110) : new Decimal(10);
@@ -410,6 +436,9 @@ export function useGameLoop() {
         // The rule is intentionally kept out of all game-facing descriptions.
         if (state.generatorCostSoftcapBought === null && state.points.gte(GENERATOR_COST_SOFTCAP_THRESHOLD)) {
           state.generatorCostSoftcapBought = state.generators.map((generator) => generator.bought);
+        }
+        if (state.generatorCostHardcapBought === null && state.points.gte(GENERATOR_COST_HARDCAP_THRESHOLD)) {
+          state.generatorCostHardcapBought = state.generators.map((generator) => generator.bought);
         }
 
         // Auto-unlock Prestige Energy flag once 1e154 is reached
@@ -536,7 +565,7 @@ export function useGameLoop() {
               if (state.infinityTree?.auto_4) {
                 // Quantum Autobuyer: Buy max available
                 while (true) {
-                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null, state.generatorCostHardcapBought?.[gen.id - 1] ?? null);
                   if (state.points.lt(cost)) break;
                   if (!isFreeAuto) {
                     state.points = state.points.sub(cost);
@@ -545,7 +574,7 @@ export function useGameLoop() {
                   gen.bought++;
                 }
               } else {
-                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null, state.generatorCostHardcapBought?.[gen.id - 1] ?? null);
                 if (state.points.gte(cost)) {
                   if (!isFreeAuto) {
                     state.points = state.points.sub(cost);
@@ -945,7 +974,7 @@ export function useGameLoop() {
       const gen = prev.generators[genIndex];
       if (!gen) return prev;
 
-      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null, prev.generatorCostHardcapBought?.[gen.id - 1] ?? null);
       if (prev.points.lt(cost)) return prev;
 
       sound.playBuy();
@@ -987,7 +1016,7 @@ export function useGameLoop() {
       let purchases = 0;
 
       while (true) {
-        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null, prev.generatorCostHardcapBought?.[gen.id - 1] ?? null);
         if (currentPoints.lt(cost) || purchases >= 50) break;
         currentPoints = currentPoints.sub(cost);
         currentAmount = currentAmount.add(1);
@@ -1145,7 +1174,7 @@ export function useGameLoop() {
       for (let i = unlockedCount - 1; i >= 0; i--) {
         const g = newGenerators[i];
         while (true) {
-          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought, g.id, prev.generatorCostSoftcapBought?.[g.id - 1] ?? null);
+          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought, g.id, prev.generatorCostSoftcapBought?.[g.id - 1] ?? null, prev.generatorCostHardcapBought?.[g.id - 1] ?? null);
           if (currentPoints.lt(cost)) break;
           currentPoints = currentPoints.sub(cost);
           g.amount = g.amount.add(1);
