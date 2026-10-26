@@ -54,6 +54,18 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
     desc: 'Real-time Stardust production is multiplied by an additional 10×.',
     icon: '👑',
   },
+  {
+    starsRequired: 13,
+    name: 'Cool QoL',
+    desc: 'Prestige generates 1% of its current PP reward per second while Prestige is available. Prestige Energy claims preserve Points, Generators, Tickspeed, PP, Prestige Upgrades and grant only additional PE since the previous claim.',
+    icon: '🛠️',
+  },
+  {
+    starsRequired: 15,
+    name: 'Stardust Autopilot',
+    desc: 'Unlocks automatic purchases of Stardust upgrades and buyables. Toggle automatic purchases ON/OFF here.',
+    icon: '⚙️',
+  },
 ];
 
 export function isStarMilestoneUnlocked(currentStars: number, requiredStars: number): boolean {
