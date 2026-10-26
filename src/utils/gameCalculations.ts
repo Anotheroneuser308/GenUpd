@@ -883,17 +883,19 @@ export function getEffectiveStardust(
   return new Decimal(effective).add(partial);
 }
 
-// Calibrate the exponent curve so the standard softcap reaches ^1.5 at 1e30
-// Stardust, while preserving the starting ^1.001 boost at 1 Stardust.
+// The normal softcap reaches this reference point at 1e9 Stardust (effective value 82)
+// and the exponent reaches its final cap at 1e30 Stardust.
 const STARDUST_EXPONENT_CAP = 1.5;
+const STARDUST_EXPONENT_START_EFFECTIVE = getEffectiveStardust(new Decimal(1, 9), false, false, false);
+const STARDUST_EXPONENT_START_VALUE = 1 + STARDUST_EXPONENT_START_EFFECTIVE.toNumber() * 0.001;
 const STARDUST_EXPONENT_TARGET = getEffectiveStardust(new Decimal(1, 30), false, false, false);
-const STARDUST_EXPONENT_TARGET_VALUE = STARDUST_EXPONENT_TARGET.toNumber();
-const STARDUST_EXPONENT_CURVE_POWER = Math.log(500) / Math.log(STARDUST_EXPONENT_TARGET_VALUE);
+const STARDUST_EXPONENT_POST_SOFTCAP_POWER = 1.25;
 
 /**
  * Generator exponent boost from Stardust.
- * Starts at ^1.001 at 1 Stardust and reaches ^1.5 at 1e30 Stardust without
- * softcap-reducing upgrades. Stardust's own exponent never exceeds ^1.5.
+ * Preserves the original curve through the first eight tiers, then eases toward
+ * ^1.5 by 1e30 Stardust with a stronger softcap. Softcap-reducing upgrades can
+ * make the cap reachable earlier, and this exponent never exceeds ^1.5.
  */
 export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: GameState): number {
   if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
@@ -902,12 +904,23 @@ export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: Ga
   const hasSingularityRefraction = !!state?.stardust?.singularityRefraction;
   const effective = getEffectiveStardust(stardustAmount, hasDust4, hasAstralFocus, hasSingularityRefraction);
 
-  // The cap is reached by 1e30 Stardust with the normal softcap; softcap-reducing
-  // upgrades can make the cap reachable earlier. Checking first avoids overflow
-  // when a save contains extraordinarily large Stardust values.
+  // Keep the pre-1e9 progression unchanged for saves without softcap upgrades.
+  if (effective.lte(STARDUST_EXPONENT_START_EFFECTIVE)) {
+    const bonus = effective.mul(0.001).toNumber();
+    return Math.min(STARDUST_EXPONENT_CAP, 1 + (Number.isFinite(bonus) ? bonus : 0));
+  }
+
+  // Above the normal eight tiers, interpolate from the existing 1e9 exponent
+  // toward ^1.5 using a power curve > 1, making the softcap stronger while still
+  // guaranteeing ^1.5 by 1e30 Stardust in the standard progression.
   if (effective.gte(STARDUST_EXPONENT_TARGET)) return STARDUST_EXPONENT_CAP;
-  const ratio = effective.div(STARDUST_EXPONENT_TARGET).toNumber();
-  const bonus = 0.5 * Math.pow(ratio, STARDUST_EXPONENT_CURVE_POWER);
+  const progress = effective
+    .sub(STARDUST_EXPONENT_START_EFFECTIVE)
+    .div(STARDUST_EXPONENT_TARGET.sub(STARDUST_EXPONENT_START_EFFECTIVE))
+    .toNumber();
+  const softenedProgress = Math.pow(Math.max(0, Math.min(1, progress)), STARDUST_EXPONENT_POST_SOFTCAP_POWER);
+  const bonus = (STARDUST_EXPONENT_START_VALUE - 1)
+    + (STARDUST_EXPONENT_CAP - STARDUST_EXPONENT_START_VALUE) * softenedProgress;
   return Math.min(STARDUST_EXPONENT_CAP, 1 + (Number.isFinite(bonus) ? bonus : 0));
 }
 
