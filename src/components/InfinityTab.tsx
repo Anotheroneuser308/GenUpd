@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Decimal } from '../utils/decimal';
-import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode, BreakInfinityUpgradeId } from '../types/game';
+import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode, BreakInfinityUpgradeId, PostAwakeningUpgradeId } from '../types/game';
 import {
   INFINITY_THRESHOLD,
   calculateInfinityPointGain,
@@ -43,6 +43,38 @@ interface AdvancedBreakInfinityUpgradeDefinition {
   cost: Decimal;
   requirement?: 'singularityResonance' | 'hypercharge';
 }
+
+const POST_AWAKENING_UPGRADES: {
+  id: PostAwakeningUpgradeId;
+  title: string;
+  description: string;
+  cost: Decimal;
+}[] = [
+  {
+    id: 'radiantMultiplicity',
+    title: 'Radiant Multiplicity',
+    description: 'Stellar Radiance changes from additive stacking to a multiplicative ×1.25 per active softcap tier (×1.25^tiers).',
+    cost: new Decimal(1, 14),
+  },
+  {
+    id: 'dustResonance',
+    title: 'Dust Resonance',
+    description: 'Multiplies total Stardust production by ×1.10.',
+    cost: new Decimal(1, 15),
+  },
+  {
+    id: 'stellarRefinement',
+    title: 'Stellar Refinement',
+    description: 'Increases the Stardust Base production contribution from each level by 10%.',
+    cost: new Decimal(1, 16),
+  },
+  {
+    id: 'starEcho',
+    title: 'Star Echo',
+    description: 'Each Star grants an additional +0.5% Stardust production.',
+    cost: new Decimal(1, 17),
+  },
+];
 
 const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[] = [
   { id: 'fractalIgnition', title: 'Fractal Ignition', description: 'Points generation gains a controlled ×10^(0.01 × OoMs^0.8) multiplier above 1e308 Points.', cost: new Decimal(1, 40) },
@@ -157,6 +189,7 @@ interface InfinityTabProps {
   onBuySupernovaCatalyst?: () => void;
   onBuyAstralConvergence?: () => void;
   onBuyStarsUnlock?: () => void;
+  onBuyPostAwakeningUpgrade?: (upgradeId: PostAwakeningUpgradeId) => void;
   onPerformStarReset?: () => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
@@ -191,6 +224,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuySupernovaCatalyst,
   onBuyAstralConvergence,
   onBuyStarsUnlock,
+  onBuyPostAwakeningUpgrade,
   onPerformStarReset,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
@@ -499,7 +533,12 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 <div className="bg-slate-950/70 border border-emerald-500/30 p-4 rounded-xl">
                   <span className="text-slate-500 text-[10px] uppercase block">Stardust Production Multiplier</span>
                   <span className="text-xl font-bold text-emerald-300 mt-1 block">
-                    ×{getStarStardustMultiplier(state.stardust?.stars || 0).format(notation)}
+                    ×{(() => {
+                      const multiplier = getStarStardustMultiplier(state.stardust?.stars || 0);
+                      return multiplier.gte(new Decimal(1, 5))
+                        ? `${multiplier.mantissa.toFixed(2)}e${multiplier.exponent}`
+                        : multiplier.format(notation);
+                    })()}
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5 block">
                     {isStarMilestoneUnlocked(state.stardust?.stars || 0, 3) ? '3× per Star' : '2× per Star'}
@@ -756,7 +795,9 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     const baseLvl = state.stardust?.baseUpgradeLevel || 0;
                     const cost = getStardustBaseCost(baseLvl, state);
                     const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
-                    const basePerLvl = (state.infinityTree?.dust_2 ? 0.010 : 0.005) * (state.stardust?.supernovaCatalyst ? 3 : 1);
+                    const basePerLvl = (state.infinityTree?.dust_2 ? 0.010 : 0.005)
+                      * (state.stardust?.stellarRefinement ? 1.1 : 1)
+                      * (state.stardust?.supernovaCatalyst ? 3 : 1);
                     const currentBase = 0.01 + basePerLvl * baseLvl;
                     const nextBase = 0.01 + basePerLvl * (baseLvl + 1);
 
@@ -835,14 +876,16 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                            Increases real-time Stardust production by +25% per active Stardust softcap tier (each order of magnitude above 10).
+                            Increases real-time Stardust production by +25% per active Stardust softcap tier. With Radiant Multiplicity, each tier compounds multiplicatively instead of stacking additively.
                           </p>
                           <div className="mt-3 text-xs font-mono text-purple-300">
                             {(() => {
                               const activeSoftcaps = (state.stardust?.amount && state.stardust.amount.gt(10))
                                 ? Math.floor(state.stardust.amount.log10())
                                 : 0;
-                              const currentMult = 1 + 0.25 * activeSoftcaps;
+                              const currentMult = state.stardust?.radiantMultiplicity
+                                ? Math.pow(1.25, activeSoftcaps)
+                                : 1 + 0.25 * activeSoftcaps;
                               return (
                                 <span>
                                   Status: <strong>{isBought
@@ -1233,6 +1276,76 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     );
                   })()}
                 </div>
+
+                {state.stardust?.starsUnlocked && (
+                  <div className="space-y-4 border-t border-amber-500/20 pt-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-sm font-bold text-amber-200 flex items-center gap-2">
+                          <Star className="w-4 h-4 fill-current" />
+                          Post-Awakening Upgrades
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1">
+                          Permanent upgrades unlocked by Stars Awakening. These upgrades survive Star resets.
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-mono text-amber-300 border border-amber-500/30 rounded px-2 py-1">
+                        STARTING AT 1e14 STARDUST
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {POST_AWAKENING_UPGRADES.map((upgrade) => {
+                        const isBought = !!state.stardust?.[upgrade.id];
+                        const canAfford = (state.stardust?.amount || Decimal.zero()).gte(upgrade.cost);
+                        return (
+                          <div
+                            key={upgrade.id}
+                            className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                              isBought
+                                ? 'bg-amber-950/20 border-amber-500/40'
+                                : 'bg-slate-950/80 border-slate-700'
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2">
+                                <h5 className="font-semibold text-sm text-slate-100">{upgrade.title}</h5>
+                                {isBought ? (
+                                  <span className="text-[10px] font-mono text-emerald-300 px-2 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/30 font-bold">
+                                    PERMANENT
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400 mt-2 leading-relaxed">{upgrade.description}</p>
+                            </div>
+                            <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                              <span className="text-xs font-mono text-slate-400">
+                                Cost: <strong className="text-amber-300">{upgrade.cost.format(notation)} Stardust</strong>
+                              </span>
+                              {isBought ? (
+                                <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => onBuyPostAwakeningUpgrade?.(upgrade.id)}
+                                  disabled={!canAfford}
+                                  className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                    canAfford
+                                      ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
+                                      : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                  }`}
+                                >
+                                  Buy Upgrade
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
