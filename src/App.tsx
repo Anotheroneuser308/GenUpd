@@ -50,6 +50,14 @@ export default function App() {
     buyMaxSkillAmplification,
     buyStardustDoubler,
     buyStardustBase,
+    buyStellarRadiance,
+    buyAstralLens,
+    buyConstellationHarmonizer,
+    buyCosmicWeaver,
+    buySupernovaCatalyst,
+    buyAstralConvergence,
+    buyStarsUnlock,
+    performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
@@ -208,6 +216,14 @@ export default function App() {
             onBuyMaxSkillAmplification={buyMaxSkillAmplification}
             onBuyStardustDoubler={buyStardustDoubler}
             onBuyStardustBase={buyStardustBase}
+            onBuyStellarRadiance={buyStellarRadiance}
+            onBuyAstralLens={buyAstralLens}
+            onBuyConstellationHarmonizer={buyConstellationHarmonizer}
+            onBuyCosmicWeaver={buyCosmicWeaver}
+            onBuySupernovaCatalyst={buySupernovaCatalyst}
+            onBuyAstralConvergence={buyAstralConvergence}
+            onBuyStarsUnlock={buyStarsUnlock}
+            onPerformStarReset={performStarReset}
             onBuyBreakInfinityUpgrade={buyBreakInfinityUpgrade}
             onInfinityReset={proceedInfinity}
             onToggleAutobuyer={toggleAutobuyer}

@@ -62,7 +62,8 @@ export type BreakInfinityUpgradeId =
   | 'vacuumCascade'
   | 'transcendentCascade'
   | 'absoluteHorizon'
-  | 'prestigePreservationUnlock';
+  | 'prestigePreservationUnlock'
+  | 'stardustTreeUnlock';
 
 export interface StardustState {
   unlocked: boolean;
@@ -70,6 +71,18 @@ export interface StardustState {
   totalEarned: Decimal;
   doublerLevel: number;
   baseUpgradeLevel: number;
+  // Upgrades:
+  stellarRadiance?: boolean; // cost 2,500 stardust (+25% generation)
+  astralLens?: boolean; // cost 10,000 stardust (+0.005 exponent)
+  constellationHarmonizer?: boolean; // cost 50,000 stardust (generator boost 1 + stardust^5)
+  // New Upgrades costing > 500k:
+  cosmicWeaver?: boolean; // cost 750,000 stardust (+25% per log10(Infinities))
+  supernovaCatalyst?: boolean; // cost 2,500,000 stardust (triples base upgrade power)
+  astralConvergence?: boolean; // cost 10,000,000 stardust (reduces doubler cost scaling to 3x, 2x stardust gain)
+  starsUnlocked?: boolean; // cost 100,000,000 stardust (unlocks Stars reset layer)
+  // Stars Reset Layer:
+  stars?: number; // count of Star resets completed
+  totalStars?: number; // lifetime stars forged
 }
 
 export interface InfinityState {
@@ -99,6 +112,7 @@ export interface InfinityState {
     transcendentCascade?: boolean; // Raises generator multipliers to ^1.05
     absoluteHorizon?: boolean; // Raises Points generation multiplier to ^1.05
     prestigePreservationUnlock?: boolean; // Unlocks auto_10 (Prestige no longer resets Points) in tree
+    stardustTreeUnlock?: boolean; // Unlocks Stardust branch (dust_1) in Infinity Tree
   };
 }
 
@@ -131,7 +145,7 @@ export interface Autobuyer {
   // Settings for auto_7 (Infinity Autobuyer)
   infinityMode?: InfinityAutobuyerMode;
   infinityTimeTarget?: number;
-  infinityTarget?: number;
+  infinityTarget?: number | string;
   infinityRatioTarget?: number;
   previousIPGain?: Decimal;
 }

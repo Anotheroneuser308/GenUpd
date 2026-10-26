@@ -644,10 +644,13 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                    Points gain is amplified based on unspent Prestige Points directly (1 + PP linear multiplier, without exponent, hardcapped at 1.00e10).
+                    Points gain is amplified based on unspent Prestige Points directly (1 + PP linear multiplier). After 1.00e10 PP, growth softcaps to PP^0.05.
                   </p>
                   <div className="mt-3 text-xs font-mono text-indigo-300">
                     Current: <span className="font-semibold">x{ppSynergyMult.format(notation)}</span>
+                    {currentPP.gt(new Decimal(1, 10)) && (
+                      <span className="text-amber-400 ml-2">(Softcap active: PP^0.05 past 1.00e10 PP)</span>
+                    )}
                   </div>
                 </div>
 

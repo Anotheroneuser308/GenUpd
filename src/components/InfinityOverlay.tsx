@@ -57,7 +57,7 @@ export const InfinityOverlay: React.FC<InfinityOverlayProps> = ({ onProceed }) =
             All lower generators, points, and prestige currencies have collapsed into a pure cosmic singularity.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-2xl font-black font-mono text-amber-200">
-            <span>+1.00e0 Skill Point (SP)</span>
+            <span>+1 Skill Point (SP)</span>
             <span className="hidden sm:inline text-amber-400">·</span>
             <span>+1 Infinity Point (IP)</span>
           </div>

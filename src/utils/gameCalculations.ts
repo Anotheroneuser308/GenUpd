@@ -1,6 +1,7 @@
 import { Decimal } from './decimal';
 import { GameState } from '../types/game';
 import { getPassivePEGeneratorMultiplier, isInfinityMilestoneUnlocked, getUnlockedInfinityMilestonesCount } from './infinityMilestones';
+import { isStarMilestoneUnlocked } from '../constants/starMilestones';
 
 // Prestige unlock threshold (1.00e18 Points)
 export const PRESTIGE_REQUIREMENT = new Decimal(1e18);
@@ -381,9 +382,24 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
 
   // Stardust powers all generators with an exponent scaling gently from ^1.001
   if (state.stardust?.amount && state.stardust.amount.gt(0)) {
-    const stardustExp = getStardustGeneratorExponent(state.stardust.amount);
+    const stardustExp = getStardustGeneratorExponent(state.stardust.amount, state);
     if (stardustExp > 1) {
       mult = mult.pow(stardustExp);
+    }
+  }
+
+  // Constellation Harmonizer: multiplies all generators by 1 + stardust^5
+  if (state.stardust?.constellationHarmonizer && state.stardust?.amount && state.stardust.amount.gt(0)) {
+    const harmonizerMult = Decimal.one().add(state.stardust.amount.pow(5));
+    mult = mult.mul(harmonizerMult);
+  }
+
+  // Stars Exponent Bonus: gentle linear generator exponent (+0.001 per Star, +0.0015 with Star Milestone 6)
+  const starCount = Math.max(0, Math.floor(state.stardust?.stars || 0));
+  if (starCount > 0) {
+    const starExp = getStarGeneratorExponent(starCount);
+    if (starExp > 0) {
+      mult = mult.pow(1 + starExp);
     }
   }
 
@@ -392,9 +408,14 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
 
 /**
  * Tickspeed cost multiplier:
- * Normally 15x, but after 1e308 Points (or when tickspeed cost >= 1e308), scales by 300x!
+ * Normally 15x. After 1e308 Points (or cost >= 1e308), scales by 300x.
+ * After 25,000 purchases, increases by 1 order of magnitude from 300x to 3,000x!
  */
-export function getTickspeedCostMult(state: GameState): Decimal {
+export function getTickspeedCostMult(state: GameState, boughtOverride?: number): Decimal {
+  const bought = boughtOverride ?? (state.tickspeed?.bought || 0);
+  if (bought >= 25000) {
+    return new Decimal(3000);
+  }
   if (state.points.gte(new Decimal(1, 308)) || state.tickspeed.cost.gte(new Decimal(1, 308))) {
     return new Decimal(300);
   }
@@ -663,16 +684,33 @@ export function calculateSkillPointsGain(state: GameState, infinityCount: number
     totalSP = Math.floor(totalSP * spScale);
   }
 
+  // Post-Infinity Upgrade 5:
+  // "Multiplies Skill Points gained by 1.3x per magnitude of unspent SP."
+  if (state.infinityTree?.post_5) {
+    const curSP = Math.max(0, state.infinity?.skillPoints ?? 0);
+    const mag = curSP >= 10 ? Math.floor(Math.log10(curSP)) : 0;
+    if (mag > 0) {
+      totalSP = Math.floor(totalSP * Math.pow(1.3, mag));
+    }
+  }
+
   return Math.max(1, totalSP);
 }
 
-/** Format every Skill Point amount consistently in scientific notation. */
+/** Format Skill Points in standard numbers below 1,000,000 and scientific notation above. */
 export function formatSkillPoints(value: number): string {
   if (value === 0 || Number.isNaN(value)) return '0';
   if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
 
-  const absolute = new Decimal(Math.abs(value));
+  const abs = Math.abs(value);
   const sign = value < 0 ? '-' : '';
+
+  // Scientific notation begins only at 1,000,000 (1e6) and above
+  if (abs < 1e6) {
+    return `${sign}${Math.round(abs).toLocaleString('en-US')}`;
+  }
+
+  const absolute = new Decimal(abs);
   return `${sign}${absolute.mantissa.toFixed(2)}e${absolute.exponent}`;
 }
 
@@ -695,59 +733,189 @@ export function getPassivePrestigeEnergyGeneratorMultiplier(state: GameState): D
 
 /**
  * Stardust calculation helpers
- * Base rate: 0.01/s + 0.005/s per base upgrade level.
+ * Base rate: 0.01/s + 0.005/s per base upgrade level (doubled to +0.010/s with tree node dust_2).
  * Doubler: multiplies stardust gain by 2^doublerLevel.
+ * Node dust_1: multiplies gained stardust by 1.1^baseUpgradeLevel.
+ * Node dust_3: Stardust multiplies itself by log10(stardust)/3 (when stardust >= 10).
+ * Milestone 100k Infinities: multiplies stardust production by 1.5x.
+ * Stellar Radiance upgrade: +25% Stardust production per active Stardust softcap tier.
  * Online only: not generated offline.
  */
 export function getStardustPerSecond(state: GameState): Decimal {
   if (!state.stardust?.unlocked && !state.infinityTree?.feat_6) return Decimal.zero();
   const baseLvl = Math.max(0, Math.floor(state.stardust?.baseUpgradeLevel || 0));
-  const baseRate = 0.01 + 0.005 * baseLvl;
+
+  // Node dust_2: doubles base Stardust rate gained from Stardust Base (+0.010/s instead of +0.005/s)
+  let basePerLevel = state.infinityTree?.dust_2 ? 0.010 : 0.005;
+  // Upgrade: Supernova Catalyst (2.5M Stardust) triples base upgrade contribution!
+  if (state.stardust?.supernovaCatalyst) {
+    basePerLevel *= 3;
+  }
+  const baseRate = 0.01 + basePerLevel * baseLvl;
   const doublerLvl = Math.max(0, Math.floor(state.stardust?.doublerLevel || 0));
-  return new Decimal(baseRate).mul(new Decimal(2).pow(doublerLvl));
+  let rate = new Decimal(baseRate).mul(new Decimal(2).pow(doublerLvl));
+
+  // Node dust_1: multiplies gained Stardust by 1.1x per purchased Stardust Base level (1.1^level)
+  if (state.infinityTree?.dust_1 && baseLvl > 0) {
+    rate = rate.mul(new Decimal(1.1).pow(baseLvl));
+  }
+
+  // Node dust_3: Stardust multiplies its own production by log10(stardust)/3 (active when Stardust >= 10)
+  if (state.infinityTree?.dust_3 && state.stardust?.amount && state.stardust.amount.gte(10)) {
+    const selfMultiplier = Math.max(1, state.stardust.amount.log10() / 3);
+    rate = rate.mul(new Decimal(selfMultiplier));
+  }
+
+  // 100k Infinities Milestone: multiplies Stardust production by 1.5x
+  if (isInfinityMilestoneUnlocked(state, 'milestone_100000_stardust_boost')) {
+    rate = rate.mul(1.5);
+  }
+
+  // Stardust Tab Upgrade: Stellar Radiance (2,500 Stardust)
+  // Increases Stardust production by +25% per active Stardust softcap (each magnitude above 10)
+  if (state.stardust?.stellarRadiance) {
+    const activeSoftcaps = (state.stardust?.amount && state.stardust.amount.gt(10))
+      ? Math.floor(state.stardust.amount.log10())
+      : 0;
+    if (activeSoftcaps > 0) {
+      rate = rate.mul(1 + 0.25 * activeSoftcaps);
+    }
+  }
+
+  // Upgrade: Cosmic Weaver (750k Stardust): multiplies Stardust by 1 + log10(totalInfinities + 1) * 0.25
+  if (state.stardust?.cosmicWeaver) {
+    const infCount = state.infinity?.count || state.stats?.totalInfinities || 0;
+    const infLog = Math.log10(Math.max(1, infCount + 1));
+    rate = rate.mul(1 + infLog * 0.25);
+  }
+
+  // Upgrade: Astral Convergence (10M Stardust): doubles current Stardust generation rate (2x)
+  if (state.stardust?.astralConvergence) {
+    rate = rate.mul(2);
+  }
+
+  // Stars Bonus: multiplies Stardust production by 2^stars (or 3^stars with Star Milestone 3)
+  const starCount = Math.max(0, Math.floor(state.stardust?.stars || 0));
+  if (starCount > 0) {
+    rate = rate.mul(getStarStardustMultiplier(starCount));
+  }
+
+  // Star Milestone 10: 10x Stardust production
+  if (isStarMilestoneUnlocked(starCount, 10)) {
+    rate = rate.mul(10);
+  }
+
+  return rate;
 }
 
 /**
- * Computes effective Stardust after softcaps:
- * - Up to 10 Stardust: full 1x rate
- * - 10 to 1,000 Stardust: growth slows by 10x (rate = 0.1x)
- * - Above 1,000 Stardust: growth slows by another 10x (rate = 0.01x, 100x slower total)
+ * Computes effective Stardust with per-magnitude softcapping:
+ * For each order of magnitude above 10, the growth rate weakens by D:
+ * D = 10 normally, or D = 9 if tree node dust_4 is unlocked.
+ * Astral Focus upgrade reduces D by 0.5 (10 -> 9.5, or 9 -> 8.5 with dust_4).
+ * - [0, 10]: full rate (contributes up to 10)
+ * - [10, 100]: width 90 / D
+ * - [10^k, 10^(k+1)]: width 9*10^k / D^k
+ * - Partial magnitude [10^M, S]: (S - 10^M) / D^M
  */
-export function getEffectiveStardust(stardustAmount: Decimal): Decimal {
+export function getEffectiveStardust(
+  stardustAmount: Decimal,
+  hasDust4: boolean = false,
+  hasAstralFocus: boolean = false,
+): Decimal {
   if (!stardustAmount || stardustAmount.lte(0)) return Decimal.zero();
   if (stardustAmount.lte(10)) {
     return stardustAmount;
   }
-  if (stardustAmount.lte(1000)) {
-    return new Decimal(10).add(stardustAmount.sub(10).mul(0.1));
+
+  let D = hasDust4 ? 9 : 10;
+  if (hasAstralFocus) {
+    D -= 0.5;
   }
-  // Above 1,000: 10 + (990 * 0.1) + (stardust - 1000) * 0.01 = 109 + (stardust - 1000) * 0.01
-  return new Decimal(109).add(stardustAmount.sub(1000).mul(0.01));
+  const sNum = stardustAmount.toNumber();
+
+  if (Number.isFinite(sNum)) {
+    const M = Math.floor(Math.log10(sNum));
+    let effective = 10;
+    for (let k = 1; k < M; k++) {
+      effective += 9 * Math.pow(10 / D, k);
+    }
+    const powD_M = Math.pow(D, M);
+    effective += (sNum - Math.pow(10, M)) / powD_M;
+    return new Decimal(effective);
+  }
+
+  // Fallback for massive Decimal stardust:
+  const logS = Math.floor(stardustAmount.log10());
+  if (D === 10) {
+    const mantissa = stardustAmount.div(new Decimal(10).pow(logS));
+    return new Decimal(9 * logS).add(mantissa);
+  } else {
+    const ratio = new Decimal(10).div(D);
+    const sumDecades = new Decimal(9).mul(ratio.pow(logS).sub(ratio)).div(ratio.sub(1));
+    const partial = stardustAmount.sub(new Decimal(10).pow(logS)).div(new Decimal(D).pow(logS));
+    return new Decimal(10).add(sumDecades).add(partial);
+  }
 }
 
 /**
  * Generator exponent boost from Stardust.
  * Starts gently at ^1.001 at 1 Stardust (+0.001 per effective Stardust).
- * Softcapped at 10 Stardust (10x slower growth) and at 1,000 Stardust (another 10x slower growth).
+ * Weakens per magnitude above 10 (by 10x normally, 9.5x with Astral Focus, 9x with dust_4, 8.5x with both).
  */
-export function getStardustGeneratorExponent(stardustAmount: Decimal): number {
+export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: GameState): number {
   if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
-  const effective = getEffectiveStardust(stardustAmount);
+  const hasDust4 = !!state?.infinityTree?.dust_4;
+  const hasAstralFocus = !!state?.stardust?.astralLens;
+  const effective = getEffectiveStardust(stardustAmount, hasDust4, hasAstralFocus);
   const bonus = effective.mul(0.001).toNumber();
   // Bound to a safe maximum to protect float precision in Decimal pow
   return Math.min(1e6, 1 + (Number.isFinite(bonus) ? bonus : 0));
 }
 
-/** Stardust Doubler cost: 1 Stardust base, 4x per level */
-export function getStardustDoublerCost(currentLevel: number): Decimal {
+/** Stardust Doubler cost: 1 Stardust base, 4x per level (or 3x with Astral Convergence) */
+export function getStardustDoublerCost(currentLevel: number, state?: GameState): Decimal {
   const level = Math.max(0, Math.floor(currentLevel));
-  return new Decimal(4).pow(level);
+  const base = state?.stardust?.astralConvergence ? 3 : 4;
+  return new Decimal(base).pow(level);
 }
 
-/** Stardust Base cost: 1 Stardust base, 2x per level */
-export function getStardustBaseCost(currentLevel: number): Decimal {
+/** Stardust Base cost: 1 Stardust base, 2x per level (or 1.75x with Star Milestone 8) */
+export function getStardustBaseCost(currentLevel: number, state?: GameState): Decimal {
   const level = Math.max(0, Math.floor(currentLevel));
-  return new Decimal(2).pow(level);
+  const stars = state?.stardust?.stars || 0;
+  const base = isStarMilestoneUnlocked(stars, 8) ? 1.75 : 2;
+  return new Decimal(base).pow(level);
+}
+
+/**
+ * Star Reset Cost:
+ * Starts at 1e8 for 1st Star, then scales by x10 per Star reset completed:
+ * 10^(8 + currentStars) Stardust.
+ */
+export function getStarResetCost(currentStars: number): Decimal {
+  const stars = Math.max(0, Math.floor(currentStars));
+  return new Decimal(10).pow(8 + stars);
+}
+
+/**
+ * Star Generator Exponent Bonus:
+ * Very gentle linear growth: +0.001 per Star (+0.0015 with Star Milestone 6).
+ */
+export function getStarGeneratorExponent(stars: number): number {
+  if (stars <= 0) return 0;
+  const perStar = isStarMilestoneUnlocked(stars, 6) ? 0.0015 : 0.001;
+  return stars * perStar;
+}
+
+/**
+ * Star Stardust Production Multiplier:
+ * 2^stars, boosted to 3^stars with Star Milestone 3.
+ */
+export function getStarStardustMultiplier(stars: number): Decimal {
+  if (stars <= 0) return Decimal.one();
+  const base = isStarMilestoneUnlocked(stars, 3) ? 3 : 2;
+  return new Decimal(base).pow(stars);
 }
 
 /**

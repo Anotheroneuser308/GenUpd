@@ -7,6 +7,8 @@ import {
   getPreInfinityGeneratorMultiplier,
   calculateSkillPointsGain,
   calculateInfinitiesGain,
+  calculatePrestigePointsGain,
+  getTotalTickspeedSpeed,
   getGeneratorAmplificationCost,
   formatSkillPoints,
   INFINITY_NEXUS_HARD_CAP,
@@ -72,6 +74,13 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   post_2: { x: 550, y: 310 },
   post_3: { x: 650, y: 420 },
   post_4: { x: 730, y: 540 },
+  post_5: { x: 810, y: 660 },
+
+  // Stardust Tree (separate South-West branch extending from Root Nexus)
+  dust_1: { x: -250, y: 200 },
+  dust_2: { x: -390, y: 320 },
+  dust_3: { x: -530, y: 440 },
+  dust_4: { x: -670, y: 560 },
 };
 
 // Tree Graph Connections (Parent -> Child)
@@ -101,10 +110,16 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['feat_4', 'feat_5'],
   ['feat_5', 'feat_6'],
 
+  ['root', 'dust_1'],
+  ['dust_1', 'dust_2'],
+  ['dust_2', 'dust_3'],
+  ['dust_3', 'dust_4'],
+
   ['root', 'post_1'],
   ['post_1', 'post_2'],
   ['post_2', 'post_3'],
   ['post_3', 'post_4'],
+  ['post_4', 'post_5'],
 ];
 
 export const InfinityTree: React.FC<InfinityTreeProps> = ({
@@ -137,8 +152,63 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
     }
   }, []);
 
-  const selectedDef: InfinityTreeNodeDef =
-    INFINITY_TREE_NODES[selectedNodeId] || INFINITY_TREE_NODES['root'];
+  // Check if a tree node is visible on the map.
+  // 1. Root is always visible.
+  // 2. Any node that is ALREADY BOUGHT is always visible.
+  // 3. Any unbought node is visible only if its prerequisite parent node is bought,
+  //    AND any non-price requirements (reqUpgrade, reqMilestone) are satisfied.
+  const isNodeVisible = useCallback(
+    (def: InfinityTreeNodeDef): boolean => {
+      if (!def) return false;
+      if (def.id === 'root' || def.req === 'none') return true;
+
+      // 1. If ALREADY BOUGHT, it MUST ALWAYS BE VISIBLE!
+      const isBought = def.repeatable
+        ? (typeof tree[def.id + 'Level'] === 'number' && (tree[def.id + 'Level'] as number) > 0)
+        : !!tree[def.id];
+      if (isBought) return true;
+
+      // 2. Parent requirement check
+      const isRootBought =
+        !!tree['root'] ||
+        (state.infinity?.count || 0) > 0 ||
+        !!state.infinity?.unlocked ||
+        Object.keys(tree).length > 0;
+
+      const isParentBought = def.req === 'root'
+        ? isRootBought
+        : (!!tree[def.req] || (typeof tree[def.req + 'Level'] === 'number' && (tree[def.req + 'Level'] as number) > 0));
+
+      if (!isParentBought) {
+        return false;
+      }
+
+      // 3. Specific non-price upgrade requirements (e.g. Break Infinity upgrades)
+      if (def.reqUpgrade === 'automationExpand' && !state.infinity?.automationExpand) {
+        return false;
+      }
+      if (def.reqUpgrade === 'prestigePreservationUnlock' && !state.infinity?.breakInfinityUpgrades?.prestigePreservationUnlock) {
+        return false;
+      }
+      if (def.reqUpgrade === 'stardustTreeUnlock' && !state.infinity?.breakInfinityUpgrades?.stardustTreeUnlock) {
+        return false;
+      }
+
+      // 4. Milestone requirements (e.g. Post-Infinity Gateway milestone)
+      if (def.reqMilestone && !isInfinityMilestoneUnlocked(state, def.reqMilestone as any)) {
+        return false;
+      }
+
+      return true;
+    },
+    [tree, state]
+  );
+
+  let activeSelectedDef = INFINITY_TREE_NODES[selectedNodeId] || INFINITY_TREE_NODES['root'];
+  if (!isNodeVisible(activeSelectedDef)) {
+    activeSelectedDef = INFINITY_TREE_NODES['root'];
+  }
+  const selectedDef = activeSelectedDef;
 
   // Check node requirements and status
   const getNodeStatus = useCallback(
@@ -148,11 +218,20 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       const level = isRepeatable && typeof levelValue === 'number' ? Math.max(0, Math.floor(levelValue)) : 0;
       const isBought = isRepeatable ? level > 0 : !!tree[def.id];
       const cost = isRepeatable ? (def.id === 'pre_5' ? getGeneratorAmplificationCost(level) : level + 1) : def.cost;
-      const hasParent = def.req === 'none' || !!tree[def.req];
+      const isRootBought =
+        !!tree['root'] ||
+        (state.infinity?.count || 0) > 0 ||
+        !!state.infinity?.unlocked ||
+        Object.keys(tree).length > 0;
+      const hasParent = def.req === 'none' ||
+        (def.req === 'root'
+          ? isRootBought
+          : (!!tree[def.req] || (typeof tree[def.req + 'Level'] === 'number' && (tree[def.req + 'Level'] as number) > 0)));
       const hasUpgradeReq =
         !def.reqUpgrade ||
         (def.reqUpgrade === 'automationExpand' && !!state.infinity?.automationExpand) ||
-        (def.reqUpgrade === 'prestigePreservationUnlock' && !!state.infinity?.breakInfinityUpgrades?.prestigePreservationUnlock);
+        (def.reqUpgrade === 'prestigePreservationUnlock' && !!state.infinity?.breakInfinityUpgrades?.prestigePreservationUnlock) ||
+        (def.reqUpgrade === 'stardustTreeUnlock' && !!state.infinity?.breakInfinityUpgrades?.stardustTreeUnlock);
       const hasMilestoneReq =
         !def.reqMilestone || isInfinityMilestoneUnlocked(state, def.reqMilestone as any);
       const canAfford = currentSP >= cost;
@@ -196,41 +275,73 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
           : '';
         return `Generator multiplier from Infinities: ×${fmt(mult)} (currently ${infCount} Infinities${tierNote}).`;
       }
-      case 'pre_1': return `Current generator bonus from time: ×${fmt(1 + (state.stats?.timeThisInfinity || 0) * 0.01)}.`;
-      case 'pre_2': return 'On each Prestige/Infinity: start with 1,000,000 Points and 1 of each of the first 4 generators.';
-      case 'pre_3': return 'Current Prestige Point reward multiplier: ×3.';
-      case 'pre_4': return 'Current generator multiplier from the Pre-Infinity branch: x' + fmt(getPreInfinityGeneratorMultiplier(state)) + '.';
+      case 'pre_1': return `Current generator bonus from time: ×${fmt(1 + (state.stats?.timeThisInfinity || 0) * 0.01)} (+0.01x per second).`;
+      case 'pre_2': return `Start every Prestige/Infinity with 1,000,000 Points and 1 of Generators 1–4 (${tree.pre_2 ? 'Active ✓' : 'Inactive'}).`;
+      case 'pre_3': return `Current Prestige Point reward multiplier: ×3.00 (Current PP reward: ${fmt(calculatePrestigePointsGain(state.points, state))} PP).`;
+      case 'pre_4': return `Tickspeed Induction: Tickspeed multiplier ^0.35 boosts all generators: currently ×${fmt(getTotalTickspeedSpeed(state).pow(0.35))} to all generators.`;
       case 'pre_5': {
         const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
         const nextCost = getGeneratorAmplificationCost(level);
         const scalingNote = level >= 1000 ? ' (1.5x price scaling active)' : '';
         return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + formatSkillPoints(nextCost) + ' SP' + scalingNote + '.';
       }
-      case 'pre_6': return 'Infinite Amplification Mastery: generator amplification bonus x1.1^level, and Skill Amplification is repeatable infinitely.';
-      case 'auto_1': return 'Unlocks automatic purchases for Generators 1–4.';
-      case 'auto_2': return 'Unlocks automatic Tickspeed and Generators 5–8 purchases.';
-      case 'auto_3': return 'Unlocks Prestige automation; current settings are shown in the Automation tab.';
-      case 'auto_4': return 'Autobuyers run 5× faster and can buy maximum available generators.';
-      case 'auto_5': return 'Unlocks automatic Prestige upgrade purchases.';
-      case 'auto_6': return 'Unlocks automatic Prestige Energy resets.';
-      case 'auto_7': return 'Unlocks automatic Infinity resets.';
-      case 'auto_8': return 'Unlocks automatic PE amplifier purchases.';
-      case 'auto_9': return 'Automated purchases cost 0 currency.';
-      case 'auto_10': return 'Prestige Point Preservation: Prestige resets no longer reset Points!';
-      case 'feat_1': return 'Unlocks the Infinity Upgrades Matrix.';
-      case 'feat_2': return 'Unlocks Prestige Skill Synergy.';
+      case 'pre_6': {
+        const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
+        return `Infinite Amplification Mastery: generator amplification bonus x1.1^level (currently ×${fmt(new Decimal(1.1).pow(level))}), and Skill Amplification is repeatable infinitely.`;
+      }
+      case 'auto_1': return `Unlocks automatic purchases for Generators 1–4 (${state.autobuyers?.gen1?.unlocked ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'auto_2': return `Unlocks automatic purchases for Tickspeed & Generators 5–8 (${state.autobuyers?.tickspeed?.unlocked ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'auto_3': return `Unlocks Prestige automation with configurable threshold modes (${state.autobuyers?.prestige?.unlocked ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'auto_4': return `Quantum Autobuyer: autobuyers run 5× faster (0.05s) and buy max available (${tree.auto_4 ? 'Active ✓' : 'Inactive'}).`;
+      case 'auto_5': return `Unlocks automatic Prestige upgrade purchases (${state.autobuyers?.autoPrestigeUpgrades?.unlocked ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'auto_6': return `Unlocks automatic Prestige Energy resets (${state.autobuyers?.autoPrestigeEnergy?.unlocked ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'auto_7': return `Unlocks automatic Infinity resets (${state.autobuyers?.autoInfinity?.unlocked ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'auto_8': return `Unlocks automatic PE amplifier purchases (${tree.auto_8 ? 'Active ✓' : 'Locked'}).`;
+      case 'auto_9': return `Free Automation Matrix: automated purchases consume 0 currency (${tree.auto_9 ? 'Active ✓' : 'Inactive'}).`;
+      case 'auto_10': return `Prestige Point Preservation: Prestige resets no longer reset Points (${tree.auto_10 ? 'Points preserved on Prestige ✓' : 'Points reset on Prestige'}).`;
+      case 'feat_1': return `Unlocks the Infinity Upgrades Matrix in Infinity tab (${tree.feat_1 ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'feat_2': {
+        const bonusSP = state.prestigeUpgrades?.prestigeSkillSynergy && state.prestige.count >= 10
+          ? Math.max(0, Math.floor(Math.log10(Math.max(1, state.prestige.count))))
+          : 0;
+        return `Unlocks Prestige Skill Synergy (${state.prestigeUpgrades?.prestigeSkillSynergy ? `Active: +${bonusSP} SP from ${state.prestige.count} Prestiges` : tree.feat_2 ? 'Available in Prestige tab' : 'Locked'}).`;
+      }
       case 'feat_3': {
         const unlockedMilestones = getUnlockedInfinityMilestonesCount(state);
         const milestoneBonus = new Decimal(1000).pow(unlockedMilestones);
         return `Currently ${unlockedMilestones} Infinity Milestones are unlocked. Millennial Singularity currently grants ×${fmt(milestoneBonus)} to all generators.`;
       }
       case 'feat_4': return `Break Infinity: IP gain formula is 10^(log10(Points) / 308); at current Points, the base reward is ×${fmt(new Decimal(10).pow(logPoints / 308))} IP before bonuses.`;
-      case 'feat_5': return 'Unlocks Break Infinity upgrades in the Infinity Upgrades section.';
-      case 'feat_6': return 'Stardust Genesis: Unlocks the Stardust celestial currency and management tab.';
-      case 'post_1': return `Current SP reward from the next Infinity: ${formatSkillPoints(calculateSkillPointsGain(state))} SP (includes this upgrade only if purchased).`;
-      case 'post_2': return `Current Infinities gained on the next reset: ${calculateInfinitiesGain(state)}.`;
-      case 'post_3': return `Current generator multiplier from IP: ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}.`;
-      case 'post_4': return 'Raises the resulting generator multipliers to the power of 1.02.';
+      case 'feat_5': return `Unlocks Break Infinity upgrades in the Infinity Upgrades section (${tree.feat_5 ? 'Unlocked ✓' : 'Locked'}).`;
+      case 'feat_6': return `Stardust Genesis: Unlocks the Stardust celestial currency and management tab (${state.stardust?.unlocked || tree.feat_6 ? `Active: ${fmt(state.stardust?.amount || 0)} Stardust` : 'Locked'}).`;
+      case 'dust_1': {
+        const baseLvl = state.stardust?.baseUpgradeLevel || 0;
+        return `Current Stardust production multiplier: ×${fmt(new Decimal(1.1).pow(baseLvl))} (${baseLvl} Stardust Base levels).`;
+      }
+      case 'dust_2': {
+        const baseLvl = state.stardust?.baseUpgradeLevel || 0;
+        return `Doubles the base Stardust rate gained from Stardust Base: +0.010/s per level instead of +0.005/s (currently +${fmt(baseLvl * (tree.dust_2 ? 0.010 : 0.005))}/s base rate).`;
+      }
+      case 'dust_3': {
+        const sAmt = state.stardust?.amount || Decimal.zero();
+        const selfMult = sAmt.gte(10) ? Math.max(1, sAmt.log10() / 3) : 1;
+        return `Stardust multiplies its own production by log10(Stardust)/3: currently ×${fmt(selfMult)} (active when Stardust >= 10).`;
+      }
+      case 'dust_4': {
+        const hasAstral = !!state.stardust?.astralLens;
+        const currentDivisor = (tree.dust_4 ? 9 : 10) - (hasAstral ? 0.5 : 0);
+        return `Weakens the per-magnitude generator power softcap: reduces divisor from 10× to 9× (current divisor: ${currentDivisor.toFixed(1)}×).`;
+      }
+      case 'post_1': return `Cosmic SP Conduit: multiplies SP reward from next Infinity by log10(Points)/500 (currently ×${fmt(Math.max(1, logPoints / 500))}; next Infinity yields ${formatSkillPoints(calculateSkillPointsGain(state))} SP).`;
+      case 'post_2': return `Infinity Flux: multiplies Infinities gained on next reset by log10(Points)/60 (currently yields ${calculateInfinitiesGain(state)} Infinities).`;
+      case 'post_3': return `Dimensional IP Surge: multiplies all generators by (IP + 1)^1.3 (currently ×${fmt((state.infinity?.points || Decimal.zero()).add(1).pow(1.3))}).`;
+      case 'post_4': return `Power Transcendence: raises all generator multipliers to the power of 1.02 (^1.02) (${tree.post_4 ? 'Active ✓' : 'Inactive'}).`;
+      case 'post_5': {
+        const curSP = Math.max(0, state.infinity?.skillPoints ?? 0);
+        const mag = curSP >= 10 ? Math.floor(Math.log10(curSP)) : 0;
+        const spMagMult = Math.pow(1.3, mag);
+        return `SP Magnitude Resonance: multiplies SP gain by 1.3x per magnitude of unspent SP: currently ×${fmt(spMagMult)} (${mag} magnitudes of SP).`;
+      }
       default: return 'This node unlocks the effect described above.';
     }
   };
@@ -320,12 +431,13 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
   };
 
   // Jump to cluster
-  const handleJumpToCluster = (clusterKey: 'root' | 'pre' | 'auto' | 'feat' | 'post') => {
+  const handleJumpToCluster = (clusterKey: 'root' | 'pre' | 'auto' | 'feat' | 'post' | 'dust') => {
     if (clusterKey === 'root') handleCenter(0, 0);
     else if (clusterKey === 'pre') handleCenter(-300, -100);
     else if (clusterKey === 'auto') handleCenter(0, -450);
     else if (clusterKey === 'feat') handleCenter(300, -100);
     else if (clusterKey === 'post') handleCenter(590, 390);
+    else if (clusterKey === 'dust') handleCenter(-460, 380);
   };
 
   // Node Click
@@ -344,6 +456,8 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
         return { stroke: '#10b981', glow: 'rgba(16, 185, 129, 0.5)', fill: 'bg-emerald-950/80', border: 'border-emerald-400' };
       case 'feat':
         return { stroke: '#a855f7', glow: 'rgba(168, 85, 247, 0.5)', fill: 'bg-purple-950/80', border: 'border-purple-400' };
+      case 'dust':
+        return { stroke: '#f59e0b', glow: 'rgba(245, 158, 11, 0.6)', fill: 'bg-amber-950/80', border: 'border-amber-400' };
       case 'post':
         return { stroke: '#f43f5e', glow: 'rgba(244, 63, 94, 0.5)', fill: 'bg-rose-950/80', border: 'border-rose-400' };
       default:
@@ -382,34 +496,51 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
             >
               Nexus
             </button>
-            <button
-              type="button"
-              onClick={() => handleJumpToCluster('pre')}
-              className="px-2 py-1 rounded hover:bg-slate-800 text-cyan-300 transition-colors cursor-pointer"
-            >
-              Pre-Inf
-            </button>
-            <button
-              type="button"
-              onClick={() => handleJumpToCluster('auto')}
-              className="px-2 py-1 rounded hover:bg-slate-800 text-emerald-300 transition-colors cursor-pointer"
-            >
-              Auto
-            </button>
-            <button
-              type="button"
-              onClick={() => handleJumpToCluster('feat')}
-              className="px-2 py-1 rounded hover:bg-slate-800 text-purple-300 transition-colors cursor-pointer"
-            >
-              Features
-            </button>
-            <button
-              type="button"
-              onClick={() => handleJumpToCluster('post')}
-              className="px-2 py-1 rounded hover:bg-slate-800 text-rose-300 transition-colors cursor-pointer"
-            >
-              Post-Inf
-            </button>
+            {isNodeVisible(INFINITY_TREE_NODES['pre_1']) && (
+              <button
+                type="button"
+                onClick={() => handleJumpToCluster('pre')}
+                className="px-2 py-1 rounded hover:bg-slate-800 text-cyan-300 transition-colors cursor-pointer"
+              >
+                Pre-Inf
+              </button>
+            )}
+            {isNodeVisible(INFINITY_TREE_NODES['auto_1']) && (
+              <button
+                type="button"
+                onClick={() => handleJumpToCluster('auto')}
+                className="px-2 py-1 rounded hover:bg-slate-800 text-emerald-300 transition-colors cursor-pointer"
+              >
+                Auto
+              </button>
+            )}
+            {isNodeVisible(INFINITY_TREE_NODES['feat_1']) && (
+              <button
+                type="button"
+                onClick={() => handleJumpToCluster('feat')}
+                className="px-2 py-1 rounded hover:bg-slate-800 text-purple-300 transition-colors cursor-pointer"
+              >
+                Features
+              </button>
+            )}
+            {isNodeVisible(INFINITY_TREE_NODES['dust_1']) && (
+              <button
+                type="button"
+                onClick={() => handleJumpToCluster('dust')}
+                className="px-2 py-1 rounded hover:bg-slate-800 text-amber-300 transition-colors cursor-pointer"
+              >
+                Stardust
+              </button>
+            )}
+            {isNodeVisible(INFINITY_TREE_NODES['post_1']) && (
+              <button
+                type="button"
+                onClick={() => handleJumpToCluster('post')}
+                className="px-2 py-1 rounded hover:bg-slate-800 text-rose-300 transition-colors cursor-pointer"
+              >
+                Post-Inf
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -506,6 +637,8 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                         ? 'Eternal Continuity Matrix (1e200 IP)'
                         : selectedDef.reqUpgrade === 'automationExpand'
                         ? 'Automation Expansion'
+                        : selectedDef.reqUpgrade === 'stardustTreeUnlock'
+                        ? 'Stardust Astral Matrix (1.00e308 IP)'
                         : selectedDef.reqUpgrade}
                       {selectedStatus.hasUpgradeReq ? ' ✓' : ' 🔒'}
                     </strong>
@@ -634,6 +767,13 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
           {/* SVG Connection Lines */}
           <svg className="absolute overflow-visible pointer-events-none" style={{ left: 0, top: 0 }}>
             {NODE_CONNECTIONS.map(([parentId, childId]) => {
+              const parentDef = INFINITY_TREE_NODES[parentId];
+              const childDef = INFINITY_TREE_NODES[childId];
+              if (!parentDef || !childDef) return null;
+              if (!isNodeVisible(parentDef) || !isNodeVisible(childDef)) {
+                return null;
+              }
+
               const from = NODE_POSITIONS[parentId];
               const to = NODE_POSITIONS[childId];
               if (!from || !to) return null;
@@ -678,6 +818,10 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
 
           {/* Node Circles */}
           {Object.entries(INFINITY_TREE_NODES).map(([nodeId, def]) => {
+            if (!isNodeVisible(def)) {
+              return null;
+            }
+
             const pos = NODE_POSITIONS[nodeId];
             if (!pos) return null;
 

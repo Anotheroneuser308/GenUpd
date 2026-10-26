@@ -15,10 +15,14 @@ import {
   getStardustBaseCost,
   getSkillAmplificationLevel,
   getSkillAmplificationCost,
+  getStarResetCost,
+  getStarGeneratorExponent,
+  getStarStardustMultiplier,
 } from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
+import { STAR_MILESTONES, isStarMilestoneUnlocked } from '../constants/starMilestones';
 import { InfinityTree } from './InfinityTree';
-import { Layers, Atom, Cpu, Sparkles } from 'lucide-react';
+import { Layers, Atom, Cpu, Sparkles, Star } from 'lucide-react';
 import { AutomationTab } from './AutomationTab';
 
 
@@ -29,7 +33,8 @@ type AdvancedBreakInfinityUpgradeId =
   | 'vacuumCascade'
   | 'transcendentCascade'
   | 'absoluteHorizon'
-  | 'prestigePreservationUnlock';
+  | 'prestigePreservationUnlock'
+  | 'stardustTreeUnlock';
 
 interface AdvancedBreakInfinityUpgradeDefinition {
   id: AdvancedBreakInfinityUpgradeId;
@@ -47,6 +52,7 @@ const ADVANCED_BREAK_INFINITY_UPGRADES: AdvancedBreakInfinityUpgradeDefinition[]
   { id: 'transcendentCascade', title: 'Transcendent Cascade', description: 'Raises the final multiplier of every Generator to the power of 1.05.', cost: new Decimal(1, 90) },
   { id: 'absoluteHorizon', title: 'Absolute Horizon', description: 'Raises the total Points generation multiplier to the power of 1.05.', cost: new Decimal(1, 110) },
   { id: 'prestigePreservationUnlock', title: 'Eternal Continuity Matrix', description: 'Unlocks Prestige Point Preservation (auto_10, 1.20e4 SP), Stardust Genesis (feat_6), and Infinite Amplification Mastery (pre_6) in the Infinity Tree.', cost: new Decimal(1, 200) },
+  { id: 'stardustTreeUnlock', title: 'Stardust Astral Matrix', description: 'Unlocks the Stardust branch (dust_1) in the Infinity Tree, initiating the celestial path.', cost: new Decimal(1, 308) },
 ];
 
 function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, state: GameState, oomAbove: number): string {
@@ -65,6 +71,8 @@ function getAdvancedBreakInfinityPreview(id: AdvancedBreakInfinityUpgradeId, sta
       return 'Points generation multiplier exponent ^1.05';
     case 'prestigePreservationUnlock':
       return 'Unlocks "Prestige Point Preservation", "Stardust Genesis", and "Infinite Amplification Mastery" in Infinity Tree';
+    case 'stardustTreeUnlock':
+      return 'Unlocks Stardust branch (dust_1) in Infinity Tree';
   }
 }
 
@@ -140,6 +148,14 @@ interface InfinityTabProps {
   onBuyMaxSkillAmplification?: () => void;
   onBuyStardustDoubler?: () => void;
   onBuyStardustBase?: () => void;
+  onBuyStellarRadiance?: () => void;
+  onBuyAstralLens?: () => void;
+  onBuyConstellationHarmonizer?: () => void;
+  onBuyCosmicWeaver?: () => void;
+  onBuySupernovaCatalyst?: () => void;
+  onBuyAstralConvergence?: () => void;
+  onBuyStarsUnlock?: () => void;
+  onPerformStarReset?: () => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
   onToggleAutobuyer: (id: string) => void;
@@ -164,6 +180,14 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyMaxSkillAmplification,
   onBuyStardustDoubler,
   onBuyStardustBase,
+  onBuyStellarRadiance,
+  onBuyAstralLens,
+  onBuyConstellationHarmonizer,
+  onBuyCosmicWeaver,
+  onBuySupernovaCatalyst,
+  onBuyAstralConvergence,
+  onBuyStarsUnlock,
+  onPerformStarReset,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
   onToggleAutobuyer,
@@ -174,6 +198,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onSetAutoInfinitySettings,
 }) => {
   const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation' | 'milestones' | 'stardust'>('tree');
+  const [stardustView, setStardustView] = useState<'upgrades' | 'stars'>('upgrades');
   const notation = state.settings.notation;
   const canCrunch = state.points.gte(INFINITY_THRESHOLD);
   const crunchIPGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
@@ -378,19 +403,27 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
         </div>
       ) : subTab === 'stardust' ? (
         <div className="bg-slate-900 border border-purple-500/30 rounded-2xl p-6 space-y-6">
+          {/* Header & Sub-navigation */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
             <div>
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
                 <h3 className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-300 to-amber-300 font-mono">
-                  Stardust Nexus
+                  {stardustView === 'stars' ? 'Stars Realm' : 'Stardust Nexus'}
                 </h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/60 text-amber-400 border border-amber-500/30">
                   ONLINE ONLY
                 </span>
+                {(state.stardust?.stars || 0) > 0 && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    ★ {state.stardust?.stars} STARS
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
-                Stardust is a subtle celestial element forged in real-time. It cannot be accumulated while offline. Stardust elevates every generator's output by exponentiating their multipliers gently, starting at ^1.001 and scaling with softcaps (growth slows by 10x after 10 Stardust, and by another 10x after 1,000 Stardust).
+                {stardustView === 'stars'
+                  ? 'Stars are condensed celestial singularities. Forming a Star resets current Stardust, lifetime Stardust, buyables, and unpreserved upgrades in exchange for a permanent Star that grants linear generator exponent power, exponential Stardust multipliers, and unique milestones.'
+                  : "Stardust is a subtle celestial element forged in real-time. It cannot be accumulated while offline. Stardust elevates every generator's output by exponentiating their multipliers gently, starting at ^1.001 and scaling with a per-magnitude softcap."}
               </p>
             </div>
             <div className="text-right">
@@ -401,139 +434,771 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             </div>
           </div>
 
-          {/* Stardust Stat Gauges */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
-            <div className="bg-slate-950/70 border border-purple-500/20 p-4 rounded-xl">
-              <span className="text-slate-500 text-[10px] uppercase block">Production Rate</span>
-              <span className="text-lg font-bold text-purple-300 mt-1 block">
-                +{getStardustPerSecond(state).format(notation)} / sec
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">Active real-time tick</span>
+          {/* Sub-tab view toggle if Stars are unlocked */}
+          {(state.stardust?.starsUnlocked || (state.stardust?.stars || 0) > 0) && (
+            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+              <button
+                type="button"
+                onClick={() => setStardustView('upgrades')}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  stardustView === 'upgrades'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                    : 'text-slate-400 hover:text-white bg-slate-950 border border-slate-800'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Upgrades & Buyables</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStardustView('stars')}
+                className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  stardustView === 'stars'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/30'
+                    : 'text-amber-300 hover:text-white bg-slate-950 border border-amber-500/30'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5 fill-current" />
+                <span>Stars Reset Layer</span>
+                <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-500/40">
+                  ★ {state.stardust?.stars || 0}
+                </span>
+              </button>
             </div>
+          )}
 
-            <div className="bg-slate-950/70 border border-amber-500/20 p-4 rounded-xl">
-              <span className="text-slate-500 text-[10px] uppercase block">Generator Power Exponent</span>
-              <span className="text-lg font-bold text-amber-300 mt-1 block">
-                ^{getStardustGeneratorExponent(state.stardust?.amount || Decimal.zero()).toFixed(5)}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">
-                {(() => {
-                  const amt = (state.stardust?.amount || Decimal.zero()).toNumber();
-                  if (amt > 1000) return 'Softcap tier 2 active (100x slower growth)';
-                  if (amt > 10) return 'Softcap tier 1 active (10x slower growth)';
-                  return 'Applied to all 8 generators';
-                })()}
-              </span>
-            </div>
+          {stardustView === 'stars' ? (
+            /* STARS REALM RESET LAYER VIEW */
+            <div className="space-y-6">
+              {/* Stars Overview Gauges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+                <div className="bg-slate-950/70 border border-amber-500/30 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Total Stars</span>
+                  <span className="text-xl font-bold text-amber-400 mt-1 block">
+                    ★ {state.stardust?.stars || 0}
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Lifetime forged: ★ {state.stardust?.totalStars || state.stardust?.stars || 0}
+                  </span>
+                </div>
 
-            <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl">
-              <span className="text-slate-500 text-[10px] uppercase block">Lifetime Stardust</span>
-              <span className="text-lg font-bold text-slate-200 mt-1 block">
-                {(state.stardust?.totalEarned || Decimal.zero()).format(notation)}
-              </span>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">Total ever forged</span>
-            </div>
-          </div>
+                <div className="bg-slate-950/70 border border-purple-500/30 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Generator Power Exponent</span>
+                  <span className="text-xl font-bold text-purple-300 mt-1 block">
+                    ^{ (1 + getStarGeneratorExponent(state.stardust?.stars || 0)).toFixed(4) }
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Linear: +{isStarMilestoneUnlocked(state.stardust?.stars || 0, 6) ? '0.0015' : '0.0010'} per Star
+                  </span>
+                </div>
 
-          {/* Stardust Upgrades Section */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-              <span>Celestial Upgrades</span>
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Upgrade 1: Stardust Doubler */}
+                <div className="bg-slate-950/70 border border-emerald-500/30 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Stardust Production Multiplier</span>
+                  <span className="text-xl font-bold text-emerald-300 mt-1 block">
+                    ×{getStarStardustMultiplier(state.stardust?.stars || 0).format(notation)}
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    {isStarMilestoneUnlocked(state.stardust?.stars || 0, 3) ? '3× per Star' : '2× per Star'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Star Reset Action Card */}
               {(() => {
-                const doublerLevel = state.stardust?.doublerLevel || 0;
-                const cost = getStardustDoublerCost(doublerLevel);
-                const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
-                const currentGainMult = Math.pow(2, doublerLevel);
-                const nextGainMult = Math.pow(2, doublerLevel + 1);
+                const currentStars = state.stardust?.stars || 0;
+                const starCost = getStarResetCost(currentStars);
+                const currentStardust = state.stardust?.amount || Decimal.zero();
+                const canReset = currentStardust.gte(starCost);
 
                 return (
-                  <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-semibold text-sm text-slate-100">Stardust Doubler</h4>
-                        <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
-                          LEVEL {doublerLevel}
+                  <div className="p-6 rounded-2xl border bg-gradient-to-br from-amber-950/20 via-slate-950/90 to-purple-950/20 border-amber-500/40 space-y-4 shadow-xl">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Star className="w-5 h-5 text-amber-400 fill-amber-400 animate-pulse" />
+                          <h4 className="text-base font-bold text-white tracking-wide">
+                            Form Star #{currentStars + 1}
+                          </h4>
+                          <span className="text-xs font-mono px-2 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300">
+                            +1 STAR
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                          Condenses your stellar matter into an immortal cosmic core. Grants a permanent linear exponent boost to all generators and exponential multiplier to future Stardust synthesis.
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] uppercase font-mono text-slate-400 block">Required Stardust</span>
+                        <span className="text-xl font-bold font-mono text-amber-400">
+                          {starCost.format(notation)} Stardust
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          Cost scales by 10× per Star
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                        Doubles total Stardust generated per second. Cost scales by 4x per level (1, 4, 16, 64...).
-                      </p>
-                      <div className="mt-3 text-xs font-mono text-purple-300">
-                        Current multiplier: <strong>×{currentGainMult}</strong>
-                        <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">×{nextGainMult}</strong></span>
-                      </div>
                     </div>
-                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+
+                    {/* Warning and Preservation Info */}
+                    <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200/90 space-y-1">
+                      <div className="font-semibold text-amber-300 flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>Star Reset Rules:</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Resets Stardust amount, lifetime Stardust, buyables (Doubler & Base), and unpreserved celestial upgrades in exchange for +1 Star.
+                        {isStarMilestoneUnlocked(currentStars + 1, 2) && ' (Stellar Radiance preserved ✓)'}
+                        {isStarMilestoneUnlocked(currentStars + 1, 4) && ' (Astral Focus & Harmonizer preserved ✓)'}
+                        {isStarMilestoneUnlocked(currentStars + 1, 5) && ' (Cosmic Weaver, Catalyst & Convergence preserved ✓)'}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between">
                       <span className="text-xs font-mono text-slate-400">
-                        Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                        Current: <strong className="text-purple-300">{currentStardust.format(notation)}</strong> / {starCost.format(notation)}
                       </span>
                       <button
                         type="button"
-                        onClick={onBuyStardustDoubler}
-                        disabled={!canAfford}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                          canAfford
-                            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                        onClick={onPerformStarReset}
+                        disabled={!canReset}
+                        className={`px-6 py-2.5 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                          canReset
+                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95'
                             : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                         }`}
                       >
-                        Buy Doubler
+                        <Star className="w-4 h-4 fill-current" />
+                        <span>Ignite Star (+1 Star)</span>
                       </button>
                     </div>
                   </div>
                 );
               })()}
 
-              {/* Upgrade 2: Stardust Base */}
-              {(() => {
-                const baseLvl = state.stardust?.baseUpgradeLevel || 0;
-                const cost = getStardustBaseCost(baseLvl);
-                const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
-                const currentBase = 0.01 + 0.005 * baseLvl;
-                const nextBase = 0.01 + 0.005 * (baseLvl + 1);
+              {/* Star Milestones Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    <span>Star Milestones</span>
+                  </h4>
+                  <span className="text-xs font-mono text-slate-400">
+                    {STAR_MILESTONES.filter((m) => isStarMilestoneUnlocked(state.stardust?.stars || 0, m.starsRequired)).length} / {STAR_MILESTONES.length} Unlocked
+                  </span>
+                </div>
 
-                return (
-                  <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-semibold text-sm text-slate-100">Stardust Base Generator</h4>
-                        <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
-                          LEVEL {baseLvl}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                        Increases the base Stardust generation rate by +0.005/s each level. Cost scales by 2x per level (1, 2, 4, 8...).
-                      </p>
-                      <div className="mt-3 text-xs font-mono text-purple-300">
-                        Base rate: <strong>+{currentBase.toFixed(4)}/s</strong>
-                        <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">+{nextBase.toFixed(4)}/s</strong></span>
-                      </div>
-                    </div>
-                    <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                      <span className="text-xs font-mono text-slate-400">
-                        Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={onBuyStardustBase}
-                        disabled={!canAfford}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                          canAfford
-                            ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
-                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+                  {STAR_MILESTONES.map((m) => {
+                    const isUnlocked = isStarMilestoneUnlocked(state.stardust?.stars || 0, m.starsRequired);
+                    return (
+                      <div
+                        key={`star-ms-${m.starsRequired}`}
+                        className={`p-4 rounded-xl border flex items-start gap-3 transition-all ${
+                          isUnlocked
+                            ? 'bg-amber-950/20 border-amber-500/40 text-amber-200'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-500'
                         }`}
                       >
-                        Buy Base (+0.005)
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
+                        <div className="text-2xl shrink-0 mt-0.5">{m.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <h5 className={`font-bold text-xs ${isUnlocked ? 'text-white' : 'text-slate-400'}`}>
+                              {m.name}
+                            </h5>
+                            <span
+                              className={`text-[10px] px-2 py-0.5 rounded border font-bold ${
+                                isUnlocked
+                                  ? 'bg-amber-950/80 border-amber-500/40 text-amber-300'
+                                  : 'bg-slate-900 border-slate-700 text-slate-500'
+                              }`}
+                            >
+                              ★ {m.starsRequired} {m.starsRequired === 1 ? 'STAR' : 'STARS'}
+                            </span>
+                          </div>
+                          <p className={`text-[11px] mt-1 leading-relaxed ${isUnlocked ? 'text-amber-100/80' : 'text-slate-500'}`}>
+                            {m.desc}
+                          </p>
+                          <div className="mt-2 text-[10px] font-semibold">
+                            {isUnlocked ? (
+                              <span className="text-emerald-400">ACTIVE ✓</span>
+                            ) : (
+                              <span className="text-slate-500">
+                                Requires {m.starsRequired} Stars (currently {state.stardust?.stars || 0})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* STARDUST UPGRADES & BUYABLES VIEW */
+            <>
+              {/* Stardust Stat Gauges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+                <div className="bg-slate-950/70 border border-purple-500/20 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Production Rate</span>
+                  <span className="text-lg font-bold text-purple-300 mt-1 block">
+                    +{getStardustPerSecond(state).format(notation)} / sec
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Active real-time tick</span>
+                </div>
+
+                <div className="bg-slate-950/70 border border-amber-500/20 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Generator Power Exponent</span>
+                  <span className="text-lg font-bold text-amber-300 mt-1 block">
+                    ^{getStardustGeneratorExponent(state.stardust?.amount || Decimal.zero(), state).toFixed(5)}
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    {(() => {
+                      const amt = (state.stardust?.amount || Decimal.zero()).toNumber();
+                      const hasDust4 = !!state.infinityTree?.dust_4;
+                      const hasAstralFocus = !!state.stardust?.astralLens;
+                      const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0);
+                      if (amt > 10) {
+                        const mag = Math.floor(Math.log10(amt));
+                        return `Magnitude ${mag} softcap active (${factor.toFixed(1)}x slower per OoM)`;
+                      }
+                      return 'Full unsoftcapped growth (up to 10 Stardust)';
+                    })()}
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/70 border border-slate-800 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Lifetime Stardust</span>
+                  <span className="text-lg font-bold text-slate-200 mt-1 block">
+                    {(state.stardust?.totalEarned || Decimal.zero()).format(notation)}
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Total forged this Star run</span>
+                </div>
+              </div>
+
+              {/* Celestial Buyables & Upgrades Section */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <span>Celestial Upgrades & Buyables</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Buyable 1: Stardust Doubler */}
+                  {(() => {
+                    const doublerLevel = state.stardust?.doublerLevel || 0;
+                    const cost = getStardustDoublerCost(doublerLevel, state);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                    const currentGainMult = Math.pow(2, doublerLevel);
+                    const nextGainMult = Math.pow(2, doublerLevel + 1);
+                    const scaleFactor = state.stardust?.astralConvergence ? 3 : 4;
+
+                    return (
+                      <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Stardust Doubler</h4>
+                            <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                              LEVEL {doublerLevel}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Doubles total Stardust generated per second. Cost scales by {scaleFactor}x per level{state.stardust?.astralConvergence ? ' (reduced by Astral Convergence)' : ''}.
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            Current multiplier: <strong>×{currentGainMult}</strong>
+                            <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">×{nextGainMult}</strong></span>
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={onBuyStardustDoubler}
+                            disabled={!canAfford}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                              canAfford
+                                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }`}
+                          >
+                            Buy Doubler
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Buyable 2: Stardust Base */}
+                  {(() => {
+                    const baseLvl = state.stardust?.baseUpgradeLevel || 0;
+                    const cost = getStardustBaseCost(baseLvl, state);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                    const basePerLvl = (state.infinityTree?.dust_2 ? 0.010 : 0.005) * (state.stardust?.supernovaCatalyst ? 3 : 1);
+                    const currentBase = 0.01 + basePerLvl * baseLvl;
+                    const nextBase = 0.01 + basePerLvl * (baseLvl + 1);
+
+                    return (
+                      <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Stardust Base Generator</h4>
+                            <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                              LEVEL {baseLvl}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Increases base Stardust generation by +{basePerLvl.toFixed(3)}/s each level{state.stardust?.supernovaCatalyst ? ' (tripled by Supernova Catalyst)' : ''}. Cost scales by {isStarMilestoneUnlocked(state.stardust?.stars || 0, 8) ? '1.75x' : '2.0x'}.
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            Base rate: <strong>+{currentBase.toFixed(4)}/s</strong>
+                            <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">+{nextBase.toFixed(4)}/s</strong></span>
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={onBuyStardustBase}
+                            disabled={!canAfford}
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                              canAfford
+                                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }`}
+                          >
+                            Buy Base (+{basePerLvl.toFixed(3)})
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 1: Stellar Radiance (2,500) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.stellarRadiance;
+                    const cost = new Decimal(2500);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                        isBought ? 'bg-purple-950/25 border-purple-500/40' : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Stellar Radiance</h4>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Increases real-time Stardust production by +25% per active Stardust softcap tier (each order of magnitude above 10).
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            {(() => {
+                              const activeSoftcaps = (state.stardust?.amount && state.stardust.amount.gt(10))
+                                ? Math.floor(state.stardust.amount.log10())
+                                : 0;
+                              const currentMult = 1 + 0.25 * activeSoftcaps;
+                              return (
+                                <span>
+                                  Status: <strong>{isBought
+                                    ? `Active (+${activeSoftcaps * 25}% / ×${currentMult.toFixed(2)} from ${activeSoftcaps} softcaps)`
+                                    : `Available (+${activeSoftcaps * 25}% / ×${currentMult.toFixed(2)} at current ${activeSoftcaps} softcaps)`}
+                                  </strong>
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-purple-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuyStellarRadiance}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 2: Astral Focus (10,000) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.astralLens;
+                    const cost = new Decimal(10000);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                    const hasDust4 = !!state.infinityTree?.dust_4;
+                    const currentDivisor = (hasDust4 ? 9 : 10) - (isBought ? 0.5 : 0);
+                    const potentialDivisor = (hasDust4 ? 9 : 10) - 0.5;
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                        isBought ? 'bg-purple-950/25 border-purple-500/40' : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Astral Focus</h4>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Weakens the Stardust generator softcap: reduces the per-magnitude growth divisor by 0.5× (from 10× to 9.5×, or from 9× to 8.5× with Softcap Transmutation).
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            Status: <strong>{isBought
+                              ? `Active (Divisor reduced to ${currentDivisor.toFixed(1)}×)`
+                              : `Available (Will reduce divisor to ${potentialDivisor.toFixed(1)}×)`}
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-purple-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuyAstralLens}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 3: Constellation Harmonizer (50,000) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.constellationHarmonizer;
+                    const cost = new Decimal(50000);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                    const stardustAmount = state.stardust?.amount || Decimal.zero();
+                    const curMult = Decimal.one().add(stardustAmount.pow(5));
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                        isBought ? 'bg-purple-950/25 border-purple-500/40' : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Constellation Harmonizer</h4>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Aligns generator output with stellar configurations: all generators gain a multiplier of ×(1 + Stardust⁵).
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            {isBought ? (
+                              <span>Current bonus: <strong>×{curMult.format(notation)}</strong> to all generators</span>
+                            ) : (
+                              <span>Potential bonus: <strong>×{curMult.format(notation)}</strong> to all generators</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-purple-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuyConstellationHarmonizer}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 4: Cosmic Weaver (750,000) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.cosmicWeaver;
+                    const cost = new Decimal(750000);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+                    const infCount = state.infinity?.count || state.stats?.totalInfinities || 0;
+                    const infLog = Math.log10(Math.max(1, infCount + 1));
+                    const currentMult = 1 + infLog * 0.25;
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                        isBought ? 'bg-purple-950/25 border-purple-500/40' : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Cosmic Weaver</h4>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Weaves the fabric of Infinities into Stardust: multiplies Stardust production by ×(1 + log10(Infinities + 1) × 0.25).
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            Status: <strong>{isBought
+                              ? `Active (×${currentMult.toFixed(2)} from ${infCount} Infinities)`
+                              : `Available (Will grant ×${currentMult.toFixed(2)} at ${infCount} Infinities)`}
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-purple-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuyCosmicWeaver}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 5: Supernova Catalyst (2,500,000) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.supernovaCatalyst;
+                    const cost = new Decimal(2500000);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                        isBought ? 'bg-purple-950/25 border-purple-500/40' : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Supernova Catalyst</h4>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Ignites the core of Stardust Base Generators: triples (3×) the base Stardust rate gained from every purchased Stardust Base level.
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            Status: <strong>{isBought ? 'Active (Base Generator power is 3×)' : 'Available (Triples Base Generator rate)'}</strong>
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-purple-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuySupernovaCatalyst}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 6: Astral Convergence (10,000,000) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.astralConvergence;
+                    const cost = new Decimal(10000000);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                        isBought ? 'bg-purple-950/25 border-purple-500/40' : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-semibold text-sm text-slate-100">Astral Convergence</h4>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                            Harmonizes celestial currents: reduces Stardust Doubler cost scaling from 4× to 3× per level, and doubles (2×) current Stardust production rate.
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-purple-300">
+                            Status: <strong>{isBought ? 'Active (Doubler scale 3×, 2× generation)' : 'Available (3× Doubler scale + 2× rate)'}</strong>
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-purple-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuyAstralConvergence}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Upgrade 7: Stars Awakening (100,000,000 / 1e8) */}
+                  {(() => {
+                    const isBought = !!state.stardust?.starsUnlocked;
+                    const cost = new Decimal(1e8);
+                    const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
+
+                    return (
+                      <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all md:col-span-2 ${
+                        isBought
+                          ? 'bg-amber-950/30 border-amber-500/50 shadow-lg shadow-amber-950/40'
+                          : 'bg-slate-950/80 border-slate-700'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Star className="w-4 h-4 text-amber-400 fill-amber-400 animate-pulse" />
+                              <h4 className="font-bold text-sm text-white">Stars Awakening (Пробуждение звёзд)</h4>
+                            </div>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/80 border border-amber-500/40 font-bold">
+                                UNLOCKED
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-amber-400">GATEWAY</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                            Unlocks the <strong>Stars Realm</strong> reset layer inside Stardust! Condenses all accumulated Stardust into permanent Stars, granting linear generator exponent growth, exponential Stardust generation multipliers, and unique Star Milestones.
+                          </p>
+                          <div className="mt-3 text-xs font-mono text-amber-300">
+                            {isBought ? (
+                              <div className="flex items-center gap-3">
+                                <span>Stars Realm is fully unlocked!</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setStardustView('stars')}
+                                  className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] transition-colors cursor-pointer"
+                                >
+                                  Open Stars Realm →
+                                </button>
+                              </div>
+                            ) : (
+                              <span>Requires 1.00e8 Stardust to ignite the first Star layer.</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-amber-400">{cost.format(notation)} Stardust</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-amber-300 font-semibold">Stars Layer Active</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={onBuyStarsUnlock}
+                              disabled={!canAfford}
+                              className={`px-4 py-2 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-md shadow-amber-500/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Unlock Stars Layer
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         /* Infinity Chamber Protocols */

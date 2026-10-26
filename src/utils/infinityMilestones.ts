@@ -10,7 +10,8 @@ export type InfinityMilestoneId =
   | 'milestone_1500_auto_infinity'
   | 'milestone_2250_post_infinity'
   | 'milestone_2500_pp_power'
-  | 'milestone_3350_tickspeed_boost';
+  | 'milestone_3350_tickspeed_boost'
+  | 'milestone_100000_stardust_boost';
 
 export interface InfinityMilestoneDefinition {
   id: InfinityMilestoneId;
@@ -74,7 +75,7 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     id: 'milestone_2250_post_infinity',
     title: 'Post-Infinity Gateway',
     icon: '🌌',
-    reward: 'Unlocks the Post-Infinity branch in the Infinity Tree, containing 4 powerful upgrades.',
+    reward: 'Unlocks the Post-Infinity branch in the Infinity Tree, containing 5 powerful upgrades.',
     requirement: '1,500 Infinities',
     infinityCountRequired: 1500,
   },
@@ -93,6 +94,14 @@ export const INFINITY_MILESTONES: InfinityMilestoneDefinition[] = [
     reward: 'Adds +0.02 to tickspeed speed boost per level (from 1.10x / 1.15x to 1.12x / 1.17x per level).',
     requirement: '3,350 Infinities',
     infinityCountRequired: 3350,
+  },
+  {
+    id: 'milestone_100000_stardust_boost',
+    title: 'Stellar Continuum',
+    icon: '🪐',
+    reward: 'Multiplies real-time Stardust production by ×1.5.',
+    requirement: '100,000 Infinities',
+    infinityCountRequired: 100000,
   },
 ];
 
@@ -143,6 +152,8 @@ export function isInfinityMilestoneUnlocked(
       return infinities >= 2500;
     case 'milestone_3350_tickspeed_boost':
       return infinities >= 3350;
+    case 'milestone_100000_stardust_boost':
+      return infinities >= 100000;
     default:
       return false;
   }
@@ -187,6 +198,8 @@ export function getInfinityMilestoneRequirementProgress(
       return [fmtInfinities(2500)];
     case 'milestone_3350_tickspeed_boost':
       return [fmtInfinities(3350)];
+    case 'milestone_100000_stardust_boost':
+      return [fmtInfinities(100000)];
     default:
       return [];
   }

@@ -1,6 +1,6 @@
 export interface InfinityTreeNodeDef {
   id: string;
-  branch: 'root' | 'pre' | 'auto' | 'feat' | 'post';
+  branch: 'root' | 'pre' | 'auto' | 'feat' | 'post' | 'dust';
   title: string;
   desc: string;
   cost: number; // Skill Points (SP)
@@ -272,6 +272,53 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     req: 'post_3',
     icon: '🌟',
   },
+  post_5: {
+    id: 'post_5',
+    branch: 'post',
+    title: 'SP Magnitude Resonance',
+    desc: 'Multiplies Skill Points (SP) gained upon Infinity reset by 1.3x per magnitude (order of magnitude) of unspent SP.',
+    cost: 1e7,
+    req: 'post_4',
+    icon: '🔮',
+  },
+  // Branch 5: Stardust Tree (unlocked via Stardust Astral Matrix Break Infinity upgrade)
+  dust_1: {
+    id: 'dust_1',
+    branch: 'dust',
+    title: 'Stellar Base Resonance',
+    desc: 'Multiplies Stardust gained by 1.1x per purchased Stardust Base level (1.1^level). Requires the Stardust Astral Matrix Break Infinity upgrade (1.00e308 IP).',
+    cost: 1e6,
+    req: 'root',
+    reqUpgrade: 'stardustTreeUnlock',
+    icon: '✨',
+  },
+  dust_2: {
+    id: 'dust_2',
+    branch: 'dust',
+    title: 'Celestial Infusion',
+    desc: 'Doubles the base Stardust generation rate gained from Stardust Base (+0.010/s per level instead of +0.005/s).',
+    cost: 1e7,
+    req: 'dust_1',
+    icon: '🌟',
+  },
+  dust_3: {
+    id: 'dust_3',
+    branch: 'dust',
+    title: 'Cosmic Self-Reflection',
+    desc: 'Stardust multiplies its own production by log10(stardust)/3 (active when Stardust >= 10).',
+    cost: 1e8,
+    req: 'dust_2',
+    icon: '🌌',
+  },
+  dust_4: {
+    id: 'dust_4',
+    branch: 'dust',
+    title: 'Softcap Transmutation',
+    desc: 'Weakens the Stardust generator softcap: instead of weakening by 10 per order of magnitude, weakens by 9.',
+    cost: 1e9,
+    req: 'dust_3',
+    icon: '🪐',
+  },
 };
 
 export const BRANCH_CONFIG = {
@@ -298,5 +345,11 @@ export const BRANCH_CONFIG = {
     color: 'rose',
     badge: 'border-rose-500/40 text-rose-300 bg-rose-950/40',
     accent: 'from-rose-500/20 to-pink-500/20',
+  },
+  dust: {
+    name: 'Stardust',
+    color: 'amber',
+    badge: 'border-amber-500/40 text-amber-300 bg-amber-950/40',
+    accent: 'from-amber-500/20 to-purple-500/20',
   },
 };

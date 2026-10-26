@@ -154,6 +154,7 @@ export const createInitialState = (): GameState => ({
       transcendentCascade: false,
       absoluteHorizon: false,
       prestigePreservationUnlock: false,
+      stardustTreeUnlock: false,
     },
   },
 
@@ -165,6 +166,15 @@ export const createInitialState = (): GameState => ({
     totalEarned: Decimal.zero(),
     doublerLevel: 0,
     baseUpgradeLevel: 0,
+    stellarRadiance: false,
+    astralLens: false,
+    constellationHarmonizer: false,
+    cosmicWeaver: false,
+    supernovaCatalyst: false,
+    astralConvergence: false,
+    starsUnlocked: false,
+    stars: 0,
+    totalStars: 0,
   },
 
   autobuyers: {
@@ -355,6 +365,8 @@ export const deserializeState = (raw: string): GameState | null => {
           transcendentCascade: !!parsed.infinity?.breakInfinityUpgrades?.transcendentCascade,
           absoluteHorizon: !!parsed.infinity?.breakInfinityUpgrades?.absoluteHorizon,
           prestigePreservationUnlock: !!parsed.infinity?.breakInfinityUpgrades?.prestigePreservationUnlock,
+          stardustTreeUnlock: !!parsed.infinity?.breakInfinityUpgrades?.stardustTreeUnlock,
+          ...(parsed.infinity?.breakInfinityUpgrades || {}),
         },
       },
       infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
@@ -370,6 +382,19 @@ export const deserializeState = (raw: string): GameState | null => {
         baseUpgradeLevel: typeof parsed.stardust?.baseUpgradeLevel === 'number'
           ? Math.max(0, Math.floor(parsed.stardust.baseUpgradeLevel))
           : 0,
+        stellarRadiance: !!parsed.stardust?.stellarRadiance,
+        astralLens: !!parsed.stardust?.astralLens,
+        constellationHarmonizer: !!parsed.stardust?.constellationHarmonizer,
+        cosmicWeaver: !!parsed.stardust?.cosmicWeaver,
+        supernovaCatalyst: !!parsed.stardust?.supernovaCatalyst,
+        astralConvergence: !!parsed.stardust?.astralConvergence,
+        starsUnlocked: !!parsed.stardust?.starsUnlocked,
+        stars: typeof parsed.stardust?.stars === 'number' && Number.isFinite(parsed.stardust.stars)
+          ? Math.max(0, Math.floor(parsed.stardust.stars))
+          : 0,
+        totalStars: typeof parsed.stardust?.totalStars === 'number' && Number.isFinite(parsed.stardust.totalStars)
+          ? Math.max(0, Math.floor(parsed.stardust.totalStars))
+          : (typeof parsed.stardust?.stars === 'number' ? Math.max(0, Math.floor(parsed.stardust.stars)) : 0),
       },
       autobuyers: {
         ...initial.autobuyers,

@@ -43,12 +43,16 @@ import {
   getStardustPerSecond,
   getStardustDoublerCost,
   getStardustBaseCost,
+  getStarResetCost,
+  getStarGeneratorExponent,
+  getStarStardustMultiplier,
   getSkillAmplificationLevel,
   getSkillAmplificationCost,
   getGeneratorAmplificationCost,
   getMaxGeneratorAmplificationPurchases,
 } from '../utils/gameCalculations';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
+import { isStarMilestoneUnlocked } from '../constants/starMilestones';
 
 
 /**
@@ -467,8 +471,8 @@ export function useGameLoop() {
           state.stats.growthHistory = currentHistory;
         }
 
-        // Tree Node root auto-unlock if player has >= 1 Infinity
-        if (state.infinity.count > 0 && !state.infinityTree?.root) {
+        // Tree Node root auto-unlock if player has >= 1 Infinity or unlocked Infinity layer
+        if ((state.infinity.count > 0 || state.infinity.unlocked || Object.keys(state.infinityTree || {}).length > 0) && !state.infinityTree?.root) {
           state.infinityTree = { ...(state.infinityTree || {}), root: true };
         }
 
@@ -784,8 +788,18 @@ export function useGameLoop() {
             // Enforce fast infinity cooldown of 0.1s (100ms)
             if (now - lastInfTime >= 100 && timeSinceLastInf >= 0.1) {
               const ipGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
-              const infTarget = typeof autoInf.infinityTarget === 'number' ? autoInf.infinityTarget : 1;
               const infMode = autoInf.infinityMode || 'targetIP';
+              const rawTarget: unknown = autoInf.infinityTarget;
+              let targetDecimal: Decimal;
+              if (rawTarget instanceof Decimal) {
+                targetDecimal = rawTarget;
+              } else if (typeof rawTarget === 'string' && rawTarget.trim() !== '') {
+                targetDecimal = Decimal.fromString(rawTarget);
+              } else if (typeof rawTarget === 'number') {
+                targetDecimal = new Decimal(Math.max(1, isNaN(rawTarget) ? 1 : rawTarget));
+              } else {
+                targetDecimal = Decimal.one();
+              }
               const prevIPGain = autoInf.previousIPGain instanceof Decimal ? autoInf.previousIPGain : Decimal.zero();
               const infTimeTarget = Math.max(1, autoInf.infinityTimeTarget || 60);
               const infRatioTarget = Math.max(1.01, autoInf.infinityRatioTarget || 2);
@@ -794,14 +808,13 @@ export function useGameLoop() {
               if (infMode === 'time') {
                 shouldCrunch = (state.stats.timeThisInfinity || 0) >= infTimeTarget;
               } else if (infMode === 'ipMultiplier') {
-                shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : ipGain.gte(infTarget);
+                shouldCrunch = prevIPGain.gt(0) ? ipGain.gte(prevIPGain.mul(infRatioTarget)) : ipGain.gte(targetDecimal);
               } else {
-                shouldCrunch = ipGain.gte(infTarget);
+                // targetIP: resets when current IP gain is greater than or equal to target IP
+                shouldCrunch = ipGain.gte(targetDecimal);
               }
 
               if (shouldCrunch) {
-                lastInfinityResetTimeRef.current = now;
-                state.infinity.lastInfinityTime = now;
                 state.autobuyers['autoInfinity'] = {
                   ...autoInf,
                   previousIPGain: ipGain,
@@ -1009,6 +1022,10 @@ export function useGameLoop() {
       const mult = getTickspeedCostMult(prev);
       const newBought = prev.tickspeed.bought + 1;
       const nextCost = cost.mul(mult);
+      const nextMult = getTickspeedCostMult({
+        ...prev,
+        tickspeed: { ...prev.tickspeed, bought: newBought, cost: nextCost },
+      }, newBought);
 
       return {
         ...prev,
@@ -1016,7 +1033,7 @@ export function useGameLoop() {
         tickspeed: {
           ...prev.tickspeed,
           bought: newBought,
-          costMult: mult,
+          costMult: nextMult,
           cost: nextCost,
         },
         stats: {
@@ -1030,21 +1047,58 @@ export function useGameLoop() {
   // Buy as many Tickspeed levels as the current Points balance allows.
   const buyMaxTickspeed = useCallback(() => {
     setGameState((prev) => {
-      const mult = getTickspeedCostMult(prev);
-      const boughtNow = getMaxGeometricPurchases(
-        prev.points,
-        prev.tickspeed.cost,
-        mult,
-      );
-      if (boughtNow.count === 0) return prev;
+      let currentPoints = prev.points;
+      let currentBought = prev.tickspeed.bought;
+      let currentCost = prev.tickspeed.cost;
+      let totalPurchased = 0;
+
+      // Phase 1: Purchases before the 25,000 cost-scaling threshold
+      if (currentBought < 25000 && currentPoints.gte(currentCost)) {
+        const mult1 = getTickspeedCostMult(prev, currentBought);
+        const maxInPhase1 = 25000 - currentBought;
+        const res1 = getMaxGeometricPurchases(currentPoints, currentCost, mult1);
+        const count1 = Math.min(res1.count, maxInPhase1);
+
+        if (count1 > 0) {
+          const cost1 = count1 === res1.count
+            ? res1.totalCost
+            : currentCost.mul(mult1.pow(count1).sub(1)).div(mult1.sub(1));
+          currentPoints = currentPoints.sub(cost1);
+          currentCost = currentCost.mul(mult1.pow(count1));
+          currentBought += count1;
+          totalPurchased += count1;
+        }
+      }
+
+      // Phase 2: Purchases at or above the 25,000 threshold (multiplier = 3000x)
+      if (currentBought >= 25000 && currentPoints.gte(currentCost)) {
+        const mult2 = new Decimal(3000);
+        const res2 = getMaxGeometricPurchases(currentPoints, currentCost, mult2);
+        if (res2.count > 0) {
+          currentPoints = currentPoints.sub(res2.totalCost);
+          currentCost = currentCost.mul(mult2.pow(res2.count));
+          currentBought += res2.count;
+          totalPurchased += res2.count;
+        }
+      }
+
+      if (totalPurchased === 0) return prev;
 
       sound.playBuy();
-      const bought = prev.tickspeed.bought + boughtNow.count;
-      const cost = prev.tickspeed.cost.mul(mult.pow(boughtNow.count));
+      const nextMult = getTickspeedCostMult({
+        ...prev,
+        tickspeed: { ...prev.tickspeed, bought: currentBought, cost: currentCost },
+      }, currentBought);
+
       return {
         ...prev,
-        points: prev.points.sub(boughtNow.totalCost),
-        tickspeed: { ...prev.tickspeed, bought, costMult: mult, cost },
+        points: currentPoints,
+        tickspeed: {
+          ...prev.tickspeed,
+          bought: currentBought,
+          costMult: nextMult,
+          cost: currentCost,
+        },
       };
     });
   }, []);
@@ -1056,18 +1110,35 @@ export function useGameLoop() {
       const unlockedCount = getUnlockedGeneratorsCount(prev);
       let didBuy = false;
 
-      // Buy Tickspeed
+      // Buy Tickspeed (two phases: <25,000 and >=25,000)
       let tickBought = prev.tickspeed.bought;
       let tickCost = prev.tickspeed.cost;
-      let tickMult = getTickspeedCostMult(prev);
-      while (currentPoints.gte(tickCost)) {
-        currentPoints = currentPoints.sub(tickCost);
-        tickBought++;
-        tickMult = (currentPoints.gte(new Decimal(1, 308)) || tickCost.gte(new Decimal(1, 308)))
-          ? new Decimal(300)
-          : new Decimal(15);
-        tickCost = tickCost.mul(tickMult);
-        didBuy = true;
+
+      if (tickBought < 25000 && currentPoints.gte(tickCost)) {
+        const mult1 = getTickspeedCostMult(prev, tickBought);
+        const maxInPhase1 = 25000 - tickBought;
+        const res1 = getMaxGeometricPurchases(currentPoints, tickCost, mult1);
+        const count1 = Math.min(res1.count, maxInPhase1);
+        if (count1 > 0) {
+          const cost1 = count1 === res1.count
+            ? res1.totalCost
+            : tickCost.mul(mult1.pow(count1).sub(1)).div(mult1.sub(1));
+          currentPoints = currentPoints.sub(cost1);
+          tickCost = tickCost.mul(mult1.pow(count1));
+          tickBought += count1;
+          didBuy = true;
+        }
+      }
+
+      if (tickBought >= 25000 && currentPoints.gte(tickCost)) {
+        const mult2 = new Decimal(3000);
+        const res2 = getMaxGeometricPurchases(currentPoints, tickCost, mult2);
+        if (res2.count > 0) {
+          currentPoints = currentPoints.sub(res2.totalCost);
+          tickCost = tickCost.mul(mult2.pow(res2.count));
+          tickBought += res2.count;
+          didBuy = true;
+        }
       }
 
       // Buy all unlocked generators
@@ -1528,15 +1599,22 @@ export function useGameLoop() {
       if (tree[nodeId] && !def.repeatable) return prev;
 
       // Check parent requirement
-      if (def.req !== 'none' && !tree[def.req]) {
+      const isParentBought = def.req === 'none' ||
+        (def.req === 'root'
+          ? (!!tree['root'] || (prev.infinity?.count || 0) > 0 || !!prev.infinity?.unlocked || Object.keys(tree).length > 0)
+          : (!!tree[def.req] || (typeof tree[def.req + 'Level'] === 'number' && (tree[def.req + 'Level'] as number) > 0)));
+      if (!isParentBought) {
         return prev;
       }
 
-      // Check Infinity Upgrade requirement (e.g. automationExpand, prestigePreservationUnlock)
+      // Check Infinity Upgrade requirement (e.g. automationExpand, prestigePreservationUnlock, stardustTreeUnlock)
       if (def.reqUpgrade === 'automationExpand' && !prev.infinity.automationExpand) {
         return prev;
       }
       if (def.reqUpgrade === 'prestigePreservationUnlock' && !prev.infinity.breakInfinityUpgrades?.prestigePreservationUnlock) {
+        return prev;
+      }
+      if (def.reqUpgrade === 'stardustTreeUnlock' && !prev.infinity.breakInfinityUpgrades?.stardustTreeUnlock) {
         return prev;
       }
 
@@ -1799,7 +1877,7 @@ export function useGameLoop() {
     setGameState((prev) => {
       if (!prev.stardust) return prev;
       const currentLevel = prev.stardust.doublerLevel || 0;
-      const cost = getStardustDoublerCost(currentLevel);
+      const cost = getStardustDoublerCost(currentLevel, prev);
       if (prev.stardust.amount.lt(cost)) return prev;
 
       sound.playBuy();
@@ -1820,7 +1898,7 @@ export function useGameLoop() {
     setGameState((prev) => {
       if (!prev.stardust) return prev;
       const currentLevel = prev.stardust.baseUpgradeLevel || 0;
-      const cost = getStardustBaseCost(currentLevel);
+      const cost = getStardustBaseCost(currentLevel, prev);
       if (prev.stardust.amount.lt(cost)) return prev;
 
       sound.playBuy();
@@ -1837,7 +1915,7 @@ export function useGameLoop() {
     });
   }, []);
 
-  // Break Infinity Upgrades, including the new late-game extension from 1e40 IP and 1e200 IP.
+  // Break Infinity Upgrades, including the new late-game extension from 1e40 IP, 1e200 IP, and 1e308 IP.
   const buyBreakInfinityUpgrade = useCallback((upgradeId: BreakInfinityUpgradeId) => {
     const costs: Record<BreakInfinityUpgradeId, Decimal> = {
       limitless: new Decimal(1e16),
@@ -1851,6 +1929,7 @@ export function useGameLoop() {
       transcendentCascade: new Decimal(1, 90),
       absoluteHorizon: new Decimal(1, 110),
       prestigePreservationUnlock: new Decimal(1, 200),
+      stardustTreeUnlock: new Decimal(1, 308),
     };
 
     setGameState((prev) => {
@@ -1876,6 +1955,199 @@ export function useGameLoop() {
           },
         },
       };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Stardust Upgrades costing > 1,000 Stardust
+  const buyStellarRadiance = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.stellarRadiance) return prev;
+      const cost = new Decimal(2500);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          stellarRadiance: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buyAstralLens = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.astralLens) return prev;
+      const cost = new Decimal(10000);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          astralLens: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buyConstellationHarmonizer = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.constellationHarmonizer) return prev;
+      const cost = new Decimal(50000);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          constellationHarmonizer: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buyCosmicWeaver = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.cosmicWeaver) return prev;
+      const cost = new Decimal(750000);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          cosmicWeaver: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buySupernovaCatalyst = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.supernovaCatalyst) return prev;
+      const cost = new Decimal(2500000);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          supernovaCatalyst: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buyAstralConvergence = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.astralConvergence) return prev;
+      const cost = new Decimal(10000000);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          astralConvergence: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buyStarsUnlock = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || prev.stardust.starsUnlocked) return prev;
+      const cost = new Decimal(1e8);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          starsUnlocked: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const performStarReset = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
+      const curStars = prev.stardust.stars || 0;
+      const cost = getStarResetCost(curStars);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playCollapse();
+      const nextStars = curStars + 1;
+
+      // Check milestones for reset benefits & preservation:
+      // Milestone 1: Start each Star reset with 10 Stardust and +1 Base upgrade level
+      const startingAmount = isStarMilestoneUnlocked(nextStars, 1) ? new Decimal(10) : Decimal.zero();
+      const startingBaseLevel = isStarMilestoneUnlocked(nextStars, 1) ? 1 : 0;
+
+      // Milestone 2: Stellar Radiance is permanently preserved
+      const keepStellarRadiance = isStarMilestoneUnlocked(nextStars, 2) ? !!prev.stardust.stellarRadiance : false;
+
+      // Milestone 4: Astral Focus and Constellation Harmonizer are permanently preserved
+      const keepAstralLens = isStarMilestoneUnlocked(nextStars, 4) ? !!prev.stardust.astralLens : false;
+      const keepConstellationHarmonizer = isStarMilestoneUnlocked(nextStars, 4) ? !!prev.stardust.constellationHarmonizer : false;
+
+      // Milestone 5: Cosmic Weaver, Supernova Catalyst, Astral Convergence are permanently preserved
+      const keepCosmicWeaver = isStarMilestoneUnlocked(nextStars, 5) ? !!prev.stardust.cosmicWeaver : false;
+      const keepSupernovaCatalyst = isStarMilestoneUnlocked(nextStars, 5) ? !!prev.stardust.supernovaCatalyst : false;
+      const keepAstralConvergence = isStarMilestoneUnlocked(nextStars, 5) ? !!prev.stardust.astralConvergence : false;
+
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: startingAmount,
+          totalEarned: startingAmount,
+          doublerLevel: 0,
+          baseUpgradeLevel: startingBaseLevel,
+          stellarRadiance: keepStellarRadiance,
+          astralLens: keepAstralLens,
+          constellationHarmonizer: keepConstellationHarmonizer,
+          cosmicWeaver: keepCosmicWeaver,
+          supernovaCatalyst: keepSupernovaCatalyst,
+          astralConvergence: keepAstralConvergence,
+          starsUnlocked: true,
+          stars: nextStars,
+          totalStars: (prev.stardust.totalStars || 0) + 1,
+        },
+      };
+
       saveStateWithBackup(nextState);
       return nextState;
     });
@@ -2338,6 +2610,14 @@ export function useGameLoop() {
     buyMaxSkillAmplification,
     buyStardustDoubler,
     buyStardustBase,
+    buyStellarRadiance,
+    buyAstralLens,
+    buyConstellationHarmonizer,
+    buyCosmicWeaver,
+    buySupernovaCatalyst,
+    buyAstralConvergence,
+    buyStarsUnlock,
+    performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,

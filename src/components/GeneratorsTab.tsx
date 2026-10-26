@@ -5,6 +5,7 @@ import {
   getGeneratorCost,
   getTotalTickspeedSpeed,
   getPreInfinityGeneratorMultiplier,
+  getTickspeedCostMult,
 } from '../utils/gameCalculations';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 
@@ -28,7 +29,8 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
   const genMult = getPreInfinityGeneratorMultiplier(state);
   const preInfRepeatableLevel = typeof state.infinityTree?.pre_5Level === 'number' ? state.infinityTree.pre_5Level : 0;
   const showGenMult = !!state.infinityTree?.pre_4 || preInfRepeatableLevel > 0;
-  const costScaling = state.points.gte(new Decimal(1, 308)) || state.tickspeed.cost.gte(new Decimal(1, 308)) ? '300x' : '15x';
+  const tickMult = getTickspeedCostMult(state);
+  const costScaling = `${tickMult.toNumber().toLocaleString('en-US')}x`;
   const canAffordTickspeed = state.points.gte(state.tickspeed.cost);
   const unlockedCount = state.prestige.unlockedGenerators;
 
@@ -70,7 +72,7 @@ export const GeneratorsTab: React.FC<GeneratorsTabProps> = ({
               Bought: {state.tickspeed.bought}
             </span>
             <span aria-hidden="true" className="text-slate-600">·</span>
-            <span className={state.points.gte(new Decimal(1, 308)) ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
+            <span className={state.tickspeed.bought >= 25000 ? 'text-rose-400 font-bold animate-pulse' : (state.points.gte(new Decimal(1, 308)) || state.tickspeed.cost.gte(new Decimal(1, 308))) ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
               Cost Scale: {costScaling}
             </span>
           </div>
