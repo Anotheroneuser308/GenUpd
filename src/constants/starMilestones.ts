@@ -21,7 +21,7 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
   {
     starsRequired: 3,
     name: 'Fusion Core Reaction',
-    desc: 'Stars multiply Stardust production by 3× per Star (3^Stars) instead of 2×.',
+    desc: 'Stars multiply Stardust production by 2.5× per Star (2.5^Stars) instead of 2×.',
     icon: '🔥',
   },
   {
