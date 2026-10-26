@@ -1312,12 +1312,19 @@ export function useGameLoop() {
       const gainedEnergy = calculatePrestigeEnergyGain(prev.points, prev);
       if (gainedEnergy.lt(1)) return prev;
 
+      const preservePrestige = isStarMilestoneUnlocked(prev.stardust?.stars || 0, 13);
+      const previousEnergyGain = prev.autobuyers.autoPrestigeEnergy?.previousEnergyGain instanceof Decimal
+        ? prev.autobuyers.autoPrestigeEnergy.previousEnergyGain
+        : Decimal.zero();
+      // Once PE stops resetting the run, require a meaningful improvement in gain
+      // before awarding it again; otherwise the same Points could be clicked forever.
+      if (preservePrestige && previousEnergyGain.gt(0) && gainedEnergy.lt(previousEnergyGain.mul(1.01))) return prev;
+
       sound.playBoost();
 
       const newAmount = prev.prestigeEnergy.amount.add(gainedEnergy);
       const newTotalEarned = (prev.prestigeEnergy.totalEarned || prev.prestigeEnergy.amount).add(gainedEnergy);
       const initial = createInitialState();
-      const preservePrestige = isStarMilestoneUnlocked(prev.stardust?.stars || 0, 13);
 
       return {
         ...prev,
@@ -1343,6 +1350,9 @@ export function useGameLoop() {
         },
         autobuyers: {
           ...prev.autobuyers,
+          autoPrestigeEnergy: prev.autobuyers.autoPrestigeEnergy
+            ? { ...prev.autobuyers.autoPrestigeEnergy, previousEnergyGain: gainedEnergy }
+            : prev.autobuyers.autoPrestigeEnergy,
           prestige: prev.autobuyers.prestige
             ? { ...prev.autobuyers.prestige, previousPPGain: preservePrestige ? prev.autobuyers.prestige.previousPPGain : Decimal.zero() }
             : prev.autobuyers.prestige,
