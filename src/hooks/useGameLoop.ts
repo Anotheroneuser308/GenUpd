@@ -2149,6 +2149,27 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Radiant Multiplicity: converts Stellar Radiance's additive softcap bonus into a multiplicative one.
+  const buyRadiantMultiplicity = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust?.starsUnlocked || !prev.stardust.stellarRadiance || prev.stardust.radiantMultiplicity) return prev;
+      const cost = new Decimal(1, 14);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          radiantMultiplicity: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   const performStarReset = useCallback(() => {
     setGameState((prev) => {
       if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
@@ -2667,6 +2688,7 @@ export function useGameLoop() {
     buySupernovaCatalyst,
     buyAstralConvergence,
     buyStarsUnlock,
+    buyRadiantMultiplicity,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
