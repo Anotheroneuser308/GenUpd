@@ -158,6 +158,8 @@ interface InfinityTabProps {
   onBuyAstralConvergence?: () => void;
   onBuyStarsUnlock?: () => void;
   onBuyRadiantMultiplicity?: () => void;
+  onBuySingularityRefraction?: () => void;
+  onToggleStardustAutoBuyer?: () => void;
   onPerformStarReset?: () => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
@@ -193,6 +195,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyAstralConvergence,
   onBuyStarsUnlock,
   onBuyRadiantMultiplicity,
+  onBuySingularityRefraction,
+  onToggleStardustAutoBuyer,
   onPerformStarReset,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
@@ -638,6 +642,19 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                               </span>
                             )}
                           </div>
+                          {m.starsRequired === 15 && isUnlocked && (
+                            <button
+                              type="button"
+                              onClick={onToggleStardustAutoBuyer}
+                              className={`mt-3 rounded-lg border px-3 py-1.5 text-[10px] font-mono font-bold transition-colors ${
+                                state.stardust?.stardustAutoBuyerEnabled
+                                  ? 'border-emerald-500/40 bg-emerald-950/50 text-emerald-300 hover:bg-emerald-900/60'
+                                  : 'border-slate-600 bg-slate-900 text-slate-300 hover:bg-slate-800'
+                              }`}
+                            >
+                              Auto: {state.stardust?.stardustAutoBuyerEnabled ? 'ON' : 'OFF'}
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -669,7 +686,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const magnitude = amount.gt(0) ? Math.floor(amount.log10()) : 0;
                       const hasDust4 = !!state.infinityTree?.dust_4;
                       const hasAstralFocus = !!state.stardust?.astralLens;
-                      const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0);
+                      const hasRefraction = !!state.stardust?.singularityRefraction;
+                      const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0) - (hasRefraction ? 2 : 0);
                       if (magnitude >= 9) {
                         return `Enhanced softcap active: 2x stronger after 8 tiers (base divisor ${factor.toFixed(1)}x)`;
                       }
@@ -701,8 +719,11 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     const doublerLevel = state.stardust?.doublerLevel || 0;
                     const cost = getStardustDoublerCost(doublerLevel, state);
                     const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
-                    const currentGainMult = Math.pow(2, doublerLevel);
-                    const nextGainMult = Math.pow(2, doublerLevel + 1);
+                    const currentGainMult = new Decimal(2).pow(doublerLevel);
+                    const nextGainMult = new Decimal(2).pow(doublerLevel + 1);
+                    const formatDoublerMultiplier = (multiplier: Decimal) => multiplier.gte(new Decimal(1, 5))
+                      ? `${multiplier.mantissa.toFixed(2)}e${multiplier.exponent}`
+                      : multiplier.format(notation);
                     const scaleFactor = state.stardust?.astralConvergence ? 3.75 : 4;
 
                     return (
@@ -718,8 +739,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                             Doubles total Stardust generated per second. Cost scales by {scaleFactor}x per level{state.stardust?.astralConvergence ? ' (reduced by Astral Convergence)' : ''}.
                           </p>
                           <div className="mt-3 text-xs font-mono text-purple-300">
-                            Current multiplier: <strong>×{currentGainMult}</strong>
-                            <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">×{nextGainMult}</strong></span>
+                            Current multiplier: <strong>×{formatDoublerMultiplier(currentGainMult)}</strong>
+                            <span className="text-slate-500 ml-2">→ Next: <strong className="text-purple-200">×{formatDoublerMultiplier(nextGainMult)}</strong></span>
                           </div>
                         </div>
                         <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
@@ -894,8 +915,9 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     const cost = new Decimal(10000);
                     const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
                     const hasDust4 = !!state.infinityTree?.dust_4;
-                    const currentDivisor = (hasDust4 ? 9 : 10) - (isBought ? 0.5 : 0);
-                    const potentialDivisor = (hasDust4 ? 9 : 10) - 0.5;
+                    const refractionPenalty = state.stardust?.singularityRefraction ? 2 : 0;
+                    const currentDivisor = (hasDust4 ? 9 : 10) - (isBought ? 0.5 : 0) - refractionPenalty;
+                    const potentialDivisor = (hasDust4 ? 9 : 10) - 0.5 - refractionPenalty;
 
                     return (
                       <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
@@ -913,7 +935,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                            Weakens the Stardust generator softcap: reduces the per-magnitude growth divisor by 0.5× (from 10× to 9.5×, or from 9× to 8.5× with Softcap Transmutation).
+                            Weakens the Stardust generator softcap divisor by 0.5× (10→9.5 or 9→8.5). Singularity Refraction can reduce it by another 2×.
                           </p>
                           <div className="mt-3 text-xs font-mono text-purple-300">
                             Status: <strong>{isBought
@@ -1293,6 +1315,56 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                         className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
                           state.stardust?.stellarRadiance &&
                           (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 14))
+                            ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Upgrade
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {state.stardust?.starsUnlocked && (
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                  state.stardust.singularityRefraction
+                    ? 'bg-amber-950/25 border-amber-500/40'
+                    : 'bg-slate-950/80 border-amber-500/25'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">Singularity Refraction</h4>
+                      {state.stardust.singularityRefraction ? (
+                        <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">ACTIVE</span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Weakens the Stardust generator softcap divisor by another 2. With Softcap Transmutation and Astral Focus, the divisor drops from 8.5× to 6.5×.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-amber-300">
+                      {(() => {
+                        const divisor = (state.infinityTree?.dust_4 ? 9 : 10)
+                          - (state.stardust?.astralLens ? 0.5 : 0)
+                          - (state.stardust?.singularityRefraction ? 2 : 0);
+                        return `Current softcap divisor: ${divisor.toFixed(1)}×`;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-slate-400">
+                      Cost: <strong className="text-amber-300">{new Decimal(1, 24).format(notation)} Stardust</strong>
+                    </span>
+                    {state.stardust.singularityRefraction ? (
+                      <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onBuySingularityRefraction}
+                        disabled={(state.stardust?.amount || Decimal.zero()).lt(new Decimal(1, 24))}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 24))
                             ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
                             : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                         }`}
