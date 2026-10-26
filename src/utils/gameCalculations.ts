@@ -925,7 +925,7 @@ export function getStarResetCost(currentStars: number): Decimal {
   const stars = Math.max(0, Math.floor(currentStars));
   // Preserve the original ×1e2 scaling through Star 15. Afterwards, each
   // additional Star multiplies the next reset requirement by ×1e5.
-  return new Decimal(10).pow(10 + 2 * Math.min(stars, 15) + 5 * Math.max(0, stars - 15));
+  return new Decimal(10).pow(10 + 2 * Math.min(stars, 14) + 5 * Math.max(0, stars - 14));
 }
 
 /**
