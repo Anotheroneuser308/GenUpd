@@ -29,6 +29,8 @@ export interface PrestigeEnergyState {
   amount: Decimal;
   /** PE earned during the current Infinity run; reset to zero on Big Crunch. */
   totalEarned: Decimal;
+  /** Points peak already used for the incremental PE claim after 13 Stars. */
+  lastClaimedPointsForNonResetting?: Decimal;
   /** @deprecated Legacy saved value; new runs use generatorUpgradeLevel instead. */
   multiplier: Decimal;
   generatorUpgradeLevel: number; // Purchased generator boosts bought with Prestige Energy
@@ -81,6 +83,8 @@ export interface StardustState {
   astralConvergence?: boolean; // cost 10,000,000 stardust (reduces doubler cost scaling to 3x, 2x stardust gain)
   starsUnlocked?: boolean; // cost 100,000,000 stardust (unlocks Stars reset layer)
   radiantMultiplicity?: boolean; // improves Stellar Radiance from additive to multiplicative stacking
+  singularityRefraction?: boolean; // cost 1e24 Stardust; weakens the Stardust softcap divisor by another 2
+  stardustAutoBuyerEnabled?: boolean; // Star 15 automatic Stardust upgrades/buyables toggle
   // Stars Reset Layer:
   stars?: number; // count of Star resets completed
   totalStars?: number; // lifetime stars forged
@@ -209,6 +213,8 @@ export interface GameState {
   pointsPerSecond: Decimal;
   /** Purchase count anchors captured the first time a run reaches 1e100 points. Null until triggered. */
   generatorCostSoftcapBought: number[] | null;
+  /** Purchase count anchors captured the first time a run reaches 1e500000 points. Null until triggered. */
+  generatorCostHardcapBought: number[] | null;
   lastUpdate: number;
 
   generators: GeneratorState[];
