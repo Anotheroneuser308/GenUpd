@@ -1894,6 +1894,30 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Buy as many Stardust Doubler levels as the current Stardust balance allows.
+  const buyMaxStardustDoubler = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust) return prev;
+      const level = Math.max(0, Math.floor(prev.stardust.doublerLevel || 0));
+      const ratio = prev.stardust.astralConvergence ? 3 : 4;
+      const firstCost = getStardustDoublerCost(level, prev);
+      const boughtNow = getMaxGeometricPurchases(prev.stardust.amount, firstCost, new Decimal(ratio));
+      if (boughtNow.count === 0) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(boughtNow.totalCost),
+          doublerLevel: level + boughtNow.count,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   const buyStardustBase = useCallback(() => {
     setGameState((prev) => {
       if (!prev.stardust) return prev;
@@ -1908,6 +1932,30 @@ export function useGameLoop() {
           ...prev.stardust,
           amount: prev.stardust.amount.sub(cost),
           baseUpgradeLevel: currentLevel + 1,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  // Buy as many Stardust Base levels as the current Stardust balance allows.
+  const buyMaxStardustBase = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust) return prev;
+      const level = Math.max(0, Math.floor(prev.stardust.baseUpgradeLevel || 0));
+      const ratio = isStarMilestoneUnlocked(prev.stardust.stars || 0, 8) ? 1.75 : 2;
+      const firstCost = getStardustBaseCost(level, prev);
+      const boughtNow = getMaxGeometricPurchases(prev.stardust.amount, firstCost, new Decimal(ratio));
+      if (boughtNow.count === 0) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(boughtNow.totalCost),
+          baseUpgradeLevel: level + boughtNow.count,
         },
       };
       saveStateWithBackup(nextState);
@@ -2609,7 +2657,9 @@ export function useGameLoop() {
     buySpDoublerUpgrade,
     buyMaxSkillAmplification,
     buyStardustDoubler,
+    buyMaxStardustDoubler,
     buyStardustBase,
+    buyMaxStardustBase,
     buyStellarRadiance,
     buyAstralLens,
     buyConstellationHarmonizer,
