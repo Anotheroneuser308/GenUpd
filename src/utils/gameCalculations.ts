@@ -747,6 +747,10 @@ export function getStardustPerSecond(state: GameState): Decimal {
 
   // Node dust_2: doubles base Stardust rate gained from Stardust Base (+0.010/s instead of +0.005/s)
   let basePerLevel = state.infinityTree?.dust_2 ? 0.010 : 0.005;
+  // Post-Awakening: Stellar Refinement increases each Base level's contribution by 10%.
+  if (state.stardust?.stellarRefinement) {
+    basePerLevel *= 1.1;
+  }
   // Upgrade: Supernova Catalyst (2.5M Stardust) triples base upgrade contribution!
   if (state.stardust?.supernovaCatalyst) {
     basePerLevel *= 3;
@@ -778,8 +782,17 @@ export function getStardustPerSecond(state: GameState): Decimal {
       ? Math.floor(state.stardust.amount.log10())
       : 0;
     if (activeSoftcaps > 0) {
-      rate = rate.mul(1 + 0.25 * activeSoftcaps);
+      // Radiant Multiplicity changes additive +25% stacking into ×1.25 per tier.
+      const radianceMultiplier = state.stardust?.radiantMultiplicity
+        ? new Decimal(1.25).pow(activeSoftcaps)
+        : new Decimal(1 + 0.25 * activeSoftcaps);
+      rate = rate.mul(radianceMultiplier);
     }
+  }
+
+  // Post-Awakening: a modest global Stardust production boost.
+  if (state.stardust?.dustResonance) {
+    rate = rate.mul(1.1);
   }
 
   // Upgrade: Cosmic Weaver (750k Stardust): multiplies Stardust by 1 + log10(totalInfinities + 1) * 0.25
@@ -798,6 +811,11 @@ export function getStardustPerSecond(state: GameState): Decimal {
   const starCount = Math.max(0, Math.floor(state.stardust?.stars || 0));
   if (starCount > 0) {
     rate = rate.mul(getStarStardustMultiplier(starCount));
+  }
+
+  // Post-Awakening: each Star adds a small 0.5% Stardust production bonus.
+  if (state.stardust?.starEcho && starCount > 0) {
+    rate = rate.mul(1 + 0.005 * starCount);
   }
 
   // Star Milestone 10: 10x Stardust production
