@@ -81,10 +81,11 @@ export const INITIAL_GENERATORS: () => GeneratorState[] = () => [
 ];
 
 export const createInitialState = (): GameState => ({
-  version: 5,
+  version: 6,
   points: new Decimal(10),
   pointsPerSecond: Decimal.zero(),
   generatorCostSoftcapBought: null,
+  generatorCostHardcapBought: null,
   lastUpdate: Date.now(),
 
   generators: INITIAL_GENERATORS(),
@@ -174,6 +175,8 @@ export const createInitialState = (): GameState => ({
     astralConvergence: false,
     starsUnlocked: false,
     radiantMultiplicity: false,
+    stardustSoftcapMastery: false,
+    stardustAutoBuyerEnabled: false,
     stars: 0,
     totalStars: 0,
   },
@@ -245,7 +248,7 @@ export const deserializeState = (raw: string): GameState | null => {
     return {
       ...initial,
       ...parsed,
-      version: 5,
+      version: 6,
       generators: initial.generators.map((g, i) => {
         const saved = parsed.generators?.[i];
         if (!saved) return g;
@@ -284,6 +287,11 @@ export const deserializeState = (raw: string): GameState | null => {
         parsed.generatorCostSoftcapBought.length === initial.generators.length &&
         parsed.generatorCostSoftcapBought.every((value: unknown) => Number.isInteger(value) && (value as number) >= 0)
         ? parsed.generatorCostSoftcapBought
+        : null,
+      generatorCostHardcapBought: Array.isArray(parsed.generatorCostHardcapBought) &&
+        parsed.generatorCostHardcapBought.length === initial.generators.length &&
+        parsed.generatorCostHardcapBought.every((value: unknown) => Number.isInteger(value) && (value as number) >= 0)
+        ? parsed.generatorCostHardcapBought
         : null,
       prestige: {
         ...initial.prestige,
@@ -391,6 +399,10 @@ export const deserializeState = (raw: string): GameState | null => {
         astralConvergence: !!parsed.stardust?.astralConvergence,
         starsUnlocked: !!parsed.stardust?.starsUnlocked,
         radiantMultiplicity: !!parsed.stardust?.radiantMultiplicity,
+        stardustSoftcapMastery: !!parsed.stardust?.stardustSoftcapMastery,
+        stardustAutoBuyerEnabled: typeof parsed.stardust?.stardustAutoBuyerEnabled === 'boolean'
+          ? parsed.stardust.stardustAutoBuyerEnabled
+          : (typeof parsed.stardust?.stars === 'number' && parsed.stardust.stars >= 15),
         stars: typeof parsed.stardust?.stars === 'number' && Number.isFinite(parsed.stardust.stars)
           ? Math.max(0, Math.floor(parsed.stardust.stars))
           : 0,
