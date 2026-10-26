@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId, PostAwakeningUpgradeId } from '../types/game';
+import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId } from '../types/game';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import {
   createInitialState,
@@ -1899,7 +1899,7 @@ export function useGameLoop() {
     setGameState((prev) => {
       if (!prev.stardust) return prev;
       const level = Math.max(0, Math.floor(prev.stardust.doublerLevel || 0));
-      const ratio = prev.stardust.astralConvergence ? 3 : 4;
+      const ratio = prev.stardust.astralConvergence ? 3.75 : 4;
       const firstCost = getStardustDoublerCost(level, prev);
       const boughtNow = getMaxGeometricPurchases(prev.stardust.amount, firstCost, new Decimal(ratio));
       if (boughtNow.count === 0) return prev;
@@ -2142,35 +2142,6 @@ export function useGameLoop() {
           ...prev.stardust,
           amount: prev.stardust.amount.sub(cost),
           starsUnlocked: true,
-        },
-      };
-      saveStateWithBackup(nextState);
-      return nextState;
-    });
-  }, []);
-
-  // Post-Awakening upgrades are permanent and deliberately survive Star resets.
-  const buyPostAwakeningUpgrade = useCallback((upgradeId: PostAwakeningUpgradeId) => {
-    const costs: Record<PostAwakeningUpgradeId, Decimal> = {
-      radiantMultiplicity: new Decimal(1, 14),
-      dustResonance: new Decimal(1, 15),
-      stellarRefinement: new Decimal(1, 16),
-      starEcho: new Decimal(1, 17),
-    };
-
-    setGameState((prev) => {
-      if (!prev.stardust?.starsUnlocked) return prev;
-      if (prev.stardust[upgradeId]) return prev;
-      const cost = costs[upgradeId];
-      if (!cost || prev.stardust.amount.lt(cost)) return prev;
-
-      sound.playBuy();
-      const nextState: GameState = {
-        ...prev,
-        stardust: {
-          ...prev.stardust,
-          amount: prev.stardust.amount.sub(cost),
-          [upgradeId]: true,
         },
       };
       saveStateWithBackup(nextState);
@@ -2696,7 +2667,6 @@ export function useGameLoop() {
     buySupernovaCatalyst,
     buyAstralConvergence,
     buyStarsUnlock,
-    buyPostAwakeningUpgrade,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
