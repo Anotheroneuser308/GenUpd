@@ -809,14 +809,12 @@ export function getStardustPerSecond(state: GameState): Decimal {
 }
 
 /**
- * Computes effective Stardust with per-magnitude softcapping:
- * For each order of magnitude above 10, the growth rate weakens by D:
- * D = 10 normally, or D = 9 if tree node dust_4 is unlocked.
- * Astral Focus upgrade reduces D by 0.5 (10 -> 9.5, or 9 -> 8.5 with dust_4).
- * - [0, 10]: full rate (contributes up to 10)
- * - [10, 100]: width 90 / D
- * - [10^k, 10^(k+1)]: width 9*10^k / D^k
- * - Partial magnitude [10^M, S]: (S - 10^M) / D^M
+ * Computes effective Stardust with a continuous per-magnitude softcap.
+ * The first eight completed tiers retain their original scaling. Starting at
+ * the ninth tier (1e9 Stardust), every additional magnitude uses a divisor
+ * that is 10x stronger than the original softcap, compounded per tier.
+ * The existing upgrades still affect D: 10 normally, 9 with dust_4, and
+ * Astral Focus reduces D by 0.5.
  */
 export function getEffectiveStardust(
   stardustAmount: Decimal,
@@ -824,44 +822,53 @@ export function getEffectiveStardust(
   hasAstralFocus: boolean = false,
 ): Decimal {
   if (!stardustAmount || stardustAmount.lte(0)) return Decimal.zero();
-  if (stardustAmount.lte(10)) {
-    return stardustAmount;
-  }
+  if (stardustAmount.lte(10)) return stardustAmount;
 
+  // Keep the existing divisor for the first eight completed softcap tiers.
+  // From the ninth tier (starting at 1e9 Stardust), make the softcap 10x
+  // stronger per additional magnitude while keeping the function continuous.
   let D = hasDust4 ? 9 : 10;
-  if (hasAstralFocus) {
-    D -= 0.5;
-  }
-  const sNum = stardustAmount.toNumber();
+  if (hasAstralFocus) D -= 0.5;
 
-  if (Number.isFinite(sNum)) {
-    const M = Math.floor(Math.log10(sNum));
-    let effective = 10;
-    for (let k = 1; k < M; k++) {
-      effective += 9 * Math.pow(10 / D, k);
+  const magnitude = Math.floor(stardustAmount.log10());
+  const normalTierCount = Math.min(Math.max(0, magnitude - 1), 8);
+  const ratio = 10 / D;
+  let effective = 10;
+
+  // Geometric sum of completed tiers 1 through 8.
+  if (normalTierCount > 0) {
+    if (Math.abs(ratio - 1) < 1e-12) {
+      effective += 9 * normalTierCount;
+    } else {
+      effective += 9 * ratio * (Math.pow(ratio, normalTierCount) - 1) / (ratio - 1);
     }
-    const powD_M = Math.pow(D, M);
-    effective += (sNum - Math.pow(10, M)) / powD_M;
-    return new Decimal(effective);
   }
 
-  // Fallback for massive Decimal stardust:
-  const logS = Math.floor(stardustAmount.log10());
-  if (D === 10) {
-    const mantissa = stardustAmount.div(new Decimal(10).pow(logS));
-    return new Decimal(9 * logS).add(mantissa);
-  } else {
-    const ratio = new Decimal(10).div(D);
-    const sumDecades = new Decimal(9).mul(ratio.pow(logS).sub(ratio)).div(ratio.sub(1));
-    const partial = stardustAmount.sub(new Decimal(10).pow(logS)).div(new Decimal(D).pow(logS));
-    return new Decimal(10).add(sumDecades).add(partial);
+  // Completed tiers after the eighth receive an extra factor of 10 in the
+  // softcap divisor for each magnitude; sum their diminishing contributions.
+  const strongerTierCount = Math.max(0, magnitude - 9);
+  if (strongerTierCount > 0) {
+    const firstStrongerTier = 9 * Math.pow(ratio, 8) / D;
+    const shrinkRatio = 1 / D;
+    effective += firstStrongerTier
+      * (1 - Math.pow(shrinkRatio, strongerTierCount))
+      / (1 - shrinkRatio);
   }
+
+  // Partial current tier. At magnitude 9 and above, the divisor is
+  // D^8 * (10D)^(magnitude - 8), preserving continuity at each power of ten.
+  const partialNumerator = stardustAmount.sub(new Decimal(10).pow(magnitude));
+  const partialDivisor = magnitude <= 8
+    ? new Decimal(D).pow(magnitude)
+    : new Decimal(D).pow(8).mul(new Decimal(10 * D).pow(magnitude - 8));
+  const partial = partialNumerator.div(partialDivisor);
+
+  return new Decimal(effective).add(partial);
 }
-
 /**
  * Generator exponent boost from Stardust.
  * Starts gently at ^1.001 at 1 Stardust (+0.001 per effective Stardust).
- * Weakens per magnitude above 10 (by 10x normally, 9.5x with Astral Focus, 9x with dust_4, 8.5x with both).
+ * Starting at 1e9 Stardust, the ninth and later softcap tiers are 10x stronger.
  */
 export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: GameState): number {
   if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
@@ -890,12 +897,12 @@ export function getStardustBaseCost(currentLevel: number, state?: GameState): De
 
 /**
  * Star Reset Cost:
- * Starts at 1e8 for 1st Star, then scales by x10 per Star reset completed:
- * 10^(8 + currentStars) Stardust.
+ * Starts at 1e10 for the first Star, then scales by x100 per completed Star reset:
+ * 10^(10 + 2 * currentStars) Stardust.
  */
 export function getStarResetCost(currentStars: number): Decimal {
   const stars = Math.max(0, Math.floor(currentStars));
-  return new Decimal(10).pow(8 + stars);
+  return new Decimal(10).pow(10 + 2 * stars);
 }
 
 /**
