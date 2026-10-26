@@ -2245,6 +2245,41 @@ export function useGameLoop() {
     });
   }, []);
 
+  const buyStardustSoftcapMastery = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust?.starsUnlocked || prev.stardust.stardustSoftcapMastery) return prev;
+      const cost = new Decimal(1, 24);
+      if (prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          stardustSoftcapMastery: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const toggleStardustAutoBuyer = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || !isStarMilestoneUnlocked(prev.stardust.stars || 0, 15)) return prev;
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          stardustAutoBuyerEnabled: !(prev.stardust.stardustAutoBuyerEnabled ?? true),
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   const performStarReset = useCallback(() => {
     setGameState((prev) => {
       if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
@@ -2287,6 +2322,10 @@ export function useGameLoop() {
           supernovaCatalyst: keepSupernovaCatalyst,
           astralConvergence: keepAstralConvergence,
           starsUnlocked: true,
+          stardustSoftcapMastery: isStarMilestoneUnlocked(nextStars, 15) ? !!prev.stardust.stardustSoftcapMastery : false,
+          stardustAutoBuyerEnabled: curStars < 15 && nextStars >= 15
+            ? true
+            : (prev.stardust.stardustAutoBuyerEnabled ?? false),
           stars: nextStars,
           totalStars: (prev.stardust.totalStars || 0) + 1,
         },
@@ -2764,6 +2803,8 @@ export function useGameLoop() {
     buyAstralConvergence,
     buyStarsUnlock,
     buyRadiantMultiplicity,
+    buyStardustSoftcapMastery,
+    toggleStardustAutoBuyer,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
