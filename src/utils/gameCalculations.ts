@@ -826,11 +826,11 @@ export function getStardustPerSecond(state: GameState): Decimal {
 
 /**
  * Computes effective Stardust with a continuous per-magnitude softcap.
- * The first eight completed tiers retain their original scaling. Starting at
- * the ninth tier (1e9 Stardust), every additional magnitude uses a divisor
- * that is 2x stronger than the original softcap, compounded per tier.
+ * The first eight completed tiers use the base divisor D. From the ninth tier
+ * (1e9 Stardust) onward, the divisor is a fixed D + 2: stronger than the normal
+ * softcap, but it no longer compounds by another 2x at every magnitude.
  * The base divisor is 10, or 9 with dust_4; Astral Focus reduces it by 0.5,
- * and Singularity Refraction reduces it by another 2 (8.5 -> 6.5 with both).
+ * and Singularity Refraction reduces it by another 2.
  */
 export function getEffectiveStardust(
   stardustAmount: Decimal,
@@ -841,9 +841,6 @@ export function getEffectiveStardust(
   if (!stardustAmount || stardustAmount.lte(0)) return Decimal.zero();
   if (stardustAmount.lte(10)) return stardustAmount;
 
-  // Keep the existing divisor for the first eight completed softcap tiers.
-  // From the ninth tier (starting at 1e9 Stardust), make the softcap 2x
-  // stronger per additional magnitude while keeping the function continuous.
   let D = hasDust4 ? 9 : 10;
   if (hasAstralFocus) D -= 0.5;
   if (hasSingularityRefraction) D -= 2;
@@ -862,32 +859,41 @@ export function getEffectiveStardust(
     }
   }
 
-  // Completed tiers after the eighth receive an extra factor of 2 in the
-  // softcap divisor for each magnitude; sum their diminishing contributions.
-  const strongerFactor = 2;
+  // After the eighth tier, the divisor stays at D + 2 rather than doubling
+  // again at every magnitude. This keeps a meaningful softcap without the
+  // previous extremely harsh, compounding tier.
+  const strongerDivisor = D + 2;
   const strongerTierCount = Math.max(0, magnitude - 9);
   if (strongerTierCount > 0) {
-    const firstStrongerTier = 9 * Math.pow(ratio, 8) * 10 / (strongerFactor * D);
-    const shrinkRatio = 10 / (strongerFactor * D);
+    const firstStrongerTier = 9 * Math.pow(ratio, 8) * 10 / strongerDivisor;
+    const shrinkRatio = 10 / strongerDivisor;
     effective += firstStrongerTier
       * (1 - Math.pow(shrinkRatio, strongerTierCount))
       / (1 - shrinkRatio);
   }
 
-  // Partial current tier. At magnitude 9 and above, the divisor is
-  // D^8 * (2D)^(magnitude - 8), preserving continuity at each power of ten.
+  // Partial current tier; the same D + 2 divisor is applied continuously after
+  // 1e8 Stardust so there are no jumps at powers of ten.
   const partialNumerator = stardustAmount.sub(new Decimal(10).pow(magnitude));
   const partialDivisor = magnitude <= 8
     ? new Decimal(D).pow(magnitude)
-    : new Decimal(D).pow(8).mul(new Decimal(strongerFactor * D).pow(magnitude - 8));
+    : new Decimal(D).pow(8).mul(new Decimal(strongerDivisor).pow(magnitude - 8));
   const partial = partialNumerator.div(partialDivisor);
 
   return new Decimal(effective).add(partial);
 }
+
+// Calibrate the exponent curve so the standard softcap reaches ^1.5 at 1e30
+// Stardust, while preserving the starting ^1.001 boost at 1 Stardust.
+const STARDUST_EXPONENT_CAP = 1.5;
+const STARDUST_EXPONENT_TARGET = getEffectiveStardust(new Decimal(1, 30), false, false, false);
+const STARDUST_EXPONENT_TARGET_VALUE = STARDUST_EXPONENT_TARGET.toNumber();
+const STARDUST_EXPONENT_CURVE_POWER = Math.log(500) / Math.log(STARDUST_EXPONENT_TARGET_VALUE);
+
 /**
  * Generator exponent boost from Stardust.
- * Starts gently at ^1.001 at 1 Stardust (+0.001 per effective Stardust).
- * Starting at 1e9 Stardust, the ninth and later softcap tiers are 2x stronger.
+ * Starts at ^1.001 at 1 Stardust and reaches ^1.5 at 1e30 Stardust without
+ * softcap-reducing upgrades. Stardust's own exponent never exceeds ^1.5.
  */
 export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: GameState): number {
   if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
@@ -895,9 +901,14 @@ export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: Ga
   const hasAstralFocus = !!state?.stardust?.astralLens;
   const hasSingularityRefraction = !!state?.stardust?.singularityRefraction;
   const effective = getEffectiveStardust(stardustAmount, hasDust4, hasAstralFocus, hasSingularityRefraction);
-  const bonus = effective.mul(0.001).toNumber();
-  // Bound to a safe maximum to protect float precision in Decimal pow
-  return Math.min(1e6, 1 + (Number.isFinite(bonus) ? bonus : 0));
+
+  // The cap is reached by 1e30 Stardust with the normal softcap; softcap-reducing
+  // upgrades can make the cap reachable earlier. Checking first avoids overflow
+  // when a save contains extraordinarily large Stardust values.
+  if (effective.gte(STARDUST_EXPONENT_TARGET)) return STARDUST_EXPONENT_CAP;
+  const ratio = effective.div(STARDUST_EXPONENT_TARGET).toNumber();
+  const bonus = 0.5 * Math.pow(ratio, STARDUST_EXPONENT_CURVE_POWER);
+  return Math.min(STARDUST_EXPONENT_CAP, 1 + (Number.isFinite(bonus) ? bonus : 0));
 }
 
 /** Stardust Doubler cost: 1 Stardust base, 4x per level (or 3.75x with Astral Convergence) */
