@@ -27,7 +27,10 @@ type SaveBankPresetId =
   | 'first-infinity'
   | 'ten-infinities'
   | 'milestones-unlocked'
-  | 'break-infinity';
+  | 'break-infinity'
+  | 'stardust-unlocked'
+  | 'star-1'
+  | 'star-10';
 
 interface SaveBankPresetDefinition {
   id: SaveBankPresetId;
@@ -47,6 +50,9 @@ const SAVE_BANK_PRESETS: SaveBankPresetDefinition[] = [
   { id: 'ten-infinities', title: '10 Infinities', stage: 'Infinity', description: 'Ten Big Crunches recorded, with IP and SP accumulated for the next stage.', icon: '🔟', progress: '10 Infinities' },
   { id: 'milestones-unlocked', title: 'Infinity Milestones Unlocked', stage: 'Milestones', description: 'The Infinity Tree path to Infinity Milestones is already purchased, so the milestone system is immediately available.', icon: '🌿', progress: '40 Infinities · Milestones unlocked' },
   { id: 'break-infinity', title: 'Break Infinity', stage: 'Post-Infinity', description: 'Points have passed 1e308, and both Break Infinity nodes are unlocked so you can test post-Infinity scaling.', icon: '🌌', progress: '4,000 Infinities · Points above 1e308' },
+  { id: 'stardust-unlocked', title: 'Stardust Unlocked', stage: 'Stardust', description: 'A test checkpoint with the Stardust layer and its opening upgrades unlocked.', icon: '✨', progress: 'Stardust unlocked · 1.00e6 Stardust' },
+  { id: 'star-1', title: 'Star 1', stage: 'Stars Realm', description: 'One Star forged, with Stardust upgrades already purchased and enough Stardust to test the second Star reset.', icon: '⭐', progress: '1 Star · 1.00e12 Stardust' },
+  { id: 'star-10', title: 'Star 10', stage: 'Stars Realm', description: 'Ten Stars forged, milestones through Star 10 active, and late Stardust upgrades purchased.', icon: '🌟', progress: '10 Stars · 1.00e30 Stardust' },
 ];
 
 interface SaveBankPresetConfig {
@@ -115,6 +121,30 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
       generatorBuys: [300, 250, 200, 150, 100, 50, 20, 5],
       generatorAmountExponents: [195, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
     },
+    'stardust-unlocked': {
+      pointsExponent: 320, prestigeCount: 4000, prestigePoints: new Decimal(1, 250),
+      peResets: 1000, peAmount: new Decimal(1, 6), totalPE: new Decimal(1, 6), prestigeEnergyLevel: 30,
+      infinityCount: 4000, infinityPoints: new Decimal(1, 308), totalIP: new Decimal(1, 308), skillPoints: 470,
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true },
+      generatorBuys: [300, 250, 200, 150, 100, 50, 20, 5],
+      generatorAmountExponents: [195, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
+    },
+    'star-1': {
+      pointsExponent: 320, prestigeCount: 4000, prestigePoints: new Decimal(1, 250),
+      peResets: 1000, peAmount: new Decimal(1, 6), totalPE: new Decimal(1, 6), prestigeEnergyLevel: 30,
+      infinityCount: 4000, infinityPoints: new Decimal(1, 308), totalIP: new Decimal(1, 308), skillPoints: 470,
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true },
+      generatorBuys: [300, 250, 200, 150, 100, 50, 20, 5],
+      generatorAmountExponents: [195, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
+    },
+    'star-10': {
+      pointsExponent: 320, prestigeCount: 4000, prestigePoints: new Decimal(1, 250),
+      peResets: 1000, peAmount: new Decimal(1, 6), totalPE: new Decimal(1, 6), prestigeEnergyLevel: 30,
+      infinityCount: 4000, infinityPoints: new Decimal(1, 308), totalIP: new Decimal(1, 308), skillPoints: 470,
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true },
+      generatorBuys: [300, 250, 200, 150, 100, 50, 20, 5],
+      generatorAmountExponents: [195, 175, 150, 125, 90, 40, 20, 5], tickspeedBuys: 150, totalTimePlayed: 604800,
+    },
   };
 
   const config = configs[presetId];
@@ -158,6 +188,49 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
   state.stats.highestPointsEver = points;
   state.stats.highestPPEver = config.prestigePoints;
   state.stats.highestIPEver = config.infinityPoints;
+
+  if (presetId === 'stardust-unlocked' || presetId === 'star-1' || presetId === 'star-10') {
+    const isStar1 = presetId === 'star-1';
+    const isStar10 = presetId === 'star-10';
+    const checkpointStars = isStar10 ? 10 : isStar1 ? 1 : 0;
+    const checkpointStardust = isStar10 ? new Decimal(1, 30) : isStar1 ? new Decimal(1, 12) : new Decimal(1, 6);
+
+    state.infinity.breakInfinityUpgrades = {
+      ...state.infinity.breakInfinityUpgrades,
+      prestigePreservationUnlock: true,
+      stardustTreeUnlock: true,
+    };
+    state.infinityTree = {
+      ...state.infinityTree,
+      root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true,
+      dust_1: true, dust_2: true, dust_3: true, dust_4: true,
+    };
+    state.stardust = {
+      ...(state.stardust || {
+        unlocked: true, amount: Decimal.zero(), totalEarned: Decimal.zero(), doublerLevel: 0, baseUpgradeLevel: 0,
+      }),
+      unlocked: true,
+      amount: checkpointStardust,
+      totalEarned: checkpointStardust,
+      doublerLevel: isStar10 ? 25 : isStar1 ? 15 : 8,
+      baseUpgradeLevel: isStar10 ? 30 : isStar1 ? 20 : 8,
+      stellarRadiance: true,
+      astralLens: true,
+      constellationHarmonizer: true,
+      cosmicWeaver: true,
+      supernovaCatalyst: isStar10,
+      astralConvergence: isStar10,
+      starsUnlocked: isStar1 || isStar10,
+      radiantMultiplicity: isStar1 || isStar10,
+      stardustSoftcapMastery: isStar10,
+      stardustAutoBuyerEnabled: false,
+      stars: checkpointStars,
+      totalStars: checkpointStars,
+    };
+    state.generatorCostSoftcapBought = null;
+    state.generatorCostHardcapBought = null;
+  }
+
   return state;
 }
 
