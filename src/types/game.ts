@@ -80,6 +80,7 @@ export interface StardustState {
   supernovaCatalyst?: boolean; // cost 2,500,000 stardust (triples base upgrade power)
   astralConvergence?: boolean; // cost 10,000,000 stardust (reduces doubler cost scaling to 3x, 2x stardust gain)
   starsUnlocked?: boolean; // cost 100,000,000 stardust (unlocks Stars reset layer)
+  radiantMultiplicity?: boolean; // improves Stellar Radiance from additive to multiplicative stacking
   // Stars Reset Layer:
   stars?: number; // count of Star resets completed
   totalStars?: number; // lifetime stars forged
