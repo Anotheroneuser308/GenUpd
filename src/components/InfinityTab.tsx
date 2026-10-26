@@ -147,7 +147,9 @@ interface InfinityTabProps {
   onBuySpDoublerUpgrade?: () => void;
   onBuyMaxSkillAmplification?: () => void;
   onBuyStardustDoubler?: () => void;
+  onBuyMaxStardustDoubler?: () => void;
   onBuyStardustBase?: () => void;
+  onBuyMaxStardustBase?: () => void;
   onBuyStellarRadiance?: () => void;
   onBuyAstralLens?: () => void;
   onBuyConstellationHarmonizer?: () => void;
@@ -179,7 +181,9 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuySpDoublerUpgrade,
   onBuyMaxSkillAmplification,
   onBuyStardustDoubler,
+  onBuyMaxStardustDoubler,
   onBuyStardustBase,
+  onBuyMaxStardustBase,
   onBuyStellarRadiance,
   onBuyAstralLens,
   onBuyConstellationHarmonizer,
@@ -423,7 +427,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
                 {stardustView === 'stars'
                   ? 'Stars are condensed celestial singularities. Forming a Star resets current Stardust, lifetime Stardust, buyables, and unpreserved upgrades in exchange for a permanent Star that grants linear generator exponent power, exponential Stardust multipliers, and unique milestones.'
-                  : "Stardust is a subtle celestial element forged in real-time. It cannot be accumulated while offline. Stardust elevates every generator's output by exponentiating their multipliers gently, starting at ^1.001 and scaling with a per-magnitude softcap."}
+                  : "Stardust is a subtle celestial element forged in real-time. It cannot be accumulated while offline. Stardust raises every generator multiplier by an exponent starting at ^1.001. The first eight softcap tiers scale normally; from 1e9 Stardust onward, each additional magnitude is softcapped 10x more strongly."}
               </p>
             </div>
             <div className="text-right">
@@ -534,7 +538,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           {starCost.format(notation)} Stardust
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
-                          Cost scales by 10× per Star
+                          Cost scales by 100× per Star
                         </span>
                       </div>
                     </div>
@@ -654,13 +658,16 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5 block">
                     {(() => {
-                      const amt = (state.stardust?.amount || Decimal.zero()).toNumber();
+                      const amount = state.stardust?.amount || Decimal.zero();
+                      const magnitude = amount.gt(0) ? Math.floor(amount.log10()) : 0;
                       const hasDust4 = !!state.infinityTree?.dust_4;
                       const hasAstralFocus = !!state.stardust?.astralLens;
                       const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0);
-                      if (amt > 10) {
-                        const mag = Math.floor(Math.log10(amt));
-                        return `Magnitude ${mag} softcap active (${factor.toFixed(1)}x slower per OoM)`;
+                      if (magnitude >= 9) {
+                        return `Enhanced softcap active: 10x stronger after 8 tiers (base divisor ${factor.toFixed(1)}x)`;
+                      }
+                      if (magnitude >= 1) {
+                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); stronger tier starts at 1e9 Stardust`;
                       }
                       return 'Full unsoftcapped growth (up to 10 Stardust)';
                     })()}
@@ -712,18 +719,33 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           <span className="text-xs font-mono text-slate-400">
                             Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
                           </span>
-                          <button
-                            type="button"
-                            onClick={onBuyStardustDoubler}
-                            disabled={!canAfford}
-                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                              canAfford
-                                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
-                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                            }`}
-                          >
-                            Buy Doubler
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={onBuyStardustDoubler}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Doubler
+                            </button>
+                            <button
+                              type="button"
+                              onClick={onBuyMaxStardustDoubler}
+                              disabled={!canAfford}
+                              title="Buy as many Stardust Doubler levels as possible"
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border border-purple-500/40 ${
+                                canAfford
+                                  ? 'bg-purple-800/80 hover:bg-purple-700 text-white'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              MAX
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -759,18 +781,33 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           <span className="text-xs font-mono text-slate-400">
                             Cost: <strong className="text-purple-400">{cost.format(notation)} Stardust</strong>
                           </span>
-                          <button
-                            type="button"
-                            onClick={onBuyStardustBase}
-                            disabled={!canAfford}
-                            className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
-                              canAfford
-                                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
-                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                            }`}
-                          >
-                            Buy Base (+{basePerLvl.toFixed(3)})
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={onBuyStardustBase}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Base (+{basePerLvl.toFixed(3)})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={onBuyMaxStardustBase}
+                              disabled={!canAfford}
+                              title="Buy as many Stardust Base levels as possible"
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer border border-purple-500/40 ${
+                                canAfford
+                                  ? 'bg-purple-800/80 hover:bg-purple-700 text-white'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              MAX
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
