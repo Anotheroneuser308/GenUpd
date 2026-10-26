@@ -773,16 +773,26 @@ export function useGameLoop() {
                 shouldResetEnergy = gainedEnergy.gte(eTarget);
               }
 
+              const preservePrestige = isStarMilestoneUnlocked(state.stardust?.stars || 0, 13);
+              // With progress preserved, do not immediately repeat PE at the same reward.
+              if (preservePrestige && prevGain.gt(0) && gainedEnergy.lt(prevGain.mul(1.01))) {
+                shouldResetEnergy = false;
+              }
+
               if (shouldResetEnergy) {
                 const newAmount = state.prestigeEnergy.amount.add(gainedEnergy);
                 const newTotalEarned = (state.prestigeEnergy.totalEarned || state.prestigeEnergy.amount).add(gainedEnergy);
                 const initial = createInitialState();
-                state.points = new Decimal(10);
-                state.generatorCostSoftcapBought = null;
-                state.generators = INITIAL_GENERATORS();
-                state.tickspeed = { ...initial.tickspeed };
-                state.prestige = { count: 0, points: Decimal.zero(), unlockedGenerators: 4 };
-                state.prestigeUpgrades = { ...initial.prestigeUpgrades };
+                if (!preservePrestige) {
+                  state.points = new Decimal(10);
+                  state.generatorCostSoftcapBought = null;
+                  state.generatorCostHardcapBought = null;
+                  state.generators = INITIAL_GENERATORS();
+                  state.tickspeed = { ...initial.tickspeed };
+                  state.prestige = { count: 0, points: Decimal.zero(), unlockedGenerators: 4 };
+                  state.prestigeUpgrades = { ...initial.prestigeUpgrades };
+                  state.stats.timeThisPrestige = 0;
+                }
                 state.prestigeEnergy = {
                   unlocked: true,
                   amount: newAmount,
@@ -792,12 +802,11 @@ export function useGameLoop() {
                   boosterLevel: state.prestigeEnergy.boosterLevel || 0,
                   resets: state.prestigeEnergy.resets + 1,
                 };
-                state.stats.timeThisPrestige = 0;
                 state.autobuyers['autoPrestigeEnergy'] = {
                   ...autoEnergy,
                   previousEnergyGain: gainedEnergy,
                 };
-                if (state.autobuyers['prestige']) {
+                if (state.autobuyers['prestige'] && !preservePrestige) {
                   state.autobuyers['prestige'] = {
                     ...state.autobuyers['prestige'],
                     previousPPGain: Decimal.zero(),
@@ -1227,6 +1236,7 @@ export function useGameLoop() {
         ...prev,
         points: startingPoints,
         generatorCostSoftcapBought: null,
+        generatorCostHardcapBought: null,
         prestige: {
           ...prev.prestige,
           count: prev.prestige.count + 1,
@@ -1270,23 +1280,21 @@ export function useGameLoop() {
       const newAmount = prev.prestigeEnergy.amount.add(gainedEnergy);
       const newTotalEarned = (prev.prestigeEnergy.totalEarned || prev.prestigeEnergy.amount).add(gainedEnergy);
       const initial = createInitialState();
+      const preservePrestige = isStarMilestoneUnlocked(prev.stardust?.stars || 0, 13);
 
       return {
         ...prev,
-        points: new Decimal(10),
-        generatorCostSoftcapBought: null,
-        generators: INITIAL_GENERATORS(),
-        tickspeed: {
-          ...initial.tickspeed,
-        },
-        prestige: {
+        points: preservePrestige ? prev.points : new Decimal(10),
+        generatorCostSoftcapBought: preservePrestige ? prev.generatorCostSoftcapBought : null,
+        generatorCostHardcapBought: preservePrestige ? prev.generatorCostHardcapBought : null,
+        generators: preservePrestige ? prev.generators : INITIAL_GENERATORS(),
+        tickspeed: preservePrestige ? prev.tickspeed : { ...initial.tickspeed },
+        prestige: preservePrestige ? prev.prestige : {
           count: 0,
           points: Decimal.zero(),
           unlockedGenerators: 4,
         },
-        prestigeUpgrades: {
-          ...initial.prestigeUpgrades,
-        },
+        prestigeUpgrades: preservePrestige ? prev.prestigeUpgrades : { ...initial.prestigeUpgrades },
         prestigeEnergy: {
           unlocked: true,
           amount: newAmount,
@@ -1299,12 +1307,12 @@ export function useGameLoop() {
         autobuyers: {
           ...prev.autobuyers,
           prestige: prev.autobuyers.prestige
-            ? { ...prev.autobuyers.prestige, previousPPGain: Decimal.zero() }
+            ? { ...prev.autobuyers.prestige, previousPPGain: preservePrestige ? prev.autobuyers.prestige.previousPPGain : Decimal.zero() }
             : prev.autobuyers.prestige,
         },
         stats: {
           ...prev.stats,
-          timeThisPrestige: 0,
+          timeThisPrestige: preservePrestige ? prev.stats.timeThisPrestige : 0,
         },
       };
     });
@@ -1539,6 +1547,7 @@ export function useGameLoop() {
         ...prev,
         points: startingPoints,
         generatorCostSoftcapBought: null,
+        generatorCostHardcapBought: null,
         generators: resetGenerators,
         tickspeed: {
           ...prev.tickspeed,
