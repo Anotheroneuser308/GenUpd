@@ -574,7 +574,7 @@ export function useGameLoop() {
           buyOneTime('astralConvergence', new Decimal(10000000));
           buyOneTime('starsUnlocked', new Decimal(1, 8));
           buyOneTime('radiantMultiplicity', new Decimal(1, 14), !!dust.starsUnlocked && !!dust.stellarRadiance);
-          buyOneTime('stardustSoftcapMastery', new Decimal(1, 24), !!dust.starsUnlocked);
+          buyOneTime('stardustSoftcapMastery', new Decimal(1, 24));
 
           // Bound work per tick while permitting both repeatable upgrades to be bought.
           for (let i = 0; i < 50; i++) {
@@ -2257,7 +2257,7 @@ export function useGameLoop() {
 
   const buyStardustSoftcapMastery = useCallback(() => {
     setGameState((prev) => {
-      if (!prev.stardust?.starsUnlocked || prev.stardust.stardustSoftcapMastery) return prev;
+      if (!prev.stardust?.unlocked || prev.stardust.stardustSoftcapMastery) return prev;
       const cost = new Decimal(1, 24);
       if (prev.stardust.amount.lt(cost)) return prev;
 
