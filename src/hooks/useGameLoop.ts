@@ -562,7 +562,7 @@ export function useGameLoop() {
           const buyOneTime = (key: 'stellarRadiance' | 'astralLens' | 'constellationHarmonizer' | 'cosmicWeaver' | 'supernovaCatalyst' | 'astralConvergence' | 'starsUnlocked' | 'radiantMultiplicity' | 'stardustSoftcapMastery', price: Decimal, allowed = true) => {
             const flags = dust as unknown as Record<string, unknown>;
             if (!flags[key] && allowed && dust.amount.gte(price)) {
-              dust.amount = dust.amount.sub(price);
+              if (!isFreeAuto) dust.amount = dust.amount.sub(price);
               flags[key] = true;
             }
           };
@@ -584,10 +584,10 @@ export function useGameLoop() {
             const canBuyBase = dust.amount.gte(baseCost);
             if (!canBuyDoubler && !canBuyBase) break;
             if (canBuyDoubler && (!canBuyBase || doublerCost.lte(baseCost))) {
-              dust.amount = dust.amount.sub(doublerCost);
+              if (!isFreeAuto) dust.amount = dust.amount.sub(doublerCost);
               dust.doublerLevel = (dust.doublerLevel || 0) + 1;
             } else {
-              dust.amount = dust.amount.sub(baseCost);
+              if (!isFreeAuto) dust.amount = dust.amount.sub(baseCost);
               dust.baseUpgradeLevel = (dust.baseUpgradeLevel || 0) + 1;
             }
           }
