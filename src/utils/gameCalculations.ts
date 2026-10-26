@@ -873,7 +873,7 @@ export function getEffectiveStardust(
   }
 
   // Partial current tier; the same D + 2 divisor is applied continuously after
-  // 1e8 Stardust so there are no jumps at powers of ten.
+  // 1e9 Stardust so there are no jumps at powers of ten.
   const partialNumerator = stardustAmount.sub(new Decimal(10).pow(magnitude));
   const partialDivisor = magnitude <= 8
     ? new Decimal(D).pow(magnitude)
