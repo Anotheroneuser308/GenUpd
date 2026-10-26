@@ -59,6 +59,7 @@ export default function App() {
     buySupernovaCatalyst,
     buyAstralConvergence,
     buyStarsUnlock,
+    buyRadiantMultiplicity,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
@@ -227,6 +228,7 @@ export default function App() {
             onBuySupernovaCatalyst={buySupernovaCatalyst}
             onBuyAstralConvergence={buyAstralConvergence}
             onBuyStarsUnlock={buyStarsUnlock}
+            onBuyRadiantMultiplicity={buyRadiantMultiplicity}
             onPerformStarReset={performStarReset}
             onBuyBreakInfinityUpgrade={buyBreakInfinityUpgrade}
             onInfinityReset={proceedInfinity}
