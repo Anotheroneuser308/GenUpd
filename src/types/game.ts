@@ -81,6 +81,8 @@ export interface StardustState {
   astralConvergence?: boolean; // cost 10,000,000 stardust (reduces doubler cost scaling to 3x, 2x stardust gain)
   starsUnlocked?: boolean; // cost 100,000,000 stardust (unlocks Stars reset layer)
   radiantMultiplicity?: boolean; // improves Stellar Radiance from additive to multiplicative stacking
+  stardustSoftcapMastery?: boolean; // 1e24 upgrade; reduces Stardust softcap divisor by 2
+  stardustAutoBuyerEnabled?: boolean; // Star 15 milestone toggle
   // Stars Reset Layer:
   stars?: number; // count of Star resets completed
   totalStars?: number; // lifetime stars forged
@@ -209,6 +211,8 @@ export interface GameState {
   pointsPerSecond: Decimal;
   /** Purchase count anchors captured the first time a run reaches 1e100 points. Null until triggered. */
   generatorCostSoftcapBought: number[] | null;
+  /** Per-generator purchase anchors captured after reaching 1e500000 Points. */
+  generatorCostHardcapBought: number[] | null;
   lastUpdate: number;
 
   generators: GeneratorState[];
