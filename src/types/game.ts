@@ -65,6 +65,12 @@ export type BreakInfinityUpgradeId =
   | 'prestigePreservationUnlock'
   | 'stardustTreeUnlock';
 
+export type PostAwakeningUpgradeId =
+  | 'radiantMultiplicity'
+  | 'dustResonance'
+  | 'stellarRefinement'
+  | 'starEcho';
+
 export interface StardustState {
   unlocked: boolean;
   amount: Decimal;
@@ -80,6 +86,11 @@ export interface StardustState {
   supernovaCatalyst?: boolean; // cost 2,500,000 stardust (triples base upgrade power)
   astralConvergence?: boolean; // cost 10,000,000 stardust (reduces doubler cost scaling to 3x, 2x stardust gain)
   starsUnlocked?: boolean; // cost 100,000,000 stardust (unlocks Stars reset layer)
+  // Post-Awakening upgrades are permanent and survive Star resets:
+  radiantMultiplicity?: boolean; // Stellar Radiance stacks multiplicatively per softcap tier
+  dustResonance?: boolean; // +10% Stardust production
+  stellarRefinement?: boolean; // +10% Stardust Base contribution per level
+  starEcho?: boolean; // +0.5% Stardust production per Star
   // Stars Reset Layer:
   stars?: number; // count of Star resets completed
   totalStars?: number; // lifetime stars forged
