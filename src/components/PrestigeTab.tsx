@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GameState } from '../types/game';
 import { Decimal } from '../utils/decimal';
+import { isStarMilestoneUnlocked } from '../constants/starMilestones';
 import {
   PRESTIGE_REQUIREMENT,
   getPrestigeRequirement,
@@ -68,6 +69,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const energyProgressPercent = Math.min(100, Math.max(0, (currentLog / energyTargetLog) * 100));
   const isEnergyUnlocked = state.prestigeEnergy?.unlocked || state.points.gte(PRESTIGE_ENERGY_THRESHOLD);
   const energyGain = calculatePrestigeEnergyGain(state.points, state);
+  const hasCoolQoL = isStarMilestoneUnlocked(state.stardust?.stars || 0, 13);
   const energyUpgradeLevel = state.prestigeEnergy.generatorUpgradeLevel || 0;
   const energyGeneratorMult = new Decimal(2).pow(energyUpgradeLevel);
   const passiveEnergyGeneratorMult = getPassivePrestigeEnergyGeneratorMultiplier(state);
@@ -965,7 +967,9 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                 Prestige Energy
               </h2>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Prestige Energy is a reset layer unlocked at 1.00e154 Points. It resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades, granting PE using 10^(log10(Points) / 154). Purchased Generator Energy Amplifier levels, Energy Booster levels, and the passive PE generator bonus reset when you Big Crunch into Infinity.
+                Prestige Energy is a layer unlocked at 1.00e154 Points, granting PE using 10^(log10(Points) / 154). {hasCoolQoL
+                  ? 'Cool QoL (13 Stars) preserves Points, Generators, Tickspeed, PP, and Prestige Upgrades; claims grant only additional PE earned since the previous claim.'
+                  : 'Before Cool QoL, collecting PE resets Points, Generators, Tickspeed, Prestige Points, and Prestige Upgrades.'} Purchased Generator Energy Amplifier levels, Energy Booster levels, and the passive PE generator bonus reset when you Big Crunch into Infinity.
               </p>
             </div>
 
@@ -1080,12 +1084,18 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
                   Reset on Energy Channel
                 </span>
                 <ul className="space-y-1 text-slate-400">
-                  <li>• Points reset back to 10</li>
-                  <li>• Generator amounts and bought counts reset</li>
-                  <li>• Tickspeed upgrades reset to 0</li>
-                  <li>• Prestige Points (PP) and count reset to 0</li>
-                  <li>• ALL Prestige Upgrades reset to initial</li>
-                  <li>• Active generators reset back to base 4</li>
+                  {hasCoolQoL ? (
+                    <li>• Cool QoL: Points, Generators, Tickspeed, PP, and Prestige Upgrades are preserved.</li>
+                  ) : (
+                    <>
+                      <li>• Points reset back to 10</li>
+                      <li>• Generator amounts and bought counts reset</li>
+                      <li>• Tickspeed upgrades reset to 0</li>
+                      <li>• Prestige Points (PP) and count reset to 0</li>
+                      <li>• ALL Prestige Upgrades reset to initial</li>
+                      <li>• Active generators reset back to base 4</li>
+                    </>
+                  )}
                 </ul>
               </div>
 
