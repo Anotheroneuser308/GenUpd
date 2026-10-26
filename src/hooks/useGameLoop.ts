@@ -465,6 +465,43 @@ export function useGameLoop() {
         }
 
 
+        // Star 15: automatically purchase affordable Stardust upgrades and repeatables.
+        const dust = state.stardust;
+        if (dust && isStarMilestoneUnlocked(dust.stars || 0, 15) && dust.stardustAutoBuyerEnabled) {
+          const buyOneTime = (key: 'stellarRadiance' | 'astralLens' | 'constellationHarmonizer' | 'cosmicWeaver' | 'supernovaCatalyst' | 'astralConvergence' | 'starsUnlocked' | 'radiantMultiplicity' | 'stardustSoftcapMastery', price: Decimal, allowed = true) => {
+            const flags = dust as unknown as Record<string, unknown>;
+            if (!flags[key] && allowed && dust.amount.gte(price)) {
+              dust.amount = dust.amount.sub(price);
+              flags[key] = true;
+            }
+          };
+          buyOneTime('stellarRadiance', new Decimal(2500));
+          buyOneTime('astralLens', new Decimal(10000));
+          buyOneTime('constellationHarmonizer', new Decimal(50000));
+          buyOneTime('cosmicWeaver', new Decimal(750000));
+          buyOneTime('supernovaCatalyst', new Decimal(2500000));
+          buyOneTime('astralConvergence', new Decimal(10000000));
+          buyOneTime('starsUnlocked', new Decimal(1, 8));
+          buyOneTime('radiantMultiplicity', new Decimal(1, 14), !!dust.starsUnlocked && !!dust.stellarRadiance);
+          buyOneTime('stardustSoftcapMastery', new Decimal(1, 24), !!dust.starsUnlocked);
+
+          // Bound work per tick while permitting both repeatable upgrades to be bought.
+          for (let i = 0; i < 50; i++) {
+            const doublerCost = getStardustDoublerCost(dust.doublerLevel || 0, state);
+            const baseCost = getStardustBaseCost(dust.baseUpgradeLevel || 0, state);
+            const canBuyDoubler = dust.amount.gte(doublerCost);
+            const canBuyBase = dust.amount.gte(baseCost);
+            if (!canBuyDoubler && !canBuyBase) break;
+            if (canBuyDoubler && (!canBuyBase || doublerCost.lte(baseCost))) {
+              dust.amount = dust.amount.sub(doublerCost);
+              dust.doublerLevel = (dust.doublerLevel || 0) + 1;
+            } else {
+              dust.amount = dust.amount.sub(baseCost);
+              dust.baseUpgradeLevel = (dust.baseUpgradeLevel || 0) + 1;
+            }
+          }
+        }
+
         // Stats tracking
         state.stats.totalTimePlayed += dt;
         state.stats.onlineTimePlayed = (state.stats.onlineTimePlayed || 0) + dt;
