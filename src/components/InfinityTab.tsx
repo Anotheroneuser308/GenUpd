@@ -157,6 +157,7 @@ interface InfinityTabProps {
   onBuySupernovaCatalyst?: () => void;
   onBuyAstralConvergence?: () => void;
   onBuyStarsUnlock?: () => void;
+  onBuyRadiantMultiplicity?: () => void;
   onPerformStarReset?: () => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
@@ -191,6 +192,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuySupernovaCatalyst,
   onBuyAstralConvergence,
   onBuyStarsUnlock,
+  onBuyRadiantMultiplicity,
   onPerformStarReset,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
@@ -840,14 +842,16 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                             )}
                           </div>
                           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                            Increases real-time Stardust production by +25% per active Stardust softcap tier (each order of magnitude above 10).
+                            Increases real-time Stardust production by +25% per active softcap tier. Radiant Multiplicity upgrades this to a multiplicative ×1.25 per tier.
                           </p>
                           <div className="mt-3 text-xs font-mono text-purple-300">
                             {(() => {
                               const activeSoftcaps = (state.stardust?.amount && state.stardust.amount.gt(10))
                                 ? Math.floor(state.stardust.amount.log10())
                                 : 0;
-                              const currentMult = 1 + 0.25 * activeSoftcaps;
+                              const currentMult = state.stardust?.radiantMultiplicity
+                                ? Math.pow(1.25, activeSoftcaps)
+                                : 1 + 0.25 * activeSoftcaps;
                               return (
                                 <span>
                                   Status: <strong>{isBought
@@ -1238,8 +1242,67 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     );
                   })()}
                 </div>
-
               </div>
+
+              {state.stardust?.starsUnlocked && (
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                  state.stardust.radiantMultiplicity
+                    ? 'bg-amber-950/25 border-amber-500/40'
+                    : 'bg-slate-950/80 border-amber-500/25'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">Radiant Multiplicity</h4>
+                      {state.stardust.radiantMultiplicity ? (
+                        <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">
+                          ACTIVE
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Upgrades Stellar Radiance from an additive bonus (1 + 0.25 × softcap tiers) to a multiplicative bonus (1.25^softcap tiers). Requires Stars Awakening and Stellar Radiance.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-amber-300">
+                      {(() => {
+                        const activeSoftcaps = state.stardust?.amount && state.stardust.amount.gt(10)
+                          ? Math.floor(state.stardust.amount.log10())
+                          : 0;
+                        const currentMult = state.stardust?.radiantMultiplicity
+                          ? Math.pow(1.25, activeSoftcaps)
+                          : 1 + 0.25 * activeSoftcaps;
+                        return `Current Stellar Radiance multiplier: ×${currentMult.toFixed(2)} from ${activeSoftcaps} softcap tiers`;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-slate-400">
+                      Cost: <strong className="text-amber-300">1.00e14 Stardust</strong>
+                    </span>
+                    {state.stardust.radiantMultiplicity ? (
+                      <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onBuyRadiantMultiplicity}
+                        disabled={
+                          !state.stardust?.stellarRadiance ||
+                          (state.stardust?.amount || Decimal.zero()).lt(new Decimal(1, 14))
+                        }
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          state.stardust?.stellarRadiance &&
+                          (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 14))
+                            ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Upgrade
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
