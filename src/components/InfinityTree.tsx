@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { GameState } from '../types/game';
 import { INFINITY_TREE_NODES, BRANCH_CONFIG, InfinityTreeNodeDef } from '../constants/infinityTree';
 import { getUnlockedInfinityMilestonesCount, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
@@ -84,6 +84,8 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
 };
 
 // Tree Graph Connections (Parent -> Child)
+const TREE_NODE_ENTRIES: [string, InfinityTreeNodeDef][] = Object.entries(INFINITY_TREE_NODES);
+
 const NODE_CONNECTIONS: [string, string][] = [
   ['root', 'pre_1'],
   ['pre_1', 'pre_2'],
@@ -254,7 +256,18 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
     [tree, currentSP, state]
   );
 
-  const selectedStatus = getNodeStatus(selectedDef);
+  // Cache the visible nodes and their purchase requirements once per render.
+  // This avoids recalculating the same node requirements for every edge and circle.
+  const visibleNodeStatus = useMemo(() => {
+    const visible = new Map<string, { def: InfinityTreeNodeDef; status: ReturnType<typeof getNodeStatus> }>();
+    for (const [nodeId, def] of TREE_NODE_ENTRIES) {
+      if (!NODE_POSITIONS[nodeId] || !isNodeVisible(def)) continue;
+      visible.set(nodeId, { def, status: getNodeStatus(def) });
+    }
+    return visible;
+  }, [isNodeVisible, getNodeStatus]);
+
+  const selectedStatus = visibleNodeStatus.get(selectedDef.id)?.status ?? getNodeStatus(selectedDef);
 
   // Live effect preview for the currently selected tree node.
   const getCurrentEffect = (id: string): string => {
@@ -282,7 +295,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
       case 'pre_5': {
         const level = typeof state.infinityTree?.pre_5Level === 'number' ? Math.max(0, Math.floor(state.infinityTree.pre_5Level)) : 0;
         const nextCost = getGeneratorAmplificationCost(level);
-        const scalingNote = level >= 1000 ? ' (1.5x price scaling active)' : '';
+        const scalingNote = level >= 1000 ? ' (1.1x price scaling active)' : '';
         return 'Current bonus: all generators x' + fmt(1 + level) + ' (Level ' + level + '). Next level costs ' + formatSkillPoints(nextCost) + ' SP' + scalingNote + '.';
       }
       case 'pre_6': {
@@ -770,7 +783,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
               const parentDef = INFINITY_TREE_NODES[parentId];
               const childDef = INFINITY_TREE_NODES[childId];
               if (!parentDef || !childDef) return null;
-              if (!isNodeVisible(parentDef) || !isNodeVisible(childDef)) {
+              if (!visibleNodeStatus.has(parentId) || !visibleNodeStatus.has(childId)) {
                 return null;
               }
 
@@ -817,15 +830,14 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
           </svg>
 
           {/* Node Circles */}
-          {Object.entries(INFINITY_TREE_NODES).map(([nodeId, def]) => {
-            if (!isNodeVisible(def)) {
-              return null;
-            }
+          {TREE_NODE_ENTRIES.map(([nodeId, def]) => {
+            const visibleNode = visibleNodeStatus.get(nodeId);
+            if (!visibleNode) return null;
 
             const pos = NODE_POSITIONS[nodeId];
             if (!pos) return null;
 
-            const status = getNodeStatus(def);
+            const status = visibleNode.status;
             const isSelected = selectedNodeId === nodeId;
             const branchColors = getBranchColor(def.branch);
             const isRoot = nodeId === 'root';
@@ -836,7 +848,7 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
                 key={nodeId}
                 onClick={(e) => handleNodeClick(nodeId, e)}
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group select-none"
-                title={`${def.title}\n${status.isBought ? 'Purchased' : 'Not purchased'}\nCurrent effect: ${getCurrentEffect(nodeId)}`}
+                title={`${def.title}\n${status.isBought ? 'Purchased' : 'Not purchased'}`}
                 style={{
                   left: pos.x,
                   top: pos.y,
