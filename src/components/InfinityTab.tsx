@@ -1322,7 +1322,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 </div>
               )}
 
-              {state.stardust?.starsUnlocked && (
+              {state.stardust?.unlocked && (
                 <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${state.stardust.stardustSoftcapMastery ? 'bg-amber-950/25 border-amber-500/40' : 'bg-slate-950/80 border-amber-500/25'}`}>
                   <div>
                     <div className="flex items-center justify-between gap-2">
