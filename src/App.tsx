@@ -49,7 +49,9 @@ export default function App() {
     buySpDoublerUpgrade,
     buyMaxSkillAmplification,
     buyStardustDoubler,
+    buyMaxStardustDoubler,
     buyStardustBase,
+    buyMaxStardustBase,
     buyStellarRadiance,
     buyAstralLens,
     buyConstellationHarmonizer,
@@ -215,7 +217,9 @@ export default function App() {
             onBuySpDoublerUpgrade={buySpDoublerUpgrade}
             onBuyMaxSkillAmplification={buyMaxSkillAmplification}
             onBuyStardustDoubler={buyStardustDoubler}
+            onBuyMaxStardustDoubler={buyMaxStardustDoubler}
             onBuyStardustBase={buyStardustBase}
+            onBuyMaxStardustBase={buyMaxStardustBase}
             onBuyStellarRadiance={buyStellarRadiance}
             onBuyAstralLens={buyAstralLens}
             onBuyConstellationHarmonizer={buyConstellationHarmonizer}
