@@ -778,7 +778,10 @@ export function getStardustPerSecond(state: GameState): Decimal {
       ? Math.floor(state.stardust.amount.log10())
       : 0;
     if (activeSoftcaps > 0) {
-      rate = rate.mul(1 + 0.25 * activeSoftcaps);
+      const radianceMultiplier = state.stardust?.radiantMultiplicity
+        ? new Decimal(1.25).pow(activeSoftcaps)
+        : new Decimal(1 + 0.25 * activeSoftcaps);
+      rate = rate.mul(radianceMultiplier);
     }
   }
 
