@@ -549,7 +549,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           {starCost.format(notation)} Stardust
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
-                          Cost scales by 100× per Star
+                          {currentStars >= 15 ? 'Cost scales by ×1e5 per Star after Star 15' : 'Cost scales by ×100 per Star until Star 15'}
                         </span>
                       </div>
                     </div>
