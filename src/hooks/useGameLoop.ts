@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId } from '../types/game';
+import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId, PostAwakeningUpgradeId } from '../types/game';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import {
   createInitialState,
@@ -2149,6 +2149,35 @@ export function useGameLoop() {
     });
   }, []);
 
+  // Post-Awakening upgrades are permanent and deliberately survive Star resets.
+  const buyPostAwakeningUpgrade = useCallback((upgradeId: PostAwakeningUpgradeId) => {
+    const costs: Record<PostAwakeningUpgradeId, Decimal> = {
+      radiantMultiplicity: new Decimal(1, 14),
+      dustResonance: new Decimal(1, 15),
+      stellarRefinement: new Decimal(1, 16),
+      starEcho: new Decimal(1, 17),
+    };
+
+    setGameState((prev) => {
+      if (!prev.stardust?.starsUnlocked) return prev;
+      if (prev.stardust[upgradeId]) return prev;
+      const cost = costs[upgradeId];
+      if (!cost || prev.stardust.amount.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          [upgradeId]: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   const performStarReset = useCallback(() => {
     setGameState((prev) => {
       if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
@@ -2667,6 +2696,7 @@ export function useGameLoop() {
     buySupernovaCatalyst,
     buyAstralConvergence,
     buyStarsUnlock,
+    buyPostAwakeningUpgrade,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
