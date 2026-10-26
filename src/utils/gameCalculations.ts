@@ -831,7 +831,7 @@ export function getStardustPerSecond(state: GameState): Decimal {
  * the ninth tier (1e9 Stardust), every additional magnitude uses a divisor
  * that is 2x stronger than the original softcap, compounded per tier.
  * The existing upgrades still affect D: 10 normally, 9 with dust_4, and
- * Astral Focus reduces D by 0.5.
+ * Astral Focus reduces D by 0.5; Softcap Mastery reduces it by another 2.
  */
 export function getEffectiveStardust(
   stardustAmount: Decimal,
@@ -918,8 +918,8 @@ export function getStardustBaseCost(currentLevel: number, state?: GameState): De
 
 /**
  * Star Reset Cost:
- * Starts at 1e10 for the first Star, then scales by x100 per completed Star reset:
- * 10^(10 + 2 * currentStars) Stardust.
+ * Starts at 1e10 for the first Star and scales by ×1e2 until 15 Stars.
+ * After 15 Stars, the next reset requirement scales by ×1e5 per Star.
  */
 export function getStarResetCost(currentStars: number): Decimal {
   const stars = Math.max(0, Math.floor(currentStars));
