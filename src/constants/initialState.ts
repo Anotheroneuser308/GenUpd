@@ -173,6 +173,10 @@ export const createInitialState = (): GameState => ({
     supernovaCatalyst: false,
     astralConvergence: false,
     starsUnlocked: false,
+    radiantMultiplicity: false,
+    dustResonance: false,
+    stellarRefinement: false,
+    starEcho: false,
     stars: 0,
     totalStars: 0,
   },
@@ -389,6 +393,10 @@ export const deserializeState = (raw: string): GameState | null => {
         supernovaCatalyst: !!parsed.stardust?.supernovaCatalyst,
         astralConvergence: !!parsed.stardust?.astralConvergence,
         starsUnlocked: !!parsed.stardust?.starsUnlocked,
+        radiantMultiplicity: !!parsed.stardust?.radiantMultiplicity,
+        dustResonance: !!parsed.stardust?.dustResonance,
+        stellarRefinement: !!parsed.stardust?.stellarRefinement,
+        starEcho: !!parsed.stardust?.starEcho,
         stars: typeof parsed.stardust?.stars === 'number' && Number.isFinite(parsed.stardust.stars)
           ? Math.max(0, Math.floor(parsed.stardust.stars))
           : 0,
