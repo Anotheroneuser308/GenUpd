@@ -73,26 +73,28 @@ export function getGeneratorCost(
 ): Decimal {
   const purchaseCount = Math.max(0, Math.floor(bought));
 
-  // No per-run activation yet: keep the standard generator price progression.
+  let cost: Decimal;
+
+  // No per-run softcap activation yet: keep the standard generator price progression.
   if (softcapStartBought === undefined || softcapStartBought === null) {
-    return baseCost.mul(costMult.pow(purchaseCount));
+    cost = baseCost.mul(costMult.pow(purchaseCount));
+  } else {
+    const pivot = Math.max(0, Math.floor(softcapStartBought));
+    const normalPurchases = Math.min(purchaseCount, pivot);
+    const acceleratedPurchases = Math.max(0, purchaseCount - pivot);
+
+    // Post-threshold per-purchase growth is strictly tiered. Generator 1 starts
+    // at 1e3; every later tier grows faster, avoiding equal Generator 1/2 rates.
+    const originalMagnitude = Math.round(costMult.log10());
+    const acceleratedMagnitude = generatorId === 1
+      ? 3
+      : Math.max(generatorId + 2, originalMagnitude + 1);
+    const acceleratedCostMult = new Decimal(10).pow(acceleratedMagnitude);
+
+    cost = baseCost
+      .mul(costMult.pow(normalPurchases))
+      .mul(acceleratedCostMult.pow(acceleratedPurchases));
   }
-
-  const pivot = Math.max(0, Math.floor(softcapStartBought));
-  const normalPurchases = Math.min(purchaseCount, pivot);
-  const acceleratedPurchases = Math.max(0, purchaseCount - pivot);
-
-  // Post-threshold per-purchase growth is strictly tiered. Generator 1 starts
-  // at 1e3; every later tier grows faster, avoiding equal Generator 1/2 rates.
-  const originalMagnitude = Math.round(costMult.log10());
-  const acceleratedMagnitude = generatorId === 1
-    ? 3
-    : Math.max(generatorId + 2, originalMagnitude + 1);
-  const acceleratedCostMult = new Decimal(10).pow(acceleratedMagnitude);
-
-  let cost = baseCost
-    .mul(costMult.pow(normalPurchases))
-    .mul(acceleratedCostMult.pow(acceleratedPurchases));
 
   // After reaching 1e500000 Points, add another ×1e10 for each purchase
   // beyond this generator's purchase-count anchor.
