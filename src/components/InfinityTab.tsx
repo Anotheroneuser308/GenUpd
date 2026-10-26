@@ -158,6 +158,8 @@ interface InfinityTabProps {
   onBuyAstralConvergence?: () => void;
   onBuyStarsUnlock?: () => void;
   onBuyRadiantMultiplicity?: () => void;
+  onBuyStardustSoftcapMastery?: () => void;
+  onToggleStardustAutoBuyer?: () => void;
   onPerformStarReset?: () => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
@@ -193,6 +195,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyAstralConvergence,
   onBuyStarsUnlock,
   onBuyRadiantMultiplicity,
+  onBuyStardustSoftcapMastery,
+  onToggleStardustAutoBuyer,
   onPerformStarReset,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
@@ -629,13 +633,25 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           <p className={`text-[11px] mt-1 leading-relaxed ${isUnlocked ? 'text-amber-100/80' : 'text-slate-500'}`}>
                             {m.desc}
                           </p>
-                          <div className="mt-2 text-[10px] font-semibold">
-                            {isUnlocked ? (
-                              <span className="text-emerald-400">ACTIVE ✓</span>
-                            ) : (
-                              <span className="text-slate-500">
-                                Requires {m.starsRequired} Stars (currently {state.stardust?.stars || 0})
-                              </span>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <div className="text-[10px] font-semibold">
+                              {isUnlocked ? (
+                                <span className="text-emerald-400">ACTIVE ✓</span>
+                              ) : (
+                                <span className="text-slate-500">
+                                  Requires {m.starsRequired} Stars (currently {state.stardust?.stars || 0})
+                                </span>
+                              )}
+                            </div>
+                            {m.starsRequired === 15 && isUnlocked && (
+                              <button
+                                type="button"
+                                onClick={() => onToggleStardustAutoBuyer?.()}
+                                className={`px-3 py-1 rounded-md border text-[10px] font-bold transition-colors ${state.stardust?.stardustAutoBuyerEnabled ? 'bg-emerald-900/40 border-emerald-500/40 text-emerald-300' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'}`}
+                                aria-label="Toggle Stardust upgrade autobuyer"
+                              >
+                                Auto: {state.stardust?.stardustAutoBuyerEnabled ? 'ON' : 'OFF'}
+                              </button>
                             )}
                           </div>
                         </div>
@@ -669,7 +685,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const magnitude = amount.gt(0) ? Math.floor(amount.log10()) : 0;
                       const hasDust4 = !!state.infinityTree?.dust_4;
                       const hasAstralFocus = !!state.stardust?.astralLens;
-                      const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0);
+                      const hasSoftcapMastery = !!state.stardust?.stardustSoftcapMastery;
+                      const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0) - (hasSoftcapMastery ? 2 : 0);
                       if (magnitude >= 9) {
                         return `Enhanced softcap active: 2x stronger after 8 tiers (base divisor ${factor.toFixed(1)}x)`;
                       }
@@ -894,8 +911,9 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     const cost = new Decimal(10000);
                     const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
                     const hasDust4 = !!state.infinityTree?.dust_4;
-                    const currentDivisor = (hasDust4 ? 9 : 10) - (isBought ? 0.5 : 0);
-                    const potentialDivisor = (hasDust4 ? 9 : 10) - 0.5;
+                    const hasSoftcapMastery = !!state.stardust?.stardustSoftcapMastery;
+                    const currentDivisor = (hasDust4 ? 9 : 10) - (hasSoftcapMastery ? 2 : 0) - (isBought ? 0.5 : 0);
+                    const potentialDivisor = (hasDust4 ? 9 : 10) - (hasSoftcapMastery ? 2 : 0) - 0.5;
 
                     return (
                       <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
@@ -1299,6 +1317,40 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       >
                         Buy Upgrade
                       </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {state.stardust?.starsUnlocked && (
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${state.stardust.stardustSoftcapMastery ? 'bg-amber-950/25 border-amber-500/40' : 'bg-slate-950/80 border-amber-500/25'}`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">Softcap Mastery</h4>
+                      {state.stardust.stardustSoftcapMastery ? (
+                        <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">ACTIVE</span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Costs 1.00e24 Stardust and reduces the Stardust generator softcap divisor by 2.0. With Softcap Transmutation and Astral Focus, the divisor drops from 8.5× to 6.5×.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-amber-300">
+                      Current divisor: <strong>{((state.infinityTree?.dust_4 ? 9 : 10) - (state.stardust.astralLens ? 0.5 : 0) - (state.stardust.stardustSoftcapMastery ? 2 : 0)).toFixed(1)}×</strong>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-300">{new Decimal(1, 24).format(notation)} Stardust</strong></span>
+                    {state.stardust.stardustSoftcapMastery ? (
+                      <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onBuyStardustSoftcapMastery}
+                        disabled={(state.stardust?.amount || Decimal.zero()).lt(new Decimal(1, 24))}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all ${ (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 24)) ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}
+                      >Buy Upgrade</button>
                     )}
                   </div>
                 </div>
