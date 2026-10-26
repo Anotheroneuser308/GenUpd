@@ -20,6 +20,7 @@ import {
   PRESTIGE_ENERGY_THRESHOLD,
   INFINITY_THRESHOLD,
   GENERATOR_COST_SOFTCAP_THRESHOLD,
+  GENERATOR_COST_HARD_CAP_THRESHOLD,
   getGeneratorCost,
   getGeneratorMultiplier,
   getTotalTickspeedSpeed,
@@ -192,6 +193,14 @@ export function useGameLoop() {
         if (state.generatorCostSoftcapBought === null && state.points.gte(GENERATOR_COST_SOFTCAP_THRESHOLD)) {
           state.generatorCostSoftcapBought = state.generators.map((generator) => generator.bought);
         }
+        if (state.generatorCostHardcapBought === null && state.points.gte(GENERATOR_COST_HARD_CAP_THRESHOLD)) {
+          state.generatorCostHardcapBought = state.generators.map((generator) => generator.bought);
+        }
+        if (isStarMilestoneUnlocked(state.stardust?.stars || 0, 13) && state.points.gte(PRESTIGE_REQUIREMENT)) {
+          const passivePP = calculatePrestigePointsGain(state.points, state).mul(0.01 * subDt);
+          state.prestige.points = state.prestige.points.add(passivePP);
+          if (state.prestige.points.gt(state.stats.highestPPEver)) state.stats.highestPPEver = state.prestige.points;
+        }
 
       }
 
@@ -362,6 +371,7 @@ export function useGameLoop() {
           prestigeEnergy: { ...prev.prestigeEnergy },
           prestigeUpgrades: { ...prev.prestigeUpgrades },
           infinity: { ...prev.infinity },
+          stardust: prev.stardust ? { ...prev.stardust } : undefined,
           autobuyers: Object.fromEntries(
             Object.entries(prev.autobuyers).map(([key, buyer]) => [key, { ...buyer }] as const)
           ),
@@ -411,6 +421,14 @@ export function useGameLoop() {
         if (state.generatorCostSoftcapBought === null && state.points.gte(GENERATOR_COST_SOFTCAP_THRESHOLD)) {
           state.generatorCostSoftcapBought = state.generators.map((generator) => generator.bought);
         }
+        if (state.generatorCostHardcapBought === null && state.points.gte(GENERATOR_COST_HARD_CAP_THRESHOLD)) {
+          state.generatorCostHardcapBought = state.generators.map((generator) => generator.bought);
+        }
+        if (isStarMilestoneUnlocked(state.stardust?.stars || 0, 13) && state.points.gte(PRESTIGE_REQUIREMENT)) {
+          const passivePP = calculatePrestigePointsGain(state.points, state).mul(0.01 * dt);
+          state.prestige.points = state.prestige.points.add(passivePP);
+          if (state.prestige.points.gt(state.stats.highestPPEver)) state.stats.highestPPEver = state.prestige.points;
+        }
 
         // Auto-unlock Prestige Energy flag once 1e154 is reached
         if (state.points.gte(PRESTIGE_ENERGY_THRESHOLD)) {
@@ -435,6 +453,50 @@ export function useGameLoop() {
           state.stardust.totalEarned = state.stardust.totalEarned.add(stardustRate.mul(dt));
         }
 
+        // Star 15: automatically purchase available Stardust upgrades and buyables.
+        if (state.stardust &&
+            isStarMilestoneUnlocked(state.stardust.stars || 0, 15) &&
+            state.stardust.stardustAutoBuyerEnabled) {
+          const sd = state.stardust;
+          const autoBuyOneTime = (
+            key: 'stellarRadiance' | 'astralLens' | 'constellationHarmonizer' | 'cosmicWeaver' |
+              'supernovaCatalyst' | 'astralConvergence' | 'starsUnlocked' | 'radiantMultiplicity' |
+              'singularityRefraction',
+            cost: Decimal,
+            requirementMet: boolean = true
+          ) => {
+            const flags = sd as unknown as Record<string, unknown>;
+            if (flags[key] || !requirementMet || sd.amount.lt(cost)) return;
+            sd.amount = sd.amount.sub(cost);
+            flags[key] = true;
+          };
+          autoBuyOneTime('stellarRadiance', new Decimal(2500));
+          autoBuyOneTime('astralLens', new Decimal(10000));
+          autoBuyOneTime('constellationHarmonizer', new Decimal(50000));
+          autoBuyOneTime('cosmicWeaver', new Decimal(750000));
+          autoBuyOneTime('supernovaCatalyst', new Decimal(2500000));
+          autoBuyOneTime('astralConvergence', new Decimal(10000000));
+          autoBuyOneTime('starsUnlocked', new Decimal(1e8));
+          autoBuyOneTime('radiantMultiplicity', new Decimal(1, 14), !!sd.stellarRadiance);
+          autoBuyOneTime('singularityRefraction', new Decimal(1, 24));
+
+          let autoPurchases = 0;
+          while (autoPurchases < 25) {
+            const doublerCost = getStardustDoublerCost(sd.doublerLevel || 0, state);
+            const baseCost = getStardustBaseCost(sd.baseUpgradeLevel || 0, state);
+            const canBuyDoubler = sd.amount.gte(doublerCost);
+            const canBuyBase = sd.amount.gte(baseCost);
+            if (!canBuyDoubler && !canBuyBase) break;
+            if (canBuyDoubler && (!canBuyBase || doublerCost.lte(baseCost))) {
+              sd.amount = sd.amount.sub(doublerCost);
+              sd.doublerLevel = (sd.doublerLevel || 0) + 1;
+            } else {
+              sd.amount = sd.amount.sub(baseCost);
+              sd.baseUpgradeLevel = (sd.baseUpgradeLevel || 0) + 1;
+            }
+            autoPurchases++;
+          }
+        }
 
         // Stats tracking
         state.stats.totalTimePlayed += dt;
@@ -536,7 +598,7 @@ export function useGameLoop() {
               if (state.infinityTree?.auto_4) {
                 // Quantum Autobuyer: Buy max available
                 while (true) {
-                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+                  const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null, state.generatorCostHardcapBought?.[gen.id - 1] ?? null);
                   if (state.points.lt(cost)) break;
                   if (!isFreeAuto) {
                     state.points = state.points.sub(cost);
@@ -545,7 +607,7 @@ export function useGameLoop() {
                   gen.bought++;
                 }
               } else {
-                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+                const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, state.generatorCostSoftcapBought?.[gen.id - 1] ?? null, state.generatorCostHardcapBought?.[gen.id - 1] ?? null);
                 if (state.points.gte(cost)) {
                   if (!isFreeAuto) {
                     state.points = state.points.sub(cost);
@@ -945,7 +1007,7 @@ export function useGameLoop() {
       const gen = prev.generators[genIndex];
       if (!gen) return prev;
 
-      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+      const cost = getGeneratorCost(gen.baseCost, gen.costMult, gen.bought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null, prev.generatorCostHardcapBought?.[gen.id - 1] ?? null);
       if (prev.points.lt(cost)) return prev;
 
       sound.playBuy();
@@ -987,7 +1049,7 @@ export function useGameLoop() {
       let purchases = 0;
 
       while (true) {
-        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null);
+        const cost = getGeneratorCost(gen.baseCost, gen.costMult, currentBought, gen.id, prev.generatorCostSoftcapBought?.[gen.id - 1] ?? null, prev.generatorCostHardcapBought?.[gen.id - 1] ?? null);
         if (currentPoints.lt(cost) || purchases >= 50) break;
         currentPoints = currentPoints.sub(cost);
         currentAmount = currentAmount.add(1);
@@ -1145,7 +1207,7 @@ export function useGameLoop() {
       for (let i = unlockedCount - 1; i >= 0; i--) {
         const g = newGenerators[i];
         while (true) {
-          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought, g.id, prev.generatorCostSoftcapBought?.[g.id - 1] ?? null);
+          const cost = getGeneratorCost(g.baseCost, g.costMult, g.bought, g.id, prev.generatorCostSoftcapBought?.[g.id - 1] ?? null, prev.generatorCostHardcapBought?.[g.id - 1] ?? null);
           if (currentPoints.lt(cost)) break;
           currentPoints = currentPoints.sub(cost);
           g.amount = g.amount.add(1);
@@ -1198,6 +1260,7 @@ export function useGameLoop() {
         ...prev,
         points: startingPoints,
         generatorCostSoftcapBought: null,
+        generatorCostHardcapBought: null,
         prestige: {
           ...prev.prestige,
           count: prev.prestige.count + 1,
@@ -1232,51 +1295,49 @@ export function useGameLoop() {
   const performPrestigeEnergy = useCallback(() => {
     setGameState((prev) => {
       if (prev.points.lt(PRESTIGE_ENERGY_THRESHOLD)) return prev;
-
+      const nonResettingPE = isStarMilestoneUnlocked(prev.stardust?.stars || 0, 13);
       const gainedEnergy = calculatePrestigeEnergyGain(prev.points, prev);
-      if (gainedEnergy.lt(1)) return prev;
+      if (nonResettingPE ? gainedEnergy.lte(0) : gainedEnergy.lt(1)) return prev;
 
       sound.playBoost();
-
       const newAmount = prev.prestigeEnergy.amount.add(gainedEnergy);
       const newTotalEarned = (prev.prestigeEnergy.totalEarned || prev.prestigeEnergy.amount).add(gainedEnergy);
-      const initial = createInitialState();
+      const nextPrestigeEnergy = {
+        ...prev.prestigeEnergy,
+        unlocked: true,
+        amount: newAmount,
+        totalEarned: newTotalEarned,
+        multiplier: Decimal.one(),
+        generatorUpgradeLevel: prev.prestigeEnergy.generatorUpgradeLevel || 0,
+        boosterLevel: prev.prestigeEnergy.boosterLevel || 0,
+        resets: prev.prestigeEnergy.resets + 1,
+        ...(nonResettingPE ? { lastClaimedPointsForNonResetting: prev.points } : {}),
+      };
 
+      if (nonResettingPE) {
+        const nextState: GameState = { ...prev, prestigeEnergy: nextPrestigeEnergy };
+        saveStateWithBackup(nextState);
+        return nextState;
+      }
+
+      const initial = createInitialState();
       return {
         ...prev,
         points: new Decimal(10),
         generatorCostSoftcapBought: null,
+        generatorCostHardcapBought: null,
         generators: INITIAL_GENERATORS(),
-        tickspeed: {
-          ...initial.tickspeed,
-        },
-        prestige: {
-          count: 0,
-          points: Decimal.zero(),
-          unlockedGenerators: 4,
-        },
-        prestigeUpgrades: {
-          ...initial.prestigeUpgrades,
-        },
-        prestigeEnergy: {
-          unlocked: true,
-          amount: newAmount,
-          totalEarned: newTotalEarned,
-          multiplier: Decimal.one(),
-          generatorUpgradeLevel: prev.prestigeEnergy.generatorUpgradeLevel || 0,
-          boosterLevel: prev.prestigeEnergy.boosterLevel || 0,
-          resets: prev.prestigeEnergy.resets + 1,
-        },
+        tickspeed: { ...initial.tickspeed },
+        prestige: { count: 0, points: Decimal.zero(), unlockedGenerators: 4 },
+        prestigeUpgrades: { ...initial.prestigeUpgrades },
+        prestigeEnergy: nextPrestigeEnergy,
         autobuyers: {
           ...prev.autobuyers,
           prestige: prev.autobuyers.prestige
             ? { ...prev.autobuyers.prestige, previousPPGain: Decimal.zero() }
             : prev.autobuyers.prestige,
         },
-        stats: {
-          ...prev.stats,
-          timeThisPrestige: 0,
-        },
+        stats: { ...prev.stats, timeThisPrestige: 0 },
       };
     });
   }, []);
@@ -1510,6 +1571,7 @@ export function useGameLoop() {
         ...prev,
         points: startingPoints,
         generatorCostSoftcapBought: null,
+        generatorCostHardcapBought: null,
         generators: resetGenerators,
         tickspeed: {
           ...prev.tickspeed,
@@ -1531,6 +1593,7 @@ export function useGameLoop() {
           generatorUpgradeLevel: 0,
           boosterLevel: 0,
           resets: 0,
+          lastClaimedPointsForNonResetting: Decimal.zero(),
         },
         prestigeUpgrades: {
           ...createInitialState().prestigeUpgrades,
@@ -2170,6 +2233,40 @@ export function useGameLoop() {
     });
   }, []);
 
+  const buySingularityRefraction = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust?.starsUnlocked || prev.stardust.singularityRefraction) return prev;
+      const cost = new Decimal(1, 24);
+      if (prev.stardust.amount.lt(cost)) return prev;
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          amount: prev.stardust.amount.sub(cost),
+          singularityRefraction: true,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const toggleStardustAutoBuyer = useCallback(() => {
+    setGameState((prev) => {
+      if (!prev.stardust || !isStarMilestoneUnlocked(prev.stardust.stars || 0, 15)) return prev;
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust,
+          stardustAutoBuyerEnabled: !prev.stardust.stardustAutoBuyerEnabled,
+        },
+      };
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
   const performStarReset = useCallback(() => {
     setGameState((prev) => {
       if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
@@ -2212,6 +2309,9 @@ export function useGameLoop() {
           supernovaCatalyst: keepSupernovaCatalyst,
           astralConvergence: keepAstralConvergence,
           starsUnlocked: true,
+          stardustAutoBuyerEnabled: (curStars < 15 && nextStars >= 15)
+            ? true
+            : !!prev.stardust.stardustAutoBuyerEnabled,
           stars: nextStars,
           totalStars: (prev.stardust.totalStars || 0) + 1,
         },
@@ -2689,6 +2789,8 @@ export function useGameLoop() {
     buyAstralConvergence,
     buyStarsUnlock,
     buyRadiantMultiplicity,
+    buySingularityRefraction,
+    toggleStardustAutoBuyer,
     performStarReset,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
