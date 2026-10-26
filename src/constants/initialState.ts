@@ -81,10 +81,11 @@ export const INITIAL_GENERATORS: () => GeneratorState[] = () => [
 ];
 
 export const createInitialState = (): GameState => ({
-  version: 5,
+  version: 6,
   points: new Decimal(10),
   pointsPerSecond: Decimal.zero(),
   generatorCostSoftcapBought: null,
+  generatorCostHardcapBought: null,
   lastUpdate: Date.now(),
 
   generators: INITIAL_GENERATORS(),
@@ -107,6 +108,7 @@ export const createInitialState = (): GameState => ({
     unlocked: false,
     amount: Decimal.zero(),
     totalEarned: Decimal.zero(),
+    lastClaimedPointsForNonResetting: Decimal.zero(),
     multiplier: Decimal.one(),
     generatorUpgradeLevel: 0,
     boosterLevel: 0,
@@ -174,6 +176,8 @@ export const createInitialState = (): GameState => ({
     astralConvergence: false,
     starsUnlocked: false,
     radiantMultiplicity: false,
+    singularityRefraction: false,
+    stardustAutoBuyerEnabled: false,
     stars: 0,
     totalStars: 0,
   },
@@ -245,7 +249,12 @@ export const deserializeState = (raw: string): GameState | null => {
     return {
       ...initial,
       ...parsed,
-      version: 5,
+      version: 6,
+      generatorCostHardcapBought: Array.isArray(parsed.generatorCostHardcapBought) &&
+        parsed.generatorCostHardcapBought.length === initial.generators.length &&
+        parsed.generatorCostHardcapBought.every((value: unknown) => typeof value === 'number' && Number.isFinite(value))
+          ? parsed.generatorCostHardcapBought.map((value: number) => Math.max(0, Math.floor(value)))
+          : null,
       generators: initial.generators.map((g, i) => {
         const saved = parsed.generators?.[i];
         if (!saved) return g;
@@ -305,6 +314,9 @@ export const deserializeState = (raw: string): GameState | null => {
         ...initial.prestigeEnergy,
         ...(parsed.prestigeEnergy || {}),
         amount: parsed.prestigeEnergy?.amount instanceof Decimal ? parsed.prestigeEnergy.amount : Decimal.zero(),
+        lastClaimedPointsForNonResetting: parsed.prestigeEnergy?.lastClaimedPointsForNonResetting instanceof Decimal
+          ? parsed.prestigeEnergy.lastClaimedPointsForNonResetting
+          : Decimal.zero(),
         totalEarned: parsed.prestigeEnergy?.totalEarned instanceof Decimal
           ? parsed.prestigeEnergy.totalEarned
           : (parsed.prestigeEnergy?.amount instanceof Decimal ? parsed.prestigeEnergy.amount : Decimal.zero()).add(
@@ -391,6 +403,10 @@ export const deserializeState = (raw: string): GameState | null => {
         astralConvergence: !!parsed.stardust?.astralConvergence,
         starsUnlocked: !!parsed.stardust?.starsUnlocked,
         radiantMultiplicity: !!parsed.stardust?.radiantMultiplicity,
+        singularityRefraction: !!parsed.stardust?.singularityRefraction,
+        stardustAutoBuyerEnabled: typeof parsed.stardust?.stardustAutoBuyerEnabled === 'boolean'
+          ? parsed.stardust.stardustAutoBuyerEnabled
+          : (typeof parsed.stardust?.stars === 'number' && parsed.stardust.stars >= 15),
         stars: typeof parsed.stardust?.stars === 'number' && Number.isFinite(parsed.stardust.stars)
           ? Math.max(0, Math.floor(parsed.stardust.stars))
           : 0,
