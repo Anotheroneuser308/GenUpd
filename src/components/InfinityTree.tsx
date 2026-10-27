@@ -84,7 +84,6 @@ const NODE_POSITIONS: Record<string, NodeCoords> = {
   dust_5: { x: -810, y: 680 },
   dust_6: { x: -950, y: 800 },
   dust_7: { x: -1090, y: 920 },
-  dust_8: { x: -1230, y: 1040 },
 };
 
 // Tree Graph Connections (Parent -> Child)
@@ -123,7 +122,6 @@ const NODE_CONNECTIONS: [string, string][] = [
   ['dust_4', 'dust_5'],
   ['dust_5', 'dust_6'],
   ['dust_6', 'dust_7'],
-  ['dust_7', 'dust_8'],
 
   ['root', 'post_1'],
   ['post_1', 'post_2'],
@@ -365,11 +363,6 @@ export const InfinityTree: React.FC<InfinityTreeProps> = ({
         const stars = state.stardust?.stars || 0;
         const reduction = Math.min(6.0, stars * 0.05);
         return `Singularity Dissipation: reduces Stardust softcap divisor by 0.05 per Star (currently reducing divisor by -${reduction.toFixed(2)}×; ${tree.dust_7 ? 'Active ✓' : 'Inactive'}).`;
-      }
-      case 'dust_8': {
-        const sAmt = state.stardust?.amount || Decimal.zero();
-        const snMult = sAmt.gt(10) ? Math.pow(1 + sAmt.log10() / 10, 1.2) : 1;
-        return `Cosmic Resonance Ignition: multiplies Star Power earned on Supernova by (1 + log10(Stardust)/10)^1.2: currently ×${fmt(snMult)} (${tree.dust_8 ? 'Active ✓' : 'Inactive'}).`;
       }
       case 'post_1': return `Cosmic SP Conduit: multiplies SP reward from next Infinity by log10(Points)/500 (currently ×${fmt(Math.max(1, logPoints / 500))}; next Infinity yields ${formatSkillPoints(calculateSkillPointsGain(state))} SP).`;
       case 'post_2': return `Infinity Flux: multiplies Infinities gained on next reset by log10(Points)/60 (currently yields ${calculateInfinitiesGain(state)} Infinities).`;

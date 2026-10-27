@@ -25,6 +25,12 @@ export const PointsDisplay: React.FC<PointsDisplayProps> = ({ state, activeTab }
             <span className="text-sm font-medium text-slate-400">
               Points
             </span>
+            <span className="ml-1 text-xs font-semibold text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-cyan-300 to-emerald-200" title="Starts at 1e1,000,000 Points. Point gain is softened to ^0.95 beyond this threshold.">
+              My Softcap
+            </span>
+          </div>
+          <div className="mt-1 text-[10px] font-mono text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-cyan-300 to-emerald-200">
+            Starts at 1e1,000,000 Points · Point gain is softened to ^0.95 beyond this threshold.
           </div>
           <div className="flex items-center gap-2 mt-1 text-xs text-slate-400 font-mono flex-wrap">
             <span>+{state.pointsPerSecond.format(notation)} / sec</span>

@@ -389,7 +389,9 @@ export const deserializeState = (raw: string): GameState | null => {
           ...(parsed.infinity?.breakInfinityUpgrades || {}),
         },
       },
-      infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object' ? parsed.infinityTree : {},
+      infinityTree: parsed.infinityTree && typeof parsed.infinityTree === 'object'
+        ? Object.fromEntries(Object.entries(parsed.infinityTree).filter(([key]) => key !== 'dust_8'))
+        : {},
       stardust: {
         unlocked: !!parsed.stardust?.unlocked || !!parsed.infinityTree?.feat_6,
         amount: parsed.stardust?.amount instanceof Decimal ? parsed.stardust.amount : Decimal.zero(),

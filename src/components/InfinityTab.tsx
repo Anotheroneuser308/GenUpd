@@ -19,7 +19,12 @@ import {
   getStarResetCost,
   getStarGeneratorExponent,
   getStarStardustMultiplier,
-  getSupernovaStarPowerGain,
+  getSupernovaStarlightGain,
+  getSupernovaIPMult,
+  getSupernovaPEMult,
+  getSupernovaStardustMult,
+  getMaxAffordableStarForgings,
+  getStardustGeneratorExponentCap,
   SUPERNOVA_UPGRADES,
 } from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
@@ -163,7 +168,7 @@ interface InfinityTabProps {
   onBuyRadiantMultiplicity?: () => void;
   onBuySingularityRefraction?: () => void;
   onToggleStardustAutoBuyer?: () => void;
-  onPerformStarReset?: () => void;
+  onPerformStarReset?: (bulk?: boolean) => void;
   onPerformSupernovaReset?: () => void;
   onBuySupernovaUpgrade?: (upgradeId: SupernovaUpgradeId) => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
@@ -425,7 +430,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-                <h3 className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-300 to-amber-300 font-mono">
+                <h3 className="font-bold text-lg text-transparent bg-clip-text bg-gradient-to-r from-rose-500 via-amber-400 to-yellow-300 font-mono">
                   {stardustView === 'stars' ? 'Stars Realm' : 'Stardust Nexus'}
                 </h3>
                 <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/60 text-amber-400 border border-amber-500/30">
@@ -440,7 +445,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
                 {stardustView === 'stars'
                   ? 'Stars are condensed celestial singularities. Forming a Star resets current Stardust, lifetime Stardust, buyables, and unpreserved upgrades in exchange for a permanent Star that grants linear generator exponent power, exponential Stardust multipliers, and unique milestones.'
-                  : "Stardust is a subtle celestial element forged in real-time and cannot be accumulated offline. It raises every generator multiplier by an exponent that starts at ^1.001 and is capped at ^1.5. From 1e9 Stardust onward, the softcap divisor increases by a fixed +2 instead of doubling at every magnitude; without softcap-reducing upgrades, ^1.5 is reached at 1e30 Stardust."}
+                  : `Stardust is forged in real-time and cannot be accumulated offline. It raises every generator multiplier by an exponent that starts at ^1.001 and is capped at ^${getStardustGeneratorExponentCap(state).toFixed(2)}. Cosmic Luminescence raises the cap from ^1.5 to ^1.75. From 1e9 Stardust onward, the softcap divisor increases by a fixed +2 instead of doubling at every magnitude.`}
               </p>
             </div>
             <div className="text-right">
@@ -452,7 +457,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
           </div>
 
           {/* Sub-tab view toggle if Stars are unlocked */}
-          {(state.stardust?.starsUnlocked || (state.stardust?.stars || 0) > 0) && (
+          {(state.stardust?.starsUnlocked || (state.stardust?.stars || 0) > 0 || (state.stardust?.supernova?.count || 0) > 0) && (
             <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
               <button
                 type="button"
@@ -508,12 +513,12 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               {/* Supernova Overview Gauges */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
                 <div className="bg-slate-950/70 border border-rose-500/40 p-4 rounded-xl">
-                  <span className="text-slate-500 text-[10px] uppercase block">Star Power Balance</span>
+                  <span className="text-slate-500 text-[10px] uppercase block">Starlight Balance</span>
                   <span className="text-2xl font-bold text-rose-400 mt-1 block">
-                    {(state.stardust?.supernova?.starPower || Decimal.zero()).format(notation)} SP
+                    {(state.stardust?.supernova?.starPower || Decimal.zero()).format(notation)} SL
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5 block">
-                    Lifetime earned: {(state.stardust?.supernova?.totalStarPower || Decimal.zero()).format(notation)} SP
+                    Lifetime earned: {(state.stardust?.supernova?.totalStarPower || Decimal.zero()).format(notation)} SL
                   </span>
                 </div>
 
@@ -530,11 +535,33 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 <div className="bg-slate-950/70 border border-amber-500/40 p-4 rounded-xl">
                   <span className="text-slate-500 text-[10px] uppercase block">Next Supernova Reward</span>
                   <span className="text-2xl font-bold text-amber-300 mt-1 block">
-                    +{getSupernovaStarPowerGain(state.stardust?.supernova?.count || 0, state.stardust?.amount, !!state.infinityTree?.dust_8).format(notation)} SP
+                    +{getSupernovaStarlightGain(state.stardust?.supernova?.count || 0).format(notation)} SL
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5 block">
-                    {state.infinityTree?.dust_8 ? 'Boosted by Stardust + dust_8' : 'Base: 3^(n+1)'}
+                    {'Base Starlight reward: 3^(n+1)'}
                   </span>
+                </div>
+              </div>
+
+              {/* Passive Celestial Aura */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold bg-gradient-to-r from-rose-400 via-amber-300 to-yellow-200 bg-clip-text text-transparent">Passive Celestial Aura</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+                  <div className="rounded-xl border border-sky-400/30 bg-sky-950/20 p-4">
+                    <span className="block text-[10px] uppercase text-sky-200/70">IP reward exponent</span>
+                    <strong className="mt-1 block text-lg text-sky-200">^{getSupernovaIPMult(state).toFixed(7)}</strong>
+                    <span className="mt-1 block text-[10px] text-slate-400">Very weak scaling from Supernova count and current SL</span>
+                  </div>
+                  <div className="rounded-xl border border-indigo-400/30 bg-indigo-950/20 p-4">
+                    <span className="block text-[10px] uppercase text-indigo-200/70">PE reward exponent</span>
+                    <strong className="mt-1 block text-lg text-indigo-200">^{getSupernovaPEMult(state).toFixed(7)}</strong>
+                    <span className="mt-1 block text-[10px] text-slate-400">Very weak scaling from Supernova count and current SL</span>
+                  </div>
+                  <div className="rounded-xl border border-emerald-400/30 bg-emerald-950/20 p-4">
+                    <span className="block text-[10px] uppercase text-emerald-200/70">Stardust production</span>
+                    <strong className="mt-1 block text-lg text-emerald-200">×{getSupernovaStardustMult(state).toFixed(4)}</strong>
+                    <span className="mt-1 block text-[10px] text-slate-400">Small compound bonus, capped at ×1.25</span>
+                  </div>
                 </div>
               </div>
 
@@ -542,11 +569,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               {(() => {
                 const currentStars = state.stardust?.stars || 0;
                 const canDetonate = currentStars >= 100;
-                const nextGain = getSupernovaStarPowerGain(
-                  state.stardust?.supernova?.count || 0,
-                  state.stardust?.amount,
-                  !!state.infinityTree?.dust_8,
-                );
+                const nextGain = getSupernovaStarlightGain(state.stardust?.supernova?.count || 0);
 
                 return (
                   <div className="p-6 rounded-2xl border bg-gradient-to-br from-rose-950/30 via-slate-950/95 to-orange-950/30 border-rose-500/50 space-y-4 shadow-2xl">
@@ -562,14 +585,14 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           </span>
                         </div>
                         <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
-                          Detonates all forged Stars and Stardust in a catastrophic burst of stellar fusion, yielding immortal <strong className="text-rose-400">Star Power</strong> based on <code className="text-amber-300 font-mono">3ⁿ</code>.
+                          Detonates all forged Stars and Stardust in a catastrophic burst of stellar fusion, yielding immortal <strong className="text-rose-400">Starlight (SL)</strong> based on <code className="text-amber-300 font-mono">3ⁿ</code>.
                         </p>
                       </div>
 
                       <div className="text-right shrink-0">
                         <span className="text-[10px] uppercase font-mono text-slate-400 block">Reward on Reset</span>
                         <span className="text-2xl font-bold font-mono text-rose-400">
-                          +{nextGain.format(notation)} Star Power
+                          +{nextGain.format(notation)} Starlight
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
                           Requires 100 Stars (Current: {currentStars} / 100)
@@ -613,15 +636,15 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 );
               })()}
 
-              {/* Star Power Celestial Upgrades Grid */}
+              {/* Starlight Upgrades Grid */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-rose-400" />
-                    <span>Star Power Celestial Upgrades</span>
+                    <span>Starlight Upgrades</span>
                   </h4>
                   <span className="text-xs font-mono text-rose-400">
-                    Balance: {(state.stardust?.supernova?.starPower || Decimal.zero()).format(notation)} SP
+                    Balance: {(state.stardust?.supernova?.starPower || Decimal.zero()).format(notation)} SL
                   </span>
                 </div>
 
@@ -662,7 +685,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
 
                         <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
                           <span className="text-xs font-mono text-slate-400">
-                            Cost: <strong className="text-rose-400">{upg.cost} Star Power</strong>
+                            Cost: <strong className="text-rose-400">{upg.cost} SL</strong>
                           </span>
                           {isBought ? (
                             <span className="text-xs font-mono text-rose-400 font-semibold">Purchased</span>
@@ -734,6 +757,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 const starCost = getStarResetCost(currentStars, state);
                 const currentStardust = state.stardust?.amount || Decimal.zero();
                 const canReset = currentStardust.gte(starCost);
+                const hasBulkForging = !!state.stardust?.supernova?.upgrades?.neutronDensity;
+                const maxAffordableStars = hasBulkForging
+                  ? getMaxAffordableStarForgings(currentStars, currentStardust, state)
+                  : 0;
 
                 return (
                   <div className="p-6 rounded-2xl border bg-gradient-to-br from-amber-950/20 via-slate-950/90 to-purple-950/20 border-amber-500/40 space-y-4 shadow-xl">
@@ -759,7 +786,11 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                           {starCost.format(notation)} Stardust
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
-                          {currentStars >= 15 ? 'Cost scales by ×1e5 per Star after Star 15' : 'Cost scales by ×100 per Star until Star 15'}
+                          {currentStars >= 30
+                            ? 'Cost increases by ×1e10 per Star after Star 30'
+                            : currentStars >= 14
+                              ? 'Mid-tier cost scales by ×1e5 per Star (or ×1e3.5 with Celestial Singularity)'
+                              : 'Cost scales by ×100 per Star through Star 15'}
                         </span>
                       </div>
                     </div>
@@ -778,23 +809,41 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       </p>
                     </div>
 
-                    <div className="pt-2 flex items-center justify-between">
+                    <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <span className="text-xs font-mono text-slate-400">
                         Current: <strong className="text-purple-300">{currentStardust.format(notation)}</strong> / {starCost.format(notation)}
                       </span>
-                      <button
-                        type="button"
-                        onClick={onPerformStarReset}
-                        disabled={!canReset}
-                        className={`px-6 py-2.5 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
-                          canReset
-                            ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95'
-                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                        }`}
-                      >
-                        <Star className="w-4 h-4 fill-current" />
-                        <span>Ignite Star (+1 Star)</span>
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onPerformStarReset?.(false)}
+                          disabled={!canReset}
+                          className={`px-6 py-2.5 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                            canReset
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95'
+                              : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                          }`}
+                        >
+                          <Star className="w-4 h-4 fill-current" />
+                          <span>Ignite Star (+1 Star)</span>
+                        </button>
+                        {hasBulkForging && (
+                          <button
+                            type="button"
+                            onClick={() => onPerformStarReset?.(true)}
+                            disabled={maxAffordableStars <= 0}
+                            className={`px-6 py-2.5 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                              maxAffordableStars > 0
+                                ? 'bg-gradient-to-r from-rose-500 via-amber-400 to-yellow-300 hover:brightness-110 text-slate-950 shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95'
+                                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                            }`}
+                            title="Forge all affordable Stars and preserve unspent Stardust."
+                          >
+                            <Star className="w-4 h-4 fill-current" />
+                            <span>Forge Max Stars (+{maxAffordableStars >= 1000000 ? '1,000,000+' : maxAffordableStars.toLocaleString()} Stars)</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -900,12 +949,12 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0) - (hasRefraction ? 2 : 0);
                       const strongerFactor = factor + 2;
                       if (magnitude >= 9) {
-                        return `Enhanced softcap active after 8 tiers (divisor ${factor.toFixed(1)}x → ${strongerFactor.toFixed(1)}x); exponent cap ^1.75`;
+                        return `Enhanced softcap active after 8 tiers (divisor ${factor.toFixed(1)}x → ${strongerFactor.toFixed(1)}x); exponent cap ^${getStardustGeneratorExponentCap(state).toFixed(2)}`;
                       }
                       if (magnitude >= 1) {
-                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); divisor increases by +2 at 1e9; exponent cap ^1.75`;
+                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); divisor increases by +2 at 1e9; exponent cap ^${getStardustGeneratorExponentCap(state).toFixed(2)}`;
                       }
-                      return 'Full unsoftcapped growth (up to 10 Stardust); exponent cap ^1.75';
+                      return `Full unsoftcapped growth (up to 10 Stardust); exponent cap ^${getStardustGeneratorExponentCap(state).toFixed(2)}`;
                     })()}
                   </span>
                 </div>

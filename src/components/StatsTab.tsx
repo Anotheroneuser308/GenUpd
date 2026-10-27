@@ -173,7 +173,7 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
       pointsExponent: 450, prestigeCount: 10000, prestigePoints: new Decimal(1, 400),
       peResets: 5000, peAmount: new Decimal(1, 12), totalPE: new Decimal(1, 12), prestigeEnergyLevel: 45,
       infinityCount: 100000, infinityPoints: new Decimal(1, 30), totalIP: new Decimal(1, 40), skillPoints: 1e11,
-      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true, dust_1: true, dust_2: true, dust_3: true, dust_4: true, dust_5: true, dust_6: true, dust_7: true, dust_8: true },
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true, dust_1: true, dust_2: true, dust_3: true, dust_4: true, dust_5: true, dust_6: true, dust_7: true },
       generatorBuys: [500, 450, 400, 350, 300, 250, 200, 150],
       generatorAmountExponents: [350, 320, 290, 260, 230, 200, 170, 140], tickspeedBuys: 25000, totalTimePlayed: 1209600,
       stardust: {

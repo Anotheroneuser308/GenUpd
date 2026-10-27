@@ -51,7 +51,10 @@ import {
   getSkillAmplificationCost,
   getGeneratorAmplificationCost,
   getMaxGeneratorAmplificationPurchases,
-  getSupernovaStarPowerGain,
+  getSupernovaStarlightGain,
+  getMySoftcapMultiplier,
+  getMaxAffordableStarForgings,
+  getTotalStarForgingCost,
   SUPERNOVA_UPGRADES,
 } from '../utils/gameCalculations';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
@@ -188,7 +191,7 @@ export function useGameLoop() {
         // Generator 1 produces Points
         const gen1 = state.generators[0];
         if (gen1.amount.gt(0)) {
-          const pointsRate = gen1.amount.mul(gen1.multiplier).mul(tickspeed).mul(pointsMult);
+          const pointsRate = gen1.amount.mul(gen1.multiplier).mul(tickspeed).mul(pointsMult).mul(getMySoftcapMultiplier(state.points));
           state.points = state.points.add(pointsRate.mul(subDt));
         }
 
@@ -386,7 +389,7 @@ export function useGameLoop() {
         let pointsRate = Decimal.zero();
         if (gen1.amount.gt(0)) {
           const pointsMult = getPointsGenerationMultiplier(state);
-          pointsRate = gen1.amount.mul(gen1.multiplier).mul(tickspeedSpeed).mul(pointsMult);
+          pointsRate = gen1.amount.mul(gen1.multiplier).mul(tickspeedSpeed).mul(pointsMult).mul(getMySoftcapMultiplier(state.points));
           state.points = state.points.add(pointsRate.mul(dt));
         }
         state.pointsPerSecond = pointsRate;
@@ -2252,15 +2255,28 @@ export function useGameLoop() {
     });
   }, []);
 
-  const performStarReset = useCallback(() => {
+  const performStarReset = useCallback((bulk = false) => {
     setGameState((prev) => {
       if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
       const curStars = prev.stardust.stars || 0;
-      const cost = getStarResetCost(curStars, prev);
-      if (prev.stardust.amount.lt(cost)) return prev;
+      const currentStardust = prev.stardust.amount || Decimal.zero();
+      let starsToForge = 1;
+      let unspentStardust = Decimal.zero();
+
+      if (bulk) {
+        if (!prev.stardust.supernova?.upgrades?.neutronDensity) return prev;
+        starsToForge = getMaxAffordableStarForgings(curStars, currentStardust, prev);
+        if (starsToForge <= 0) return prev;
+        const spent = getTotalStarForgingCost(curStars, starsToForge, prev);
+        unspentStardust = currentStardust.sub(spent);
+        if (unspentStardust.lt(0)) unspentStardust = Decimal.zero();
+      } else {
+        const cost = getStarResetCost(curStars, prev);
+        if (currentStardust.lt(cost)) return prev;
+      }
 
       sound.playCollapse();
-      const nextStars = curStars + 1;
+      const nextStars = curStars + starsToForge;
 
       // Check milestones for reset benefits & preservation:
       // Milestone 1: Start each Star reset with 10 Stardust and +1 Base upgrade level
@@ -2287,8 +2303,8 @@ export function useGameLoop() {
         ...prev,
         stardust: {
           ...prev.stardust,
-          amount: startingAmount,
-          totalEarned: startingAmount,
+          amount: bulk ? unspentStardust.add(startingAmount) : startingAmount,
+          totalEarned: bulk ? unspentStardust.add(startingAmount) : startingAmount,
           doublerLevel: 0,
           baseUpgradeLevel: startingBaseLevel,
           stellarRadiance: keepStellarRadiance,
@@ -2302,7 +2318,7 @@ export function useGameLoop() {
             ? true
             : !!prev.stardust.stardustAutoBuyerEnabled,
           stars: nextStars,
-          totalStars: (prev.stardust.totalStars || 0) + 1,
+          totalStars: (prev.stardust.totalStars || 0) + starsToForge,
           supernova: prev.stardust.supernova,
         },
       };
@@ -2320,14 +2336,10 @@ export function useGameLoop() {
       sound.playCollapse();
       const curSupernovas = prev.stardust?.supernova?.count || 0;
       const nextSupernova = curSupernovas + 1;
-      const spEarned = getSupernovaStarPowerGain(
-        curSupernovas,
-        prev.stardust?.amount,
-        !!prev.infinityTree?.dust_8,
-      );
+      const starlightEarned = getSupernovaStarlightGain(curSupernovas);
 
-      const existingStarPower = prev.stardust?.supernova?.starPower || Decimal.zero();
-      const existingTotalStarPower = prev.stardust?.supernova?.totalStarPower || Decimal.zero();
+      const existingStarlight = prev.stardust?.supernova?.starPower || Decimal.zero();
+      const existingTotalStarlight = prev.stardust?.supernova?.totalStarPower || Decimal.zero();
       const existingUpgrades = prev.stardust?.supernova?.upgrades || {};
 
       const nextState: GameState = {
@@ -2344,7 +2356,7 @@ export function useGameLoop() {
           cosmicWeaver: false,
           supernovaCatalyst: false,
           astralConvergence: false,
-          starsUnlocked: false,
+          starsUnlocked: true,
           radiantMultiplicity: false,
           singularityRefraction: false,
           stardustAutoBuyerEnabled: false,
@@ -2353,8 +2365,8 @@ export function useGameLoop() {
           supernova: {
             unlocked: true,
             count: nextSupernova,
-            starPower: existingStarPower.add(spEarned),
-            totalStarPower: existingTotalStarPower.add(spEarned),
+            starPower: existingStarlight.add(starlightEarned),
+            totalStarPower: existingTotalStarlight.add(starlightEarned),
             upgrades: existingUpgrades,
           },
         },

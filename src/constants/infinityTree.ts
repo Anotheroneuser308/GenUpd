@@ -332,7 +332,7 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     id: 'dust_6',
     branch: 'dust',
     title: 'Astral Transcendence',
-    desc: 'Each forged Star adds +0.001 to the Stardust generator power exponent (moving smoothly towards the 1.75 cap).',
+    desc: 'Each forged Star adds +0.001 to the Stardust generator power exponent (normally capped at ^1.5, or ^1.75 with Cosmic Luminescence).',
     cost: 1e11,
     req: 'dust_5',
     icon: '🌟',
@@ -345,15 +345,6 @@ export const INFINITY_TREE_NODES: Record<string, InfinityTreeNodeDef> = {
     cost: 1e12,
     req: 'dust_6',
     icon: '🌀',
-  },
-  dust_8: {
-    id: 'dust_8',
-    branch: 'dust',
-    title: 'Cosmic Resonance Ignition',
-    desc: 'Supernova detonates with cosmic fury: multiplies Star Power gained upon Supernova by (1 + log10(Stardust)/10)^1.2.',
-    cost: 1e13,
-    req: 'dust_7',
-    icon: '💥',
   },
 };
 
