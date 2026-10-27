@@ -180,6 +180,13 @@ export const createInitialState = (): GameState => ({
     stardustAutoBuyerEnabled: false,
     stars: 0,
     totalStars: 0,
+    supernova: {
+      unlocked: false,
+      count: 0,
+      starPower: Decimal.zero(),
+      totalStarPower: Decimal.zero(),
+      upgrades: {},
+    },
   },
 
   autobuyers: {
@@ -413,6 +420,25 @@ export const deserializeState = (raw: string): GameState | null => {
         totalStars: typeof parsed.stardust?.totalStars === 'number' && Number.isFinite(parsed.stardust.totalStars)
           ? Math.max(0, Math.floor(parsed.stardust.totalStars))
           : (typeof parsed.stardust?.stars === 'number' ? Math.max(0, Math.floor(parsed.stardust.stars)) : 0),
+        supernova: {
+          unlocked: !!parsed.stardust?.supernova?.unlocked || (typeof parsed.stardust?.stars === 'number' && parsed.stardust.stars >= 100),
+          count: typeof parsed.stardust?.supernova?.count === 'number' && Number.isFinite(parsed.stardust.supernova.count)
+            ? Math.max(0, Math.floor(parsed.stardust.supernova.count))
+            : 0,
+          starPower: parsed.stardust?.supernova?.starPower instanceof Decimal
+            ? parsed.stardust.supernova.starPower
+            : (parsed.stardust?.supernova?.starPower && typeof parsed.stardust.supernova.starPower === 'object' && parsed.stardust.supernova.starPower._isDecimal
+                ? new Decimal(parsed.stardust.supernova.starPower.m, parsed.stardust.supernova.starPower.e)
+                : Decimal.zero()),
+          totalStarPower: parsed.stardust?.supernova?.totalStarPower instanceof Decimal
+            ? parsed.stardust.supernova.totalStarPower
+            : (parsed.stardust?.supernova?.totalStarPower && typeof parsed.stardust.supernova.totalStarPower === 'object' && parsed.stardust.supernova.totalStarPower._isDecimal
+                ? new Decimal(parsed.stardust.supernova.totalStarPower.m, parsed.stardust.supernova.totalStarPower.e)
+                : Decimal.zero()),
+          upgrades: parsed.stardust?.supernova?.upgrades && typeof parsed.stardust.supernova.upgrades === 'object'
+            ? parsed.stardust.supernova.upgrades
+            : {},
+        },
       },
       autobuyers: {
         ...initial.autobuyers,

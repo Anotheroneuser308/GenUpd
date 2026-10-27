@@ -1,5 +1,5 @@
 import { Decimal } from './decimal';
-import { GameState } from '../types/game';
+import { GameState, SupernovaUpgradeId } from '../types/game';
 import { getPassivePEGeneratorMultiplier, isInfinityMilestoneUnlocked, getUnlockedInfinityMilestonesCount } from './infinityMilestones';
 import { isStarMilestoneUnlocked } from '../constants/starMilestones';
 
@@ -273,6 +273,23 @@ export function getPreInfinityGeneratorMultiplier(state: GameState): Decimal {
 }
 
 /**
+ * Multiplier for the IP Resonance infinity upgrade.
+ * All generators scale with lifetime IP earned (including spent IP).
+ * - Up to 1e308 IP: scales with base 3, 3^log10(IP).
+ * - Above 1e308 IP: scales with base 1.25 for each additional magnitude above 1e308 (3^308 * 1.25^(log10(IP) - 308)).
+ */
+export function getIPResonanceMultiplier(totalEarnedIP: Decimal | undefined): Decimal {
+  if (!totalEarnedIP || totalEarnedIP.lte(0)) return Decimal.one();
+  const logIP = Math.max(0, totalEarnedIP.log10());
+  if (logIP <= 308) {
+    return new Decimal(3).pow(logIP);
+  }
+  const basePart = new Decimal(3).pow(308);
+  const extraOom = logIP - 308;
+  return basePart.mul(new Decimal(1.25).pow(extraOom));
+}
+
+/**
  * Multiplier for generator based on purchases, Upgrade 3A (Cascading Boosts), Upgrade 9, Prestige Energy,
  * and the Infinity Tree Root Node, which softcaps and hardcaps at 1e500.
  */
@@ -312,9 +329,9 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
   mult = mult.mul(getPassivePEGeneratorMultiplier(state));
 
   // Infinity Upgrade: generator boost based on lifetime IP earned (including IP already spent).
+  // Up to 1e308 IP: 3^log10(IP). Above 1e308 IP: 3^308 * 1.25^(log10(IP) - 308).
   if (state.infinity?.ipGeneratorBoost && state.infinity.totalEarnedIP?.gt(0)) {
-    const lifetimeIPLog = Math.max(0, state.infinity.totalEarnedIP.log10());
-    mult = mult.mul(new Decimal(3).pow(lifetimeIPLog));
+    mult = mult.mul(getIPResonanceMultiplier(state.infinity.totalEarnedIP));
   }
 
   // Upgrade 2: Achievement Resonance boosts all generators, including honorary achievements from Achievement Master.
@@ -406,10 +423,21 @@ export function getGeneratorMultiplier(genId: number, state: GameState): Decimal
   // Stars Exponent Bonus: gentle linear generator exponent (+0.001 per Star, +0.0015 with Star Milestone 6)
   const starCount = Math.max(0, Math.floor(state.stardust?.stars || 0));
   if (starCount > 0) {
-    const starExp = getStarGeneratorExponent(starCount);
+    const starExp = getStarGeneratorExponent(starCount, state);
     if (starExp > 0) {
       mult = mult.pow(1 + starExp);
     }
+
+    // Star Milestone 40: Solar Dynamo 10^(0.02 * stars^1.08)
+    if (isStarMilestoneUnlocked(starCount, 40)) {
+      const dynamoExp = 0.02 * Math.pow(starCount, 1.08);
+      mult = mult.mul(new Decimal(10).pow(dynamoExp));
+    }
+  }
+
+  // Supernova Upgrade: Cosmic Core (x10,000 multiplier, raised to ^1.03)
+  if (state.stardust?.supernova?.upgrades?.cosmicCore) {
+    mult = mult.mul(10000).pow(1.03);
   }
 
   return mult;
@@ -460,7 +488,12 @@ export function getTotalTickspeedSpeed(state: GameState): Decimal {
   if (isInfinityMilestoneUnlocked(state, 'milestone_3350_tickspeed_boost')) {
     basePower += 0.02;
   }
-  return new Decimal(basePower).pow(state.tickspeed.bought);
+  let total = new Decimal(basePower).pow(state.tickspeed.bought);
+  const stars = state.stardust?.stars || 0;
+  if (isStarMilestoneUnlocked(stars, 80)) {
+    total = total.mul(1.2);
+  }
+  return total;
 }
 
 export function getAchievementMasterCompletions(state: GameState): number {
@@ -531,6 +564,14 @@ export function getPointsGenerationMultiplier(state: GameState): Decimal {
   // Absolute Horizon raises the complete Points-generation multiplier to ^1.05.
   if (state.infinity?.breakInfinityUpgrades?.absoluteHorizon) {
     mult = mult.pow(1.05);
+  }
+
+  // Supernova Upgrade: Neutron Density - multiplies Points generation by (Star Power + 1)^3
+  if (state.stardust?.supernova?.upgrades?.neutronDensity) {
+    const sp = state.stardust.supernova.starPower;
+    if (sp instanceof Decimal && sp.gt(0)) {
+      mult = mult.mul(sp.add(1).pow(3));
+    }
   }
 
   return mult;
@@ -760,6 +801,10 @@ export function getStardustPerSecond(state: GameState): Decimal {
 
   // Node dust_2: doubles base Stardust rate gained from Stardust Base (+0.010/s instead of +0.005/s)
   let basePerLevel = state.infinityTree?.dust_2 ? 0.010 : 0.005;
+  // Node dust_5: adds +0.025/s per level
+  if (state.infinityTree?.dust_5) {
+    basePerLevel += 0.025;
+  }
   // Upgrade: Supernova Catalyst (2.5M Stardust) triples base upgrade contribution!
   if (state.stardust?.supernovaCatalyst) {
     basePerLevel *= 3;
@@ -810,7 +855,7 @@ export function getStardustPerSecond(state: GameState): Decimal {
     rate = rate.mul(2);
   }
 
-  // Stars Bonus: multiplies Stardust production by 2^stars (or 3^stars with Star Milestone 3)
+  // Stars Bonus: multiplies Stardust production by 2^stars (or 2.5^stars with Star Milestone 3, 3.0^stars with Milestone 50)
   const starCount = Math.max(0, Math.floor(state.stardust?.stars || 0));
   if (starCount > 0) {
     rate = rate.mul(getStarStardustMultiplier(starCount));
@@ -821,22 +866,56 @@ export function getStardustPerSecond(state: GameState): Decimal {
     rate = rate.mul(10);
   }
 
+  // Star Milestone 20: 2x Stardust production
+  if (isStarMilestoneUnlocked(starCount, 20)) {
+    rate = rate.mul(2);
+  }
+
+  // Star Milestone 25: 1.25x per active softcap
+  if (isStarMilestoneUnlocked(starCount, 25)) {
+    const activeSoftcaps = (state.stardust?.amount && state.stardust.amount.gt(10))
+      ? Math.floor(state.stardust.amount.log10())
+      : 0;
+    if (activeSoftcaps > 0) {
+      rate = rate.mul(new Decimal(1.25).pow(activeSoftcaps));
+    }
+  }
+
+  // Star Milestone 70: Quantum Flare (1 + log10(PE + 1))^1.5
+  if (isStarMilestoneUnlocked(starCount, 70)) {
+    const pe = state.prestigeEnergy?.amount ? state.prestigeEnergy.amount.toNumber() : 0;
+    const peBonus = Math.pow(1 + Math.log10(Math.max(0, pe) + 1), 1.5);
+    rate = rate.mul(peBonus);
+  }
+
+  // Star Milestone 90: Quasar Core 1 + (log10(Points + 1)/1000)^2
+  if (isStarMilestoneUnlocked(starCount, 90) && state.points.gt(1)) {
+    const logPts = state.points.log10();
+    const qBonus = 1 + Math.pow(logPts / 1000, 2);
+    rate = rate.mul(qBonus);
+  }
+
+  // Supernova Upgrade: Stardust Rebirth
+  if (state.stardust?.supernova?.upgrades?.stardustRebirth) {
+    const snCount = state.stardust.supernova.count || 0;
+    rate = rate.mul(5 * (1 + 0.25 * snCount));
+  }
+
   return rate;
 }
 
 /**
  * Computes effective Stardust with a continuous per-magnitude softcap.
- * The first eight completed tiers use the base divisor D. From the ninth tier
- * (1e9 Stardust) onward, the divisor is a fixed D + 2: stronger than the normal
- * softcap, but it no longer compounds by another 2x at every magnitude.
- * The base divisor is 10, or 9 with dust_4; Astral Focus reduces it by 0.5,
- * and Singularity Refraction reduces it by another 2.
+ * Base divisor is 10, reduced by tree nodes, star milestones, and upgrades.
  */
 export function getEffectiveStardust(
   stardustAmount: Decimal,
   hasDust4: boolean = false,
   hasAstralFocus: boolean = false,
   hasSingularityRefraction: boolean = false,
+  starCount: number = 0,
+  hasDust7: boolean = false,
+  hasMilestone60: boolean = false,
 ): Decimal {
   if (!stardustAmount || stardustAmount.lte(0)) return Decimal.zero();
   if (stardustAmount.lte(10)) return stardustAmount;
@@ -844,6 +923,11 @@ export function getEffectiveStardust(
   let D = hasDust4 ? 9 : 10;
   if (hasAstralFocus) D -= 0.5;
   if (hasSingularityRefraction) D -= 2;
+  if (hasMilestone60) D -= 1.0;
+  if (hasDust7 && starCount > 0) {
+    D -= Math.min(D - 4.0, starCount * 0.05);
+  }
+  D = Math.max(3.0, D);
 
   const magnitude = Math.floor(stardustAmount.log10());
   const normalTierCount = Math.min(Math.max(0, magnitude - 1), 8);
@@ -859,9 +943,6 @@ export function getEffectiveStardust(
     }
   }
 
-  // After the eighth tier, the divisor stays at D + 2 rather than doubling
-  // again at every magnitude. This keeps a meaningful softcap without the
-  // previous extremely harsh, compounding tier.
   const strongerDivisor = D + 2;
   const strongerTierCount = Math.max(0, magnitude - 9);
   if (strongerTierCount > 0) {
@@ -872,8 +953,6 @@ export function getEffectiveStardust(
       / (1 - shrinkRatio);
   }
 
-  // Partial current tier; the same D + 2 divisor is applied continuously after
-  // 1e9 Stardust so there are no jumps at powers of ten.
   const partialNumerator = stardustAmount.sub(new Decimal(10).pow(magnitude));
   const partialDivisor = magnitude <= 8
     ? new Decimal(D).pow(magnitude)
@@ -883,44 +962,46 @@ export function getEffectiveStardust(
   return new Decimal(effective).add(partial);
 }
 
-// The normal softcap reaches this reference point at 1e9 Stardust (effective value 82)
-// and the exponent reaches its final cap at 1e30 Stardust.
-const STARDUST_EXPONENT_CAP = 1.5;
-const STARDUST_EXPONENT_START_EFFECTIVE = getEffectiveStardust(new Decimal(1, 9), false, false, false);
-const STARDUST_EXPONENT_START_VALUE = 1 + STARDUST_EXPONENT_START_EFFECTIVE.toNumber() * 0.001;
-const STARDUST_EXPONENT_TARGET = getEffectiveStardust(new Decimal(1, 30), false, false, false);
-const STARDUST_EXPONENT_POST_SOFTCAP_POWER = 1.25;
+// Generator power exponent cap now gracefully scales up to 1.75!
+export const STARDUST_EXPONENT_CAP = 1.75;
 
 /**
  * Generator exponent boost from Stardust.
- * Preserves the original curve through the first eight tiers, then eases toward
- * ^1.5 by 1e30 Stardust with a stronger softcap. Softcap-reducing upgrades can
- * make the cap reachable earlier, and this exponent never exceeds ^1.5.
+ * Smoothly and slowly progresses from ^1.0 up to ^1.75 without hard locks.
  */
 export function getStardustGeneratorExponent(stardustAmount: Decimal, state?: GameState): number {
   if (!stardustAmount || stardustAmount.lte(0)) return 1.0;
   const hasDust4 = !!state?.infinityTree?.dust_4;
+  const hasDust7 = !!state?.infinityTree?.dust_7;
   const hasAstralFocus = !!state?.stardust?.astralLens;
   const hasSingularityRefraction = !!state?.stardust?.singularityRefraction;
-  const effective = getEffectiveStardust(stardustAmount, hasDust4, hasAstralFocus, hasSingularityRefraction);
+  const starCount = Math.max(0, Math.floor(state?.stardust?.stars || 0));
+  const hasMilestone60 = isStarMilestoneUnlocked(starCount, 60);
 
-  // Keep the pre-1e9 progression unchanged for saves without softcap upgrades.
-  if (effective.lte(STARDUST_EXPONENT_START_EFFECTIVE)) {
-    const bonus = effective.mul(0.001).toNumber();
-    return Math.min(STARDUST_EXPONENT_CAP, 1 + (Number.isFinite(bonus) ? bonus : 0));
+  const effective = getEffectiveStardust(
+    stardustAmount,
+    hasDust4,
+    hasAstralFocus,
+    hasSingularityRefraction,
+    starCount,
+    hasDust7,
+    hasMilestone60,
+  );
+
+  const effNum = Math.max(0, effective.toNumber());
+  // Smooth progression from 1.0 toward 1.75
+  let bonus = 0.75 * (1 - Math.exp(-effNum / 550));
+
+  // Star Milestone 20: +0.025 flat
+  if (isStarMilestoneUnlocked(starCount, 20)) {
+    bonus += 0.025;
   }
 
-  // Above the normal eight tiers, interpolate from the existing 1e9 exponent
-  // toward ^1.5 using a power curve > 1, making the softcap stronger while still
-  // guaranteeing ^1.5 by 1e30 Stardust in the standard progression.
-  if (effective.gte(STARDUST_EXPONENT_TARGET)) return STARDUST_EXPONENT_CAP;
-  const progress = effective
-    .sub(STARDUST_EXPONENT_START_EFFECTIVE)
-    .div(STARDUST_EXPONENT_TARGET.sub(STARDUST_EXPONENT_START_EFFECTIVE))
-    .toNumber();
-  const softenedProgress = Math.pow(Math.max(0, Math.min(1, progress)), STARDUST_EXPONENT_POST_SOFTCAP_POWER);
-  const bonus = (STARDUST_EXPONENT_START_VALUE - 1)
-    + (STARDUST_EXPONENT_CAP - STARDUST_EXPONENT_START_VALUE) * softenedProgress;
+  // Node dust_6: +0.001 per Star
+  if (state?.infinityTree?.dust_6 && starCount > 0) {
+    bonus += starCount * 0.001;
+  }
+
   return Math.min(STARDUST_EXPONENT_CAP, 1 + (Number.isFinite(bonus) ? bonus : 0));
 }
 
@@ -941,35 +1022,117 @@ export function getStardustBaseCost(currentLevel: number, state?: GameState): De
 
 /**
  * Star Reset Cost:
- * Each Star normally increases the requirement by x100. After 14 completed
- * Stars, each additional Star increases the next requirement by x1e5 instead.
+ * Each Star normally increases the requirement by x100 (2 OoMs).
+ * After 14 completed Stars, increases by 5 OoMs per Star, softened by Milestone 30 and Celestial Singularity.
  */
-export function getStarResetCost(currentStars: number): Decimal {
+export function getStarResetCost(currentStars: number, state?: GameState): Decimal {
   const stars = Math.max(0, Math.floor(currentStars));
   const normalStars = Math.min(stars, 14);
   const acceleratedStars = Math.max(0, stars - 14);
-  return new Decimal(10).pow(10 + 2 * normalStars + 5 * acceleratedStars);
+
+  let accPower = 5.0;
+  if (isStarMilestoneUnlocked(stars, 30)) {
+    accPower = 4.25;
+  }
+  if (state?.stardust?.supernova?.upgrades?.celestialSingularity) {
+    accPower = 3.5;
+  }
+
+  return new Decimal(10).pow(10 + 2 * normalStars + accPower * acceleratedStars);
 }
 
 /**
  * Star Generator Exponent Bonus:
- * Very gentle linear growth: +0.001 per Star (+0.0015 with Star Milestone 6).
+ * Linear growth: +0.001 per Star (+0.0015 with Star Milestone 6, +0.001 extra with Star Forging Mastery).
  */
-export function getStarGeneratorExponent(stars: number): number {
+export function getStarGeneratorExponent(stars: number, state?: GameState): number {
   if (stars <= 0) return 0;
-  const perStar = isStarMilestoneUnlocked(stars, 6) ? 0.0015 : 0.001;
+  let perStar = isStarMilestoneUnlocked(stars, 6) ? 0.0015 : 0.001;
+  if (state?.stardust?.supernova?.upgrades?.starForgingMastery) {
+    perStar += 0.001;
+  }
   return stars * perStar;
 }
 
 /**
  * Star Stardust Production Multiplier:
- * 2^stars, boosted to 3^stars with Star Milestone 3.
+ * 2^stars, boosted to 2.5^stars with Star Milestone 3, and 3.0^stars with Star Milestone 50.
  */
 export function getStarStardustMultiplier(stars: number): Decimal {
   if (stars <= 0) return Decimal.one();
-  const base = isStarMilestoneUnlocked(stars, 3) ? 2.5 : 2;
+  let base = 2;
+  if (isStarMilestoneUnlocked(stars, 50)) {
+    base = 3.0;
+  } else if (isStarMilestoneUnlocked(stars, 3)) {
+    base = 2.5;
+  }
   return new Decimal(base).pow(stars);
 }
+
+/**
+ * Star Power gain formula for Supernova reset:
+ * Base is 3^n where n = next Supernova tier (supernova count + 1).
+ * Boosted by Infinity Tree node dust_8 based on Stardust accumulated.
+ */
+export function getSupernovaStarPowerGain(
+  currentSupernovas: number,
+  stardustAmount?: Decimal,
+  hasDust8?: boolean,
+): Decimal {
+  const nextN = Math.max(0, currentSupernovas) + 1;
+  let gain = new Decimal(3).pow(nextN);
+  if (hasDust8 && stardustAmount && stardustAmount.gt(10)) {
+    const mult = Math.pow(1 + stardustAmount.log10() / 10, 1.2);
+    gain = gain.mul(mult);
+  }
+  return gain.floor();
+}
+
+export interface SupernovaUpgradeDef {
+  id: SupernovaUpgradeId;
+  name: string;
+  cost: number;
+  desc: string;
+  icon: string;
+}
+
+export const SUPERNOVA_UPGRADES: Record<SupernovaUpgradeId, SupernovaUpgradeDef> = {
+  cosmicCore: {
+    id: 'cosmicCore',
+    name: 'Cosmic Core',
+    cost: 3,
+    desc: 'All generators receive a massive 10,000x multiplier, and total generator power is raised to ^1.03.',
+    icon: '⚛️',
+  },
+  stardustRebirth: {
+    id: 'stardustRebirth',
+    name: 'Stardust Rebirth',
+    cost: 9,
+    desc: 'Multiplies Stardust generation rate by 5x, plus an additional +25% per completed Supernova.',
+    icon: '✨',
+  },
+  starForgingMastery: {
+    id: 'starForgingMastery',
+    name: 'Star Forging Mastery',
+    cost: 27,
+    desc: 'Stars grant an extra +0.001 to the generator exponent (+0.002 total), and each Star reset starts with 1,000 Stardust.',
+    icon: '🌟',
+  },
+  neutronDensity: {
+    id: 'neutronDensity',
+    name: 'Neutron Density',
+    cost: 81,
+    desc: 'Unspent Star Power accelerates Points production: multiplies Points generation by (Star Power + 1)³.',
+    icon: '💫',
+  },
+  celestialSingularity: {
+    id: 'celestialSingularity',
+    name: 'Celestial Singularity',
+    cost: 243,
+    desc: 'Star reset cost scaling above 14 Stars is reduced from 5.0 to 3.5 orders of magnitude per Star.',
+    icon: '🕳️',
+  },
+};
 
 /**
  * Skill Amplification helpers:

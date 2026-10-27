@@ -88,6 +88,22 @@ export interface StardustState {
   // Stars Reset Layer:
   stars?: number; // count of Star resets completed
   totalStars?: number; // lifetime stars forged
+  supernova?: SupernovaState;
+}
+
+export type SupernovaUpgradeId =
+  | 'cosmicCore'
+  | 'stardustRebirth'
+  | 'starForgingMastery'
+  | 'neutronDensity'
+  | 'celestialSingularity';
+
+export interface SupernovaState {
+  unlocked: boolean;
+  count: number;
+  starPower: Decimal;
+  totalStarPower: Decimal;
+  upgrades: Partial<Record<SupernovaUpgradeId, boolean>>;
 }
 
 export interface InfinityState {
@@ -99,7 +115,7 @@ export interface InfinityState {
   ipDoublerLevel?: number; // Infinity Upgrade: Doubles IP gain on each Infinity
   automationExpand?: boolean; // Infinity Upgrade: Unlocks auto_5 and auto_6 in tree
   achievementMaster?: boolean; // Infinity Upgrade: 15 IP, grants 1 honorary achievement per 3 OoMs of points
-  ipGeneratorBoost: boolean; // All generators scale with lifetime IP: 3^log10(total IP earned)
+  ipGeneratorBoost: boolean; // All generators scale with lifetime IP: 3^log10(total IP) up to 1e308, 1.25^OoM above
   timeIPBoost: boolean; // Big Crunch IP gain scales with time spent in current Infinity
   energySPBoost: boolean; // Prestige Energy gain scales with unspent SP + 1
   totalEarnedIP: Decimal; // Lifetime IP earned, including IP later spent on upgrades

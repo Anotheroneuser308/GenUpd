@@ -63,6 +63,8 @@ export default function App() {
     buySingularityRefraction,
     toggleStardustAutoBuyer,
     performStarReset,
+    performSupernovaReset,
+    buySupernovaUpgrade,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,
@@ -234,6 +236,8 @@ export default function App() {
             onBuySingularityRefraction={buySingularityRefraction}
             onToggleStardustAutoBuyer={toggleStardustAutoBuyer}
             onPerformStarReset={performStarReset}
+            onPerformSupernovaReset={performSupernovaReset}
+            onBuySupernovaUpgrade={buySupernovaUpgrade}
             onBuyBreakInfinityUpgrade={buyBreakInfinityUpgrade}
             onInfinityReset={proceedInfinity}
             onToggleAutobuyer={toggleAutobuyer}

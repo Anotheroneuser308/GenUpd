@@ -30,7 +30,8 @@ type SaveBankPresetId =
   | 'break-infinity'
   | 'stardust-unlocked'
   | 'star-1'
-  | 'star-10';
+  | 'star-10'
+  | 'supernova-ready';
 
 interface SaveBankPresetDefinition {
   id: SaveBankPresetId;
@@ -53,6 +54,7 @@ const SAVE_BANK_PRESETS: SaveBankPresetDefinition[] = [
   { id: 'stardust-unlocked', title: 'Stardust Unlocked', stage: 'Stardust', description: 'Stardust Genesis is unlocked with early Stardust upgrades already purchased.', icon: '✨', progress: 'Stardust unlocked · Early upgrades' },
   { id: 'star-1', title: 'Star 1', stage: 'Stars Realm', description: 'One Star reset completed, with early and mid-tier Stardust upgrades prepared.', icon: '🌟', progress: '1 Star · Upgrades purchased' },
   { id: 'star-10', title: 'Star 10', stage: 'Stars Realm', description: 'Ten Star resets completed, with high-tier Stardust upgrades prepared.', icon: '🌌', progress: '10 Stars · Late upgrades purchased' },
+  { id: 'supernova-ready', title: 'Supernova Ready', stage: 'Supernova', description: '100 Stars forged, Star Milestone 100 unlocked, ready to trigger your first Supernova!', icon: '💥', progress: '100 Stars · Supernova Unlocked' },
 ];
 
 interface SaveBankPresetConfig {
@@ -165,6 +167,28 @@ function createSaveBankPresetState(presetId: SaveBankPresetId): GameState {
         constellationHarmonizer: true, cosmicWeaver: true, supernovaCatalyst: true,
         astralConvergence: true, starsUnlocked: true, radiantMultiplicity: true,
         singularityRefraction: true, stardustAutoBuyerEnabled: false, stars: 10, totalStars: 10,
+      },
+    },
+    'supernova-ready': {
+      pointsExponent: 450, prestigeCount: 10000, prestigePoints: new Decimal(1, 400),
+      peResets: 5000, peAmount: new Decimal(1, 12), totalPE: new Decimal(1, 12), prestigeEnergyLevel: 45,
+      infinityCount: 100000, infinityPoints: new Decimal(1, 30), totalIP: new Decimal(1, 40), skillPoints: 1e11,
+      tree: { root: true, feat_1: true, feat_2: true, feat_3: true, feat_4: true, feat_5: true, feat_6: true, dust_1: true, dust_2: true, dust_3: true, dust_4: true, dust_5: true, dust_6: true, dust_7: true, dust_8: true },
+      generatorBuys: [500, 450, 400, 350, 300, 250, 200, 150],
+      generatorAmountExponents: [350, 320, 290, 260, 230, 200, 170, 140], tickspeedBuys: 25000, totalTimePlayed: 1209600,
+      stardust: {
+        unlocked: true, amount: new Decimal(1, 50), totalEarned: new Decimal(1, 52),
+        doublerLevel: 80, baseUpgradeLevel: 120, stellarRadiance: true, astralLens: true,
+        constellationHarmonizer: true, cosmicWeaver: true, supernovaCatalyst: true,
+        astralConvergence: true, starsUnlocked: true, radiantMultiplicity: true,
+        singularityRefraction: true, stardustAutoBuyerEnabled: true, stars: 100, totalStars: 100,
+        supernova: {
+          unlocked: true,
+          count: 0,
+          starPower: Decimal.zero(),
+          totalStarPower: Decimal.zero(),
+          upgrades: {},
+        },
       },
     },
   };

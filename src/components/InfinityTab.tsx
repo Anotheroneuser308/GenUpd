@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Decimal } from '../utils/decimal';
-import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode, BreakInfinityUpgradeId } from '../types/game';
+import { GameState, PrestigeAutobuyerMode, InfinityAutobuyerMode, BreakInfinityUpgradeId, SupernovaUpgradeId } from '../types/game';
 import {
   INFINITY_THRESHOLD,
   calculateInfinityPointGain,
@@ -8,6 +8,7 @@ import {
   formatSkillPoints,
   getInfinityMilestoneExtraSP,
   getTemporalInfinityMultiplier,
+  getIPResonanceMultiplier,
   getAchievementMasterCompletions,
   getStardustPerSecond,
   getStardustGeneratorExponent,
@@ -18,11 +19,13 @@ import {
   getStarResetCost,
   getStarGeneratorExponent,
   getStarStardustMultiplier,
+  getSupernovaStarPowerGain,
+  SUPERNOVA_UPGRADES,
 } from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { STAR_MILESTONES, isStarMilestoneUnlocked } from '../constants/starMilestones';
 import { InfinityTree } from './InfinityTree';
-import { Layers, Atom, Cpu, Sparkles, Star } from 'lucide-react';
+import { Layers, Atom, Cpu, Sparkles, Star, Flame } from 'lucide-react';
 import { AutomationTab } from './AutomationTab';
 
 
@@ -161,6 +164,8 @@ interface InfinityTabProps {
   onBuySingularityRefraction?: () => void;
   onToggleStardustAutoBuyer?: () => void;
   onPerformStarReset?: () => void;
+  onPerformSupernovaReset?: () => void;
+  onBuySupernovaUpgrade?: (upgradeId: SupernovaUpgradeId) => void;
   onBuyBreakInfinityUpgrade?: (upgradeId: BreakInfinityUpgradeId) => void;
   onInfinityReset?: () => void;
   onToggleAutobuyer: (id: string) => void;
@@ -198,6 +203,8 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuySingularityRefraction,
   onToggleStardustAutoBuyer,
   onPerformStarReset,
+  onPerformSupernovaReset,
+  onBuySupernovaUpgrade,
   onBuyBreakInfinityUpgrade,
   onInfinityReset,
   onToggleAutobuyer,
@@ -208,7 +215,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onSetAutoInfinitySettings,
 }) => {
   const [subTab, setSubTab] = useState<'tree' | 'chamber' | 'automation' | 'milestones' | 'stardust'>('tree');
-  const [stardustView, setStardustView] = useState<'upgrades' | 'stars'>('upgrades');
+  const [stardustView, setStardustView] = useState<'upgrades' | 'stars' | 'supernova'>('upgrades');
   const notation = state.settings.notation;
   const canCrunch = state.points.gte(INFINITY_THRESHOLD);
   const crunchIPGain = calculateInfinityPointGain(state.points, state, state.infinity.count + 1);
@@ -474,10 +481,213 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                   ★ {state.stardust?.stars || 0}
                 </span>
               </button>
+
+              {(isStarMilestoneUnlocked(state.stardust?.stars || 0, 100) || (state.stardust?.supernova?.count || 0) > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setStardustView('supernova')}
+                  className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    stardustView === 'supernova'
+                      ? 'bg-rose-600 text-white font-bold shadow-md shadow-rose-600/30'
+                      : 'text-rose-400 hover:text-white bg-slate-950 border border-rose-500/30'
+                  }`}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  <span>Supernova</span>
+                  <span className="ml-1 px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-950/80 text-rose-300 border border-rose-500/40">
+                    💥 {state.stardust?.supernova?.count || 0}
+                  </span>
+                </button>
+              )}
             </div>
           )}
 
-          {stardustView === 'stars' ? (
+          {stardustView === 'supernova' ? (
+            /* SUPERNOVA REALM VIEW */
+            <div className="space-y-6">
+              {/* Supernova Overview Gauges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
+                <div className="bg-slate-950/70 border border-rose-500/40 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Star Power Balance</span>
+                  <span className="text-2xl font-bold text-rose-400 mt-1 block">
+                    {(state.stardust?.supernova?.starPower || Decimal.zero()).format(notation)} SP
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Lifetime earned: {(state.stardust?.supernova?.totalStarPower || Decimal.zero()).format(notation)} SP
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/70 border border-orange-500/40 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Supernovas Detonated</span>
+                  <span className="text-2xl font-bold text-orange-400 mt-1 block">
+                    💥 {state.stardust?.supernova?.count || 0}
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Base formula: 3ⁿ (n = Supernovas)
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/70 border border-amber-500/40 p-4 rounded-xl">
+                  <span className="text-slate-500 text-[10px] uppercase block">Next Supernova Reward</span>
+                  <span className="text-2xl font-bold text-amber-300 mt-1 block">
+                    +{getSupernovaStarPowerGain(state.stardust?.supernova?.count || 0, state.stardust?.amount, !!state.infinityTree?.dust_8).format(notation)} SP
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    {state.infinityTree?.dust_8 ? 'Boosted by Stardust + dust_8' : 'Base: 3^(n+1)'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Supernova Detonation Action Card */}
+              {(() => {
+                const currentStars = state.stardust?.stars || 0;
+                const canDetonate = currentStars >= 100;
+                const nextGain = getSupernovaStarPowerGain(
+                  state.stardust?.supernova?.count || 0,
+                  state.stardust?.amount,
+                  !!state.infinityTree?.dust_8,
+                );
+
+                return (
+                  <div className="p-6 rounded-2xl border bg-gradient-to-br from-rose-950/30 via-slate-950/95 to-orange-950/30 border-rose-500/50 space-y-4 shadow-2xl">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Flame className="w-6 h-6 text-rose-500 fill-rose-500 animate-pulse" />
+                          <h4 className="text-lg font-bold text-white tracking-wide">
+                            Trigger Supernova Detonation
+                          </h4>
+                          <span className="text-xs font-mono px-2 py-0.5 rounded bg-rose-950 border border-rose-500/40 text-rose-300">
+                            TIER {(state.stardust?.supernova?.count || 0) + 1}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                          Detonates all forged Stars and Stardust in a catastrophic burst of stellar fusion, yielding immortal <strong className="text-rose-400">Star Power</strong> based on <code className="text-amber-300 font-mono">3ⁿ</code>.
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] uppercase font-mono text-slate-400 block">Reward on Reset</span>
+                        <span className="text-2xl font-bold font-mono text-rose-400">
+                          +{nextGain.format(notation)} Star Power
+                        </span>
+                        <span className="text-[10px] text-slate-500 block mt-0.5">
+                          Requires 100 Stars (Current: {currentStars} / 100)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Rules and Reset Warning */}
+                    <div className="bg-rose-950/30 border border-rose-500/40 rounded-xl p-3.5 text-xs text-rose-200/90 space-y-1">
+                      <div className="font-semibold text-rose-300 flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>Supernova Detonation Reset Scope:</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        • <strong>RESETS:</strong> Current Stardust, Stardust Base & Doublers, unpreserved Stardust upgrades, Stars count, and Star Milestones.
+                      </p>
+                      <p className="text-[11px] text-emerald-300 leading-relaxed">
+                        • <strong>PRESERVES:</strong> Entire Infinity Tree (including Stardust branch!), Infinity Count, IP, SP, Prestige layers, and Autobuyers.
+                      </p>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between">
+                      <span className="text-xs font-mono text-slate-400">
+                        Progress: <strong className={canDetonate ? 'text-emerald-400' : 'text-amber-400'}>{currentStars} / 100 Stars</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={onPerformSupernovaReset}
+                        disabled={!canDetonate}
+                        className={`px-8 py-3 rounded-xl font-bold font-mono text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                          canDetonate
+                            ? 'bg-gradient-to-r from-rose-600 via-orange-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-xl shadow-rose-600/40 hover:scale-105 active:scale-95'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        <Flame className="w-4 h-4 fill-current" />
+                        <span>Detonate Supernova (+{nextGain.format(notation)} SP)</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Star Power Celestial Upgrades Grid */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-rose-400" />
+                    <span>Star Power Celestial Upgrades</span>
+                  </h4>
+                  <span className="text-xs font-mono text-rose-400">
+                    Balance: {(state.stardust?.supernova?.starPower || Decimal.zero()).format(notation)} SP
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.values(SUPERNOVA_UPGRADES).map((upg) => {
+                    const isBought = !!state.stardust?.supernova?.upgrades?.[upg.id];
+                    const sp = state.stardust?.supernova?.starPower || Decimal.zero();
+                    const costDec = new Decimal(upg.cost);
+                    const canAfford = sp.gte(costDec);
+
+                    return (
+                      <div
+                        key={upg.id}
+                        className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                          isBought
+                            ? 'bg-rose-950/20 border-rose-500/50 shadow-md shadow-rose-950/30'
+                            : 'bg-slate-950/80 border-slate-700 hover:border-slate-600'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">{upg.icon}</span>
+                              <h4 className="font-semibold text-sm text-slate-100">{upg.name}</h4>
+                            </div>
+                            {isBought ? (
+                              <span className="text-[10px] font-mono text-rose-400 px-2 py-0.5 rounded bg-rose-950/60 border border-rose-500/30 font-bold">
+                                ACTIVE
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                            {upg.desc}
+                          </p>
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                          <span className="text-xs font-mono text-slate-400">
+                            Cost: <strong className="text-rose-400">{upg.cost} Star Power</strong>
+                          </span>
+                          {isBought ? (
+                            <span className="text-xs font-mono text-rose-400 font-semibold">Purchased</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onBuySupernovaUpgrade?.(upg.id)}
+                              disabled={!canAfford}
+                              className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                                canAfford
+                                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30'
+                                  : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                              }`}
+                            >
+                              Buy Upgrade
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : stardustView === 'stars' ? (
             /* STARS REALM RESET LAYER VIEW */
             <div className="space-y-6">
               {/* Stars Overview Gauges */}
@@ -495,7 +705,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 <div className="bg-slate-950/70 border border-purple-500/30 p-4 rounded-xl">
                   <span className="text-slate-500 text-[10px] uppercase block">Generator Power Exponent</span>
                   <span className="text-xl font-bold text-purple-300 mt-1 block">
-                    ^{ (1 + getStarGeneratorExponent(state.stardust?.stars || 0)).toFixed(4) }
+                    ^{ (1 + getStarGeneratorExponent(state.stardust?.stars || 0, state)).toFixed(4) }
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5 block">
                     Linear: +{isStarMilestoneUnlocked(state.stardust?.stars || 0, 6) ? '0.0015' : '0.0010'} per Star
@@ -513,7 +723,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     })()}
                   </span>
                   <span className="text-[10px] text-slate-500 mt-0.5 block">
-                    {isStarMilestoneUnlocked(state.stardust?.stars || 0, 3) ? '2.5× per Star' : '2× per Star'}
+                    {isStarMilestoneUnlocked(state.stardust?.stars || 0, 50) ? '3.0× per Star' : isStarMilestoneUnlocked(state.stardust?.stars || 0, 3) ? '2.5× per Star' : '2× per Star'}
                   </span>
                 </div>
               </div>
@@ -521,7 +731,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               {/* Star Reset Action Card */}
               {(() => {
                 const currentStars = state.stardust?.stars || 0;
-                const starCost = getStarResetCost(currentStars);
+                const starCost = getStarResetCost(currentStars, state);
                 const currentStardust = state.stardust?.amount || Decimal.zero();
                 const canReset = currentStardust.gte(starCost);
 
@@ -690,12 +900,12 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       const factor = (hasDust4 ? 9 : 10) - (hasAstralFocus ? 0.5 : 0) - (hasRefraction ? 2 : 0);
                       const strongerFactor = factor + 2;
                       if (magnitude >= 9) {
-                        return `Enhanced softcap active after 8 tiers (divisor ${factor.toFixed(1)}x → ${strongerFactor.toFixed(1)}x); exponent cap ^1.5`;
+                        return `Enhanced softcap active after 8 tiers (divisor ${factor.toFixed(1)}x → ${strongerFactor.toFixed(1)}x); exponent cap ^1.75`;
                       }
                       if (magnitude >= 1) {
-                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); divisor increases by +2 at 1e9; exponent cap ^1.5`;
+                        return `Magnitude ${magnitude} softcap active (${factor.toFixed(1)}x base divisor); divisor increases by +2 at 1e9; exponent cap ^1.75`;
                       }
-                      return 'Full unsoftcapped growth (up to 10 Stardust); exponent cap ^1.5';
+                      return 'Full unsoftcapped growth (up to 10 Stardust); exponent cap ^1.75';
                     })()}
                   </span>
                 </div>
@@ -1596,13 +1806,13 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 {(() => {
                   const isBought = !!state.infinity.ipGeneratorBoost;
                   const lifetimeIP = state.infinity.totalEarnedIP || state.infinity.points;
-                  const currentMult = lifetimeIP.gt(0) ? new Decimal(3).pow(Math.max(0, lifetimeIP.log10())) : Decimal.one();
+                  const currentMult = getIPResonanceMultiplier(lifetimeIP);
                   const canAfford = state.infinity.points.gte(1);
                   return (
                     <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 ${isBought ? 'bg-emerald-950/20 border-emerald-500/40' : 'bg-slate-950/80 border-slate-700'}`}>
                       <div>
                         <div className="flex items-center justify-between gap-2"><h4 className="font-semibold text-sm text-slate-100">IP Resonance</h4><span className="text-[10px] font-mono text-amber-400">ONE-TIME</span></div>
-                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">All generators are boosted by 3^log10(total IP ever earned). Spent IP still counts toward this effect.</p>
+                        <p className="text-xs text-slate-400 mt-2 leading-relaxed">All generators are boosted by 3^log10(total IP) up to 1e308 IP, then 1.25^OoM above 1e308. Spent IP still counts toward this effect.</p>
                         <div className="mt-3 text-xs font-mono text-amber-300">Current generator bonus: <strong>x{currentMult.format(notation)}</strong></div>
                       </div>
                       <div className="pt-3 border-t border-slate-800 flex items-center justify-between"><span className="text-xs font-mono text-slate-400">Cost: <strong className="text-amber-400">1 IP</strong></span>{isBought ? <span className="text-xs text-emerald-400 font-semibold">Active</span> : <button type="button" onClick={onBuyIpGeneratorBoost} disabled={!canAfford} className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold ${canAfford ? 'bg-amber-600 hover:bg-amber-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-600 cursor-not-allowed'}`}>Buy Upgrade</button>}</div>

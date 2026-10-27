@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId } from '../types/game';
+import { GameState, ToastNotification, Achievement, BreakInfinityUpgradeId, SupernovaUpgradeId } from '../types/game';
 import { ACHIEVEMENTS } from '../constants/achievements';
 import {
   createInitialState,
@@ -51,6 +51,8 @@ import {
   getSkillAmplificationCost,
   getGeneratorAmplificationCost,
   getMaxGeneratorAmplificationPurchases,
+  getSupernovaStarPowerGain,
+  SUPERNOVA_UPGRADES,
 } from '../utils/gameCalculations';
 import { isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
 import { isStarMilestoneUnlocked } from '../constants/starMilestones';
@@ -254,64 +256,42 @@ export function useGameLoop() {
       }
     };
 
-    check('first_step', state.generators[0].bought > 0);
-    check('cascade_begins', state.generators[1].bought > 0);
-    check('deep_production', state.generators[2].bought > 0);
-    check('peak_tier', state.generators[3].bought > 0);
-    check('tick_master', state.tickspeed.bought > 0);
-    check('hundred_points', state.points.gte(100));
-    check('thousand_points', state.points.gte(1000));
-    check('million_points', state.points.gte(1e6));
-    check('billion_points', state.points.gte(1e9));
-    check('trillion_points', state.points.gte(1e12));
-    check('prestige_ready', state.points.gte(PRESTIGE_REQUIREMENT));
-    check('first_prestige', state.stats.totalPrestiges >= 1);
-    // A speed achievement requires a real, recorded Prestige time. Zero/Infinity means no valid record.
-    const hasRecordedPrestigeTime = Number.isFinite(state.stats.fastestPrestige) && state.stats.fastestPrestige > 0;
-    check('speed_prestige', state.stats.totalPrestiges >= 1 && hasRecordedPrestigeTime && state.stats.fastestPrestige < 600);
-    check('rapid_prestige', state.stats.totalPrestiges >= 1 && hasRecordedPrestigeTime && state.stats.fastestPrestige < 180);
-    check('ten_prestiges', state.stats.totalPrestiges >= 10);
-    check('hundred_prestige_points', state.prestige.points.gte(100));
-    check('all_eight_gens', state.prestige.unlockedGenerators >= 8);
-    check('prestige_energy', state.prestigeEnergy?.resets >= 1);
-    check('reach_infinity', state.points.gte(INFINITY_THRESHOLD) || state.infinity.count >= 1);
+    // Tier 1: Early Spark
+    check('gen_1_bought', state.generators[0].bought > 0);
+    check('gen_4_bought', state.generators[3].bought > 0);
+    check('points_1e6', state.points.gte(1e6));
+    check('points_1e18', state.points.gte(PRESTIGE_REQUIREMENT));
 
-    // New Achievements
-    const totalGensBought = state.generators.reduce((sum, g) => sum + g.bought, 0);
-    check('assembly_line', totalGensBought >= 25);
+    // Tier 2: Prestige Ascension
+    check('prestige_1', state.stats.totalPrestiges >= 1);
+    check('prestige_points_1e6', state.prestige.points.gte(1e6));
+    check('all_8_gens', state.prestige.unlockedGenerators >= 8);
+    check('prestige_energy_1', (state.prestigeEnergy?.resets || 0) >= 1 || !!state.prestigeEnergy?.unlocked);
 
-    const countPrestigeUpgs = (state.prestigeUpgrades.pointScaling ? 1 : 0) +
-      (state.prestigeUpgrades.achievementBoost ? 1 : 0) +
-      (state.prestigeUpgrades.tickspeedDiscount ? 1 : 0) +
-      (state.prestigeUpgrades.prestigeSynergy ? 1 : 0) +
-      (state.prestigeUpgrades.amplifiedDoubling ? 1 : 0) +
-      (state.prestigeUpgrades.chronosFlow ? 1 : 0) +
-      (state.prestigeUpgrades.logarithmicCascade ? 1 : 0) +
-      (state.prestigeUpgrades.cascadeSurge ? 1 : 0) +
-      (state.prestigeUpgrades.cosmicResonance ? 1 : 0) +
-      (state.prestigeUpgrades.cascadingBoostsLevel || 0) +
-      (state.prestigeUpgrades.generatorUnlockLevel || 0);
-    check('upgrade_architect', countPrestigeUpgs >= 5);
+    // Tier 3: The Edge of Infinity
+    check('infinity_reached', state.points.gte(INFINITY_THRESHOLD) || state.infinity.count >= 1);
+    check('infinities_10', (state.infinity.count >= 10 || state.stats.totalInfinities >= 10));
+    check('break_infinity', !!state.infinityTree?.feat_4 || state.points.gt(INFINITY_THRESHOLD));
+    check('points_1e1000', state.points.gte(new Decimal(1, 1000)));
 
-    check('charged_core', !!state.prestigeEnergy?.amount && state.prestigeEnergy.amount.gte(10));
-    check('triple_digit', state.points.gte(new Decimal(1, 100)));
-    check('second_infinity', state.infinity.count >= 2 || state.stats.totalInfinities >= 2);
-    check('return_ticket', state.infinity.count >= 10 || state.stats.totalInfinities >= 10);
-    check('hundred_returns', state.infinity.count >= 100 || state.stats.totalInfinities >= 100);
+    // Tier 4: Stellar Genesis & Stardust
+    check('tree_mastery', !!state.infinityTree?.dust_1 || !!state.infinityTree?.feat_6);
+    check('stardust_genesis', !!(state.stardust?.totalEarned?.gt(0) || state.stardust?.amount?.gt(0)));
+    check('stardust_1e6', !!(state.stardust?.amount?.gte(1e6) || state.stardust?.totalEarned?.gte(1e6)));
+    check('constellation_harmonizer', !!state.stardust?.constellationHarmonizer);
 
-    const tree = state.infinityTree || {};
-    const treeUnlockedBeyondRoot = Object.keys(tree).some((k) => k !== 'root' && tree[k]);
-    check('tree_climber', treeUnlockedBeyondRoot);
+    // Tier 5: Stellar Forging & Stars
+    check('stardust_1e8', !!(state.stardust?.amount?.gte(1e8) || state.stardust?.totalEarned?.gte(1e8)));
+    const starCount = Math.max(state.stardust?.stars || 0, state.stardust?.totalStars || 0);
+    check('first_star', starCount >= 1);
+    check('stars_5', starCount >= 5);
+    check('stars_15', starCount >= 15);
+    check('stars_30', starCount >= 30);
+    check('stars_50', starCount >= 50);
 
-    const hasPre = ['pre_1', 'pre_2', 'pre_3', 'pre_4'].some((k) => tree[k]);
-    const hasAuto = ['auto_1', 'auto_2', 'auto_3', 'auto_4', 'auto_5', 'auto_6'].some((k) => tree[k]);
-    const hasFeat = ['feat_1', 'feat_2', 'feat_3', 'feat_4'].some((k) => tree[k]);
-    check('three_paths', hasPre && hasAuto && hasFeat);
-
-    check('machine_mind', !!tree['auto_3'] || !!state.autobuyers?.prestige?.unlocked);
-    check('hyperautomation', !!tree['auto_4']);
-    check('matrix_initiated', !!tree['feat_1']);
-    check('breaking_point', !!tree['feat_4']);
+    // Tier 6: Supernova & Beyond
+    check('stars_100', starCount >= 100);
+    check('supernova_ignition', (state.stardust?.supernova?.count || 0) >= 1);
 
     const newAchievements: Achievement[] = [];
     for (const id of newlyUnlockedIds) {
@@ -329,6 +309,7 @@ export function useGameLoop() {
     let saveAccumulator = 0;
     let autoAccumulator = 0;
     let growthAccumulator = 0;
+    let achievementAccumulator = 0;
 
     // Create an inline Web Worker that ticks every 50ms even when the window is minimized or in the background
     let worker: Worker | null = null;
@@ -521,7 +502,7 @@ export function useGameLoop() {
           currentHistory.push({
             timestamp: Date.now(),
             timePlayed: Math.floor(state.stats.totalTimePlayed),
-            points: state.points.toNumber(),
+            points: state.points.exponent < 308 ? state.points.toNumber() : Number.MAX_VALUE,
             logPoints: Math.round(logVal * 100) / 100,
             formattedPoints: state.points.format(state.settings.notation),
             rate: pointsRate.mantissa > 0 ? Math.round(pointsRate.log10() * 100) / 100 : 0,
@@ -889,20 +870,24 @@ export function useGameLoop() {
           }
         }
 
-        // Achievements check & Toast Notifications
-        const { updated, newAchievements } = checkAchievements(state);
-        state.achievements = updated;
-        if (newAchievements.length > 0) {
-          sound.playAchievement();
-          newAchievements.forEach((ach) => {
-            addToast({
-              title: ach.name,
-              message: ach.name,
-              description: ach.desc,
-              icon: '🏆',
-              type: 'achievement',
+        // Achievements check & Toast Notifications (throttled to 5Hz for high performance)
+        achievementAccumulator += dt;
+        if (achievementAccumulator >= 0.2) {
+          achievementAccumulator = 0;
+          const { updated, newAchievements } = checkAchievements(state);
+          state.achievements = updated;
+          if (newAchievements.length > 0) {
+            sound.playAchievement();
+            newAchievements.forEach((ach) => {
+              addToast({
+                title: ach.name,
+                message: ach.name,
+                description: ach.desc,
+                icon: '🏆',
+                type: 'achievement',
+              });
             });
-          });
+          }
         }
 
         // Auto Save to localStorage (if enabled in settings) with automated backup rotation
@@ -2271,7 +2256,7 @@ export function useGameLoop() {
     setGameState((prev) => {
       if (!prev.stardust || !prev.stardust.starsUnlocked) return prev;
       const curStars = prev.stardust.stars || 0;
-      const cost = getStarResetCost(curStars);
+      const cost = getStarResetCost(curStars, prev);
       if (prev.stardust.amount.lt(cost)) return prev;
 
       sound.playCollapse();
@@ -2279,7 +2264,11 @@ export function useGameLoop() {
 
       // Check milestones for reset benefits & preservation:
       // Milestone 1: Start each Star reset with 10 Stardust and +1 Base upgrade level
-      const startingAmount = isStarMilestoneUnlocked(nextStars, 1) ? new Decimal(10) : Decimal.zero();
+      let startingAmount = isStarMilestoneUnlocked(nextStars, 1) ? new Decimal(10) : Decimal.zero();
+      // Supernova upgrade: Star Forging Mastery gives 1,000 starting Stardust
+      if (prev.stardust?.supernova?.upgrades?.starForgingMastery) {
+        startingAmount = startingAmount.gte(1000) ? startingAmount : new Decimal(1000);
+      }
       const startingBaseLevel = isStarMilestoneUnlocked(nextStars, 1) ? 1 : 0;
 
       // Milestone 2: Stellar Radiance is permanently preserved
@@ -2314,6 +2303,93 @@ export function useGameLoop() {
             : !!prev.stardust.stardustAutoBuyerEnabled,
           stars: nextStars,
           totalStars: (prev.stardust.totalStars || 0) + 1,
+          supernova: prev.stardust.supernova,
+        },
+      };
+
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const performSupernovaReset = useCallback(() => {
+    setGameState((prev) => {
+      const curStars = prev.stardust?.stars || 0;
+      if (curStars < 100) return prev;
+
+      sound.playCollapse();
+      const curSupernovas = prev.stardust?.supernova?.count || 0;
+      const nextSupernova = curSupernovas + 1;
+      const spEarned = getSupernovaStarPowerGain(
+        curSupernovas,
+        prev.stardust?.amount,
+        !!prev.infinityTree?.dust_8,
+      );
+
+      const existingStarPower = prev.stardust?.supernova?.starPower || Decimal.zero();
+      const existingTotalStarPower = prev.stardust?.supernova?.totalStarPower || Decimal.zero();
+      const existingUpgrades = prev.stardust?.supernova?.upgrades || {};
+
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          unlocked: true,
+          amount: Decimal.zero(),
+          totalEarned: Decimal.zero(),
+          doublerLevel: 0,
+          baseUpgradeLevel: 0,
+          stellarRadiance: false,
+          astralLens: false,
+          constellationHarmonizer: false,
+          cosmicWeaver: false,
+          supernovaCatalyst: false,
+          astralConvergence: false,
+          starsUnlocked: false,
+          radiantMultiplicity: false,
+          singularityRefraction: false,
+          stardustAutoBuyerEnabled: false,
+          stars: 0,
+          totalStars: 0,
+          supernova: {
+            unlocked: true,
+            count: nextSupernova,
+            starPower: existingStarPower.add(spEarned),
+            totalStarPower: existingTotalStarPower.add(spEarned),
+            upgrades: existingUpgrades,
+          },
+        },
+      };
+
+      saveStateWithBackup(nextState);
+      return nextState;
+    });
+  }, []);
+
+  const buySupernovaUpgrade = useCallback((upgradeId: SupernovaUpgradeId) => {
+    setGameState((prev) => {
+      const sn = prev.stardust?.supernova;
+      if (!sn || !sn.unlocked) return prev;
+      if (sn.upgrades?.[upgradeId]) return prev;
+
+      const def = SUPERNOVA_UPGRADES[upgradeId];
+      if (!def) return prev;
+
+      const cost = new Decimal(def.cost);
+      if (sn.starPower.lt(cost)) return prev;
+
+      sound.playBuy();
+      const nextState: GameState = {
+        ...prev,
+        stardust: {
+          ...prev.stardust!,
+          supernova: {
+            ...sn,
+            starPower: sn.starPower.sub(cost),
+            upgrades: {
+              ...sn.upgrades,
+              [upgradeId]: true,
+            },
+          },
         },
       };
 
@@ -2792,6 +2868,8 @@ export function useGameLoop() {
     buySingularityRefraction,
     toggleStardustAutoBuyer,
     performStarReset,
+    performSupernovaReset,
+    buySupernovaUpgrade,
     buyBreakInfinityUpgrade,
     setAutobuyerTarget,
     setPrestigeAutobuyerSettings,

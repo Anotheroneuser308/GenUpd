@@ -63,8 +63,68 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
   {
     starsRequired: 15,
     name: 'Stardust Autopilot',
-    desc: 'Unlocks automatic purchases of Stardust upgrades and buyables. Toggle automatic purchases ON/OFF here.',
+    desc: 'Unlocks automatic purchases of Stardust upgrades and buyables. Toggle automatic purchases ON/OFF in the Stars tab.',
     icon: '⚙️',
+  },
+  {
+    starsRequired: 20,
+    name: 'Cosmic Pulsar',
+    desc: 'Doubles passive Stardust production and raises the Stardust generator power exponent by an additional +0.025 flat.',
+    icon: '💫',
+  },
+  {
+    starsRequired: 25,
+    name: 'Singularity Magnetism',
+    desc: 'Stardust production is multiplied by 1.25× for every active Stardust softcap.',
+    icon: '🧲',
+  },
+  {
+    starsRequired: 30,
+    name: 'Astral Compression',
+    desc: 'Compresses Star reset costs: base scaling reduced by 15%, significantly lowering costs for higher Stars.',
+    icon: '🌀',
+  },
+  {
+    starsRequired: 40,
+    name: 'Solar Dynamo',
+    desc: 'Multiplies all generator production by 10^(0.02 × Stars^1.08).',
+    icon: '☀️',
+  },
+  {
+    starsRequired: 50,
+    name: 'Supergiant Fusion',
+    desc: 'Star production multiplier increases from 2.5× to 3.0× per Star.',
+    icon: '🔥',
+  },
+  {
+    starsRequired: 60,
+    name: 'Gravitational Lens',
+    desc: 'Weakens all active Stardust softcap divisors by 1.0 (minimum divisor 3.0).',
+    icon: '🔭',
+  },
+  {
+    starsRequired: 70,
+    name: 'Quantum Flare',
+    desc: 'Prestige Energy accelerates Stardust generation: multiplies Stardust by (1 + log10(PE + 1))^1.5.',
+    icon: '💥',
+  },
+  {
+    starsRequired: 80,
+    name: 'Tachyon Conduction',
+    desc: 'Increases Tickspeed multiplier effectiveness by 20% multiplicatively.',
+    icon: '⏱️',
+  },
+  {
+    starsRequired: 90,
+    name: 'Quasar Core',
+    desc: 'Current Points power Stardust production: multiplies Stardust by 1 + (log10(Points + 1)/1000)^2.',
+    icon: '🌌',
+  },
+  {
+    starsRequired: 100,
+    name: 'Supernova Catalyst Prime',
+    desc: 'Unlocks the Supernova reset layer! Detonate all Stars and Stardust to trigger a Supernova and harness eternal Star Power.',
+    icon: '💥',
   },
 ];
 
