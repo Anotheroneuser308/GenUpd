@@ -177,6 +177,9 @@ export const createInitialState = (): GameState => ({
     starsUnlocked: false,
     radiantMultiplicity: false,
     singularityRefraction: false,
+    astralPPInfusion: false,
+    nebularSkillMatrix: false,
+    voidEnergySiphon: false,
     stardustAutoBuyerEnabled: false,
     stars: 0,
     totalStars: 0,
@@ -413,6 +416,9 @@ export const deserializeState = (raw: string): GameState | null => {
         starsUnlocked: !!parsed.stardust?.starsUnlocked,
         radiantMultiplicity: !!parsed.stardust?.radiantMultiplicity,
         singularityRefraction: !!parsed.stardust?.singularityRefraction,
+        astralPPInfusion: !!parsed.stardust?.astralPPInfusion,
+        nebularSkillMatrix: !!parsed.stardust?.nebularSkillMatrix,
+        voidEnergySiphon: !!parsed.stardust?.voidEnergySiphon,
         stardustAutoBuyerEnabled: typeof parsed.stardust?.stardustAutoBuyerEnabled === 'boolean'
           ? parsed.stardust.stardustAutoBuyerEnabled
           : (typeof parsed.stardust?.stars === 'number' && parsed.stardust.stars >= 15),

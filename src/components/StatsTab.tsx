@@ -910,6 +910,42 @@ export const StatsTab: React.FC<StatsTabProps> = ({
               {state.stats.totalManualClicks}
             </div>
           </div>
+
+          {state.stardust?.unlocked && (
+            <div className="bg-slate-950 p-3 rounded-lg border border-purple-500/30">
+              <span className="text-purple-400 uppercase text-[10px]">Total Stardust</span>
+              <div className="text-purple-300 font-semibold text-sm mt-1 truncate">
+                {(state.stardust?.totalEarned || Decimal.zero()).format(notation)}
+              </div>
+            </div>
+          )}
+
+          {(state.stardust?.starsUnlocked || (state.stardust?.stars || 0) > 0 || (state.stardust?.totalStars || 0) > 0) && (
+            <div className="bg-slate-950 p-3 rounded-lg border border-amber-500/30">
+              <span className="text-amber-400 uppercase text-[10px]">Stars Forged</span>
+              <div className="text-amber-300 font-semibold text-sm mt-1">
+                ★ {state.stardust?.stars || 0} <span className="text-xs text-slate-500 font-normal">({state.stardust?.totalStars || state.stardust?.stars || 0} total)</span>
+              </div>
+            </div>
+          )}
+
+          {((state.stardust?.supernova?.count || 0) > 0 || state.stardust?.supernova?.unlocked) && (
+            <>
+              <div className="bg-slate-950 p-3 rounded-lg border border-rose-500/30">
+                <span className="text-rose-400 uppercase text-[10px]">Supernovas</span>
+                <div className="text-rose-300 font-semibold text-sm mt-1">
+                  💥 {state.stardust?.supernova?.count || 0}
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-3 rounded-lg border border-rose-500/30">
+                <span className="text-rose-400 uppercase text-[10px]">Total Starlight (SL)</span>
+                <div className="text-rose-300 font-semibold text-sm mt-1 truncate">
+                  {(state.stardust?.supernova?.totalStarPower || Decimal.zero()).format(notation)} SL
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

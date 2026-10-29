@@ -1,123 +1,49 @@
-# Supernova Mechanics Refinement & Celestial Balance
+# Implementation Plan: High-Tier Stardust Upgrades Overhaul
 
-## User Review & Critical Decisions
-
-> [!IMPORTANT]
-> The following design decisions have been aligned based on your feedback:
-> - **Reworked Supernova Upgrades 1 & 4**: Upgrade 1 will provide massive synergy between Points and Stardust scaling. Upgrade 4 will provide Bulk Star Forging and 10x Stardust production, replacing the old Points-only multiplier.
-> - **Passive Supernova Bonus**: Supernova completions and Starlight balance will passively boost Infinity Points (IP), Prestige Energy (PE), and Stardust production simultaneously using a compound formula.
-> - **Currency Renaming**: "Star Power" is renamed to "Starlight" (with `SL` notation) throughout the UI, formulas, tooltips, and stats to eliminate confusion with Skill Points (SP).
-> - **Tab Preservation**: All previously unlocked tabs and sub-tabs (Energy, Milestones, Stardust, Stars Realm, Supernova) will permanently remain visible across Supernova resets.
-> - **Star Cost Scaling**: Star cost requirement will scale by x1e10 (+10 OoMs) per Star after 30 purchased Stars.
-> - **Infinity Tree Adjustment**: The last Stardust node (`dust_8`) is removed from the Infinity Tree; `dust_7` remains the pinnacle of the Stardust branch.
-> - **Upgrade Renaming**: "Supernova Catalyst" is renamed to "Stellar Crucible".
+Overhaul the three high-tier Stardust upgrades (**Astral PP Infusion**, **Nebular Skill Matrix**, and **Void Energy Siphon**) to provide **dynamic multipliers granting dozens of orders of magnitude**, creating balanced exponential scaling that matches late-game Star forging milestones.
 
 ---
 
-## 1. Overview & Core Concept
-
-This update refines the Supernova endgame layer to feel rewarding, seamless, and integrated with earlier progression layers. Resetting via Supernova will no longer strip away the interface tabs players worked hard to unlock. Instead, players retain immediate access to Stars and Stardust, carry passive multi-layer benefits (IP, PE, Stardust) powered by both Supernova count and accumulated Starlight, and enjoy focused endgame upgrades that accelerate celestial progression.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        SUPERNOVA CELESTIAL LOOP                        │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-       ┌─────────────────────────────────────────────────────────┐
-       │   Supernova Reset (100 Stars) ──► Earn Starlight (SL)   │
-       └─────────────────────────────────────────────────────────┘
-                                    │
-           ┌────────────────────────┴────────────────────────┐
-           ▼                                                 ▼
-┌──────────────────────────────────────┐  ┌──────────────────────────────────────┐
-│       Passive Celestial Aura         │  │           Starlight Upgrades         │
-│  • IP Gain Boost (Supernovas + SL)   │  │  1. Cosmic Luminescence (Pts+Dust)  │
-│  • PE Gain Boost (Supernovas + SL)   │  │  2. Stardust Rebirth (5x + 25%/SN)   │
-│  • Stardust Boost (Supernovas + SL)  │  │  3. Star Forging Mastery (+exp, dust)│
-│  • Tabs permanently preserved        │  │  4. Bulk Star Forging (+10x dust)    │
-│                                      │  │  5. Celestial Singularity (scaling)  │
-└──────────────────────────────────────┘  └──────────────────────────────────────┘
-```
+## User Preferences & Clarifications
+- **Scaling Type**: Dynamic multipliers granting dozens of orders of magnitude.
+- **Intensity Level**: Balanced exponential scaling matching Star forging milestones and bridge requirements for high Infinity Tree nodes (`dust_5`, `dust_6`, `dust_7` costing $10^{21} - 10^{24}$ SP).
 
 ---
 
-## 2. User Experience & Visual Design
+## Implemented Formula Overhauls
 
-### Tab Preservation & Accessibility
-- **Permanent Visibility**: Triggering a Supernova reset preserves the unlocked state of all tabs:
-  - Header: Prestige, Infinity, Stats, Achievements remain accessible.
-  - Prestige Tab: Prestige Energy sub-tab remains visible.
-  - Infinity Tab: Infinity Skill Tree, Automation, Infinity Upgrades, Milestones, and Stardust remain visible.
-  - Stardust Nexus: Upgrades & Buyables, Stars Realm, and Supernova sub-tabs all remain unlocked and directly switchable.
-- **Clean Navigation**: Navigation tabs follow the Zero-Pill discipline and single-line layout contract with no visual clutter or broken state indicators.
+### 1. Astral PP Infusion (Cost: $1.00\times 10^{105}$ Stardust)
+- **New Formula**: Multiplies Prestige Point (PP) gain dynamically by $10^{\log_{10}(\text{Stardust} + 1) \times 0.25}$ (or $\text{Stardust}^{0.25}$):
+  - At $10^{105}$ Stardust: $\times 1.78\times 10^{26}$ PP gain (**+26.25 orders of magnitude**).
+  - At $10^{140}$ Stardust: $\times 1.00\times 10^{35}$ PP gain (**+35 orders of magnitude**).
+  - At $10^{200}$ Stardust: $\times 1.00\times 10^{50}$ PP gain (**+50 orders of magnitude**).
+- **Implementation**:
+  - Added `getAstralPPInfusionMultiplier(stardust: Decimal)` in `src/utils/gameCalculations.ts`.
+  - Applied in `calculatePrestigePointsGain`.
+  - Updated card in `src/components/InfinityTab.tsx` with live dynamic multiplier preview.
 
-### Visual Identity & Theme
-- **Starlight (SL) Theme**: Golden-rose celestial theme (`from-rose-500 via-amber-400 to-yellow-300`).
-- **Gauges**: In the Supernova view, display the three active passive multipliers:
-  - **IP Celestial Multiplier**: `×{ipMult.format(notation)}`
-  - **PE Celestial Multiplier**: `×{peMult.format(notation)}`
-  - **Stardust Celestial Multiplier**: `×{stardustMult.format(notation)}`
-- **Bulk Star Forging Affordance**: When Upgrade 4 is active, the Stars Realm displays a "Forge Max Stars" bulk button alongside the single Forge button, showing total affordable Stars without losing unspent Stardust.
+### 2. Nebular Skill Matrix (Cost: $1.00\times 10^{115}$ Stardust)
+- **New Formula**: Multiplies Skill Point (SP) gain on Infinity dynamically by $10^{\log_{10}(\text{Stardust} + 1) \times 0.15}$ (or $\text{Stardust}^{0.15}$):
+  - At $10^{115}$ Stardust: $\times 1.78\times 10^{17}$ SP gain (**+17.25 orders of magnitude**).
+  - At $10^{160}$ Stardust: $\times 1.00\times 10^{24}$ SP gain (**+24 orders of magnitude**, enabling purchase of `dust_7` costing $10^{24}$ SP).
+  - At $10^{200}$ Stardust: $\times 1.00\times 10^{30}$ SP gain (**+30 orders of magnitude**).
+- **Implementation**:
+  - Updated `getNebularSkillMatrixMultiplier(stardust: Decimal)` in `src/utils/gameCalculations.ts`.
+  - Applied in `calculateSkillPointsGain`.
+  - Updated card in `src/components/InfinityTab.tsx` with live dynamic multiplier preview.
 
----
-
-## 3. Key Product Decisions & Trade-Offs
-
-### Decision 1: Supernova Passive Scaling Formula
-- **Chosen Approach**:
-  - $\text{IP Mult} = (1 + 2 \times \text{SN}) \times (1 + \log_{10}(\text{SL} + 1) \times 0.75)$
-  - $\text{PE Mult} = (1 + 4 \times \text{SN}) \times (1 + \log_{10}(\text{SL} + 1) \times 1.25)$
-  - $\text{Stardust Mult} = (1 + 1.5 \times \text{SN}) \times (1 + \log_{10}(\text{SL} + 1) \times 0.5)$
-- **Why**: Ensures that both completing additional Supernovas and banking unspent Starlight continuously boost core production across all prior layers without sudden runaway infinities.
-
-### Decision 2: Star Cost Rework Beyond 30 Stars
-- **Chosen Approach**:
-  - Stars 0 to 14: base cost scales at $+2$ OoMs (x100) per Star.
-  - Stars 15 to 30: scales at $+5.0$ OoMs (or softened by Milestone 30 and Celestial Singularity) per Star.
-  - Stars 31+: each additional Star increases the requirement by $+10$ OoMs ($10^{10}$) per Star.
-- **Why**: Creates a balanced curve that allows reaching 100 Stars in a manageable, rewarding cadence while maintaining late-tier achievement prestige.
-
-### Decision 3: Supernova Upgrades 1 & 4 Rework
-- **Upgrade 1 — Cosmic Luminescence** (Cost: 3 SL):
-  - Increases Points production by $10^{6}$ and multiplies Stardust production rate by $\times 3$.
-- **Upgrade 4 — Bulk Star Condensation** (Cost: 81 SL):
-  - Multiplies Stardust production by $\times 10$ and unlocks Bulk Star Forging (allows forging all affordable Stars at once while keeping excess Stardust).
-
-### Decision 4: Infinity Tree Cleanup
-- **Remove `dust_8`**: Node `dust_8` is cleanly deleted from `InfinityTree.tsx`, `useGameLoop.ts`, and `gameCalculations.ts`. `dust_7` becomes the terminal node of the Stardust branch.
+### 3. Void Energy Siphon (Cost: $1.00\times 10^{130}$ Stardust)
+- **New Formula**: Multiplies Prestige Energy (PE) gain on Energy resets dynamically by $10^{\log_{10}(\text{Stardust} + 1) \times 0.12}$ (or $\text{Stardust}^{0.12}$):
+  - At $10^{130}$ Stardust: $\times 3.98\times 10^{15}$ PE gain (**+15.6 orders of magnitude**).
+  - At $10^{200}$ Stardust: $\times 1.00\times 10^{24}$ PE gain (**+24 orders of magnitude**).
+  - At $10^{300}$ Stardust: $\times 1.00\times 10^{36}$ PE gain (**+36 orders of magnitude**).
+- **Implementation**:
+  - Updated `getVoidEnergySiphonMultiplier(stardust: Decimal)` in `src/utils/gameCalculations.ts`.
+  - Applied in `calculatePrestigeEnergyGain`.
+  - Updated card in `src/components/InfinityTab.tsx` with live dynamic multiplier preview.
 
 ---
 
-## 4. Technical Architecture & Component Mapping
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        SYSTEM COMPONENT MAPPING                        │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
- ┌──────────────────────────────────┼──────────────────────────────────┐
- │                                  │                                  │
- ▼                                  ▼                                  ▼
-src/utils/gameCalculations.ts     src/types/game.ts           src/hooks/useGameLoop.ts
- • getSupernovaIPMult()            • StardustState.supernova   • performSupernovaReset()
- • getSupernovaPEMult()            • SupernovaUpgradeId          - preserves unlocked tabs
- • getSupernovaStardustMult()      • InfinityTreeState           - calculates SL
- • getStarResetCost() (30+ OoM)      (removed dust_8)          • performStarReset()
- • SUPERNOVA_UPGRADES (revised)                                  (supports bulk forging)
-                                                               • buySupernovaUpgrade()
-                                    │
-                                    ▼
-                          src/components/InfinityTab.tsx
-                           • Starlight UI labels & badges
-                           • Passive bonus display meters
-                           • "Stellar Crucible" name update
-                           • Revamped upgrade cards 1 & 4
-                           • Supernova & Star tabs stay unlocked
-```
-
-### Verification & Testing Plan
-- `tsc --noEmit` validation via `lint_applet` to ensure 0 type or structural errors.
-- `npm run build` validation via `compile_applet`.
-- Verify Star cost progression at 0, 14, 30, and 31+ Stars.
-- Verify Supernova reset preserves all tab navigation without re-locking.
+## Verification
+- `tsc --noEmit`: 0 errors.
+- `vite build`: Succeeded.

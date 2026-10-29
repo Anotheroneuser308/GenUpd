@@ -25,6 +25,9 @@ import {
   getSupernovaStardustMult,
   getMaxAffordableStarForgings,
   getStardustGeneratorExponentCap,
+  getAstralPPInfusionMultiplier,
+  getNebularSkillMatrixMultiplier,
+  getVoidEnergySiphonMultiplier,
   SUPERNOVA_UPGRADES,
 } from '../utils/gameCalculations';
 import { INFINITY_MILESTONES, getInfinityMilestoneRequirementProgress, isInfinityMilestoneUnlocked } from '../utils/infinityMilestones';
@@ -167,6 +170,9 @@ interface InfinityTabProps {
   onBuyStarsUnlock?: () => void;
   onBuyRadiantMultiplicity?: () => void;
   onBuySingularityRefraction?: () => void;
+  onBuyAstralPPInfusion?: () => void;
+  onBuyNebularSkillMatrix?: () => void;
+  onBuyVoidEnergySiphon?: () => void;
   onToggleStardustAutoBuyer?: () => void;
   onPerformStarReset?: (bulk?: boolean) => void;
   onPerformSupernovaReset?: () => void;
@@ -206,6 +212,9 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
   onBuyStarsUnlock,
   onBuyRadiantMultiplicity,
   onBuySingularityRefraction,
+  onBuyAstralPPInfusion,
+  onBuyNebularSkillMatrix,
+  onBuyVoidEnergySiphon,
   onToggleStardustAutoBuyer,
   onPerformStarReset,
   onPerformSupernovaReset,
@@ -546,21 +555,16 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
               {/* Passive Celestial Aura */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold bg-gradient-to-r from-rose-400 via-amber-300 to-yellow-200 bg-clip-text text-transparent">Passive Celestial Aura</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-xs">
                   <div className="rounded-xl border border-sky-400/30 bg-sky-950/20 p-4">
                     <span className="block text-[10px] uppercase text-sky-200/70">IP reward exponent</span>
-                    <strong className="mt-1 block text-lg text-sky-200">^{getSupernovaIPMult(state).toFixed(7)}</strong>
-                    <span className="mt-1 block text-[10px] text-slate-400">Very weak scaling from Supernova count and current SL</span>
+                    <strong className="mt-1 block text-lg text-sky-200">^{getSupernovaIPMult(state).toFixed(4)}</strong>
+                    <span className="mt-1 block text-[10px] text-slate-400">Scales with completed Supernovas and current Starlight</span>
                   </div>
                   <div className="rounded-xl border border-indigo-400/30 bg-indigo-950/20 p-4">
                     <span className="block text-[10px] uppercase text-indigo-200/70">PE reward exponent</span>
-                    <strong className="mt-1 block text-lg text-indigo-200">^{getSupernovaPEMult(state).toFixed(7)}</strong>
-                    <span className="mt-1 block text-[10px] text-slate-400">Very weak scaling from Supernova count and current SL</span>
-                  </div>
-                  <div className="rounded-xl border border-emerald-400/30 bg-emerald-950/20 p-4">
-                    <span className="block text-[10px] uppercase text-emerald-200/70">Stardust production</span>
-                    <strong className="mt-1 block text-lg text-emerald-200">×{getSupernovaStardustMult(state).toFixed(4)}</strong>
-                    <span className="mt-1 block text-[10px] text-slate-400">Small compound bonus, capped at ×1.25</span>
+                    <strong className="mt-1 block text-lg text-indigo-200">^{getSupernovaPEMult(state).toFixed(4)}</strong>
+                    <span className="mt-1 block text-[10px] text-slate-400">Scales with completed Supernovas and current Starlight</span>
                   </div>
                 </div>
               </div>
@@ -629,7 +633,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                         }`}
                       >
                         <Flame className="w-4 h-4 fill-current" />
-                        <span>Detonate Supernova (+{nextGain.format(notation)} SP)</span>
+                        <span>Detonate Supernova (+{nextGain.format(notation)} SL)</span>
                       </button>
                     </div>
                   </div>
@@ -787,10 +791,10 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                         </span>
                         <span className="text-[10px] text-slate-500 block mt-0.5">
                           {currentStars >= 30
-                            ? 'Cost increases by ×1e10 per Star after Star 30'
+                            ? 'Cost scales by ×1e8.5 per Star (or ×1e6 with Celestial Singularity)'
                             : currentStars >= 14
                               ? 'Mid-tier cost scales by ×1e5 per Star (or ×1e3.5 with Celestial Singularity)'
-                              : 'Cost scales by ×100 per Star through Star 15'}
+                              : 'Cost scales by ×100 per Star through Star 14'}
                         </span>
                       </div>
                     </div>
@@ -837,7 +841,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                                 ? 'bg-gradient-to-r from-rose-500 via-amber-400 to-yellow-300 hover:brightness-110 text-slate-950 shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95'
                                 : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                             }`}
-                            title="Forge all affordable Stars and preserve unspent Stardust."
+                            title="Forge all affordable Stars and reset Stardust to starting amount."
                           >
                             <Star className="w-4 h-4 fill-current" />
                             <span>Forge Max Stars (+{maxAffordableStars >= 1000000 ? '1,000,000+' : maxAffordableStars.toLocaleString()} Stars)</span>
@@ -979,8 +983,12 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     const doublerLevel = state.stardust?.doublerLevel || 0;
                     const cost = getStardustDoublerCost(doublerLevel, state);
                     const canAfford = (state.stardust?.amount || Decimal.zero()).gte(cost);
-                    const currentGainMult = new Decimal(2).pow(doublerLevel);
-                    const nextGainMult = new Decimal(2).pow(doublerLevel + 1);
+                    const getDoublerMultForLevel = (lvl: number) => {
+                      if (lvl <= 100) return new Decimal(2).pow(lvl);
+                      return new Decimal(2).pow(100).mul(new Decimal(1.75).pow(lvl - 100));
+                    };
+                    const currentGainMult = getDoublerMultForLevel(doublerLevel);
+                    const nextGainMult = getDoublerMultForLevel(doublerLevel + 1);
                     const formatDoublerMultiplier = (multiplier: Decimal) => multiplier.gte(new Decimal(1, 5))
                       ? `${multiplier.mantissa.toFixed(2)}e${multiplier.exponent}`
                       : multiplier.format(notation);
@@ -990,13 +998,20 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       <div className="p-5 rounded-xl border bg-slate-950/80 border-purple-500/30 flex flex-col justify-between gap-4">
                         <div>
                           <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-semibold text-sm text-slate-100">Stardust Doubler</h4>
+                            <h4 className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
+                              <span>Stardust Doubler</span>
+                              {doublerLevel >= 100 && (
+                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300">
+                                  SOFTCAP (1.75×)
+                                </span>
+                              )}
+                            </h4>
                             <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
                               LEVEL {doublerLevel}
                             </span>
                           </div>
                           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                            Doubles total Stardust generated per second. Cost scales by {scaleFactor}x per level{state.stardust?.astralConvergence ? ' (reduced by Astral Convergence)' : ''}.
+                            Multiplies total Stardust production by 2.0× each level up to level 100; levels beyond 100 multiply by 1.75× per level. Cost scales by {scaleFactor}x per level{state.stardust?.astralConvergence ? ' (reduced by Astral Convergence)' : ''}.
                           </p>
                           <div className="mt-3 text-xs font-mono text-purple-300">
                             Current multiplier: <strong>×{formatDoublerMultiplier(currentGainMult)}</strong>
@@ -1058,7 +1073,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                             </span>
                           </div>
                           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                            Increases base Stardust generation by +{basePerLvl.toFixed(3)}/s each level{state.stardust?.supernovaCatalyst ? ' (tripled by Supernova Catalyst)' : ''}. Cost scales by {isStarMilestoneUnlocked(state.stardust?.stars || 0, 8) ? '1.75x' : '2.0x'}.
+                            Increases base Stardust generation by +{basePerLvl.toFixed(3)}/s each level{state.stardust?.supernovaCatalyst ? ' (tripled by Stellar Crucible)' : ''}. Cost scales by {isStarMilestoneUnlocked(state.stardust?.stars || 0, 8) ? '1.75x' : '2.0x'}.
                           </p>
                           <div className="mt-3 text-xs font-mono text-purple-300">
                             Base rate: <strong>+{currentBase.toFixed(4)}/s</strong>
@@ -1347,7 +1362,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     );
                   })()}
 
-                  {/* Upgrade 5: Supernova Catalyst (2,500,000) */}
+                  {/* Upgrade 5: Stellar Crucible (2,500,000) */}
                   {(() => {
                     const isBought = !!state.stardust?.supernovaCatalyst;
                     const cost = new Decimal(2500000);
@@ -1359,7 +1374,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                       }`}>
                         <div>
                           <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-semibold text-sm text-slate-100">Supernova Catalyst</h4>
+                            <h4 className="font-semibold text-sm text-slate-100">Stellar Crucible</h4>
                             {isBought ? (
                               <span className="text-[10px] font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-500/30 font-bold">
                                 ACTIVE
@@ -1586,6 +1601,7 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                 </div>
               )}
               {state.stardust?.starsUnlocked && (
+                <>
                 <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
                   state.stardust.singularityRefraction
                     ? 'bg-amber-950/25 border-amber-500/40'
@@ -1634,6 +1650,142 @@ export const InfinityTab: React.FC<InfinityTabProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Upgrade 10: Astral PP Infusion (1e105) */}
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                  state.stardust.astralPPInfusion
+                    ? 'bg-amber-950/25 border-amber-500/40'
+                    : 'bg-slate-950/80 border-amber-500/25'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">Astral PP Infusion</h4>
+                      {state.stardust.astralPPInfusion ? (
+                        <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">ACTIVE</span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Infuses cosmological stardust directly into the Prestige reactor: dynamically multiplies Prestige Point (PP) gain by Stardust^0.25.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-amber-300">
+                      Current multiplier: <strong>×{getAstralPPInfusionMultiplier(state.stardust?.amount).format(notation)} PP</strong>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-slate-400">
+                      Cost: <strong className="text-amber-300">{new Decimal(1, 105).format(notation)} Stardust</strong>
+                    </span>
+                    {state.stardust.astralPPInfusion ? (
+                      <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onBuyAstralPPInfusion}
+                        disabled={(state.stardust?.amount || Decimal.zero()).lt(new Decimal(1, 105))}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 105))
+                            ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Upgrade
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Upgrade 11: Nebular Skill Matrix (1e115) */}
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                  state.stardust.nebularSkillMatrix
+                    ? 'bg-amber-950/25 border-amber-500/40'
+                    : 'bg-slate-950/80 border-amber-500/25'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">Nebular Skill Matrix</h4>
+                      {state.stardust.nebularSkillMatrix ? (
+                        <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">ACTIVE</span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Condenses nebulous stellar energy into foundational knowledge: dynamically multiplies Skill Point (SP) gain on Infinity by Stardust^0.15.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-amber-300">
+                      Current multiplier: <strong>×{new Decimal(getNebularSkillMatrixMultiplier(state.stardust?.amount)).format(notation)} SP</strong>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-slate-400">
+                      Cost: <strong className="text-amber-300">{new Decimal(1, 115).format(notation)} Stardust</strong>
+                    </span>
+                    {state.stardust.nebularSkillMatrix ? (
+                      <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onBuyNebularSkillMatrix}
+                        disabled={(state.stardust?.amount || Decimal.zero()).lt(new Decimal(1, 115))}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 115))
+                            ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Upgrade
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Upgrade 12: Void Energy Siphon (1e130) */}
+                <div className={`p-5 rounded-xl border flex flex-col justify-between gap-4 transition-all ${
+                  state.stardust.voidEnergySiphon
+                    ? 'bg-amber-950/25 border-amber-500/40'
+                    : 'bg-slate-950/80 border-amber-500/25'
+                }`}>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-semibold text-sm text-slate-100">Void Energy Siphon</h4>
+                      {state.stardust.voidEnergySiphon ? (
+                        <span className="text-[10px] font-mono text-amber-300 px-2 py-0.5 rounded bg-amber-950/60 border border-amber-500/30 font-bold">ACTIVE</span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-500">ONE-TIME</span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                      Siphons radiant vacuum fluctuations into the energy core: dynamically multiplies Prestige Energy (PE) gain on Energy resets by Stardust^0.12.
+                    </p>
+                    <div className="mt-3 text-xs font-mono text-amber-300">
+                      Current multiplier: <strong>×{getVoidEnergySiphonMultiplier(state.stardust?.amount).format(notation)} PE</strong>
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-3">
+                    <span className="text-xs font-mono text-slate-400">
+                      Cost: <strong className="text-amber-300">{new Decimal(1, 130).format(notation)} Stardust</strong>
+                    </span>
+                    {state.stardust.voidEnergySiphon ? (
+                      <span className="text-xs font-mono text-emerald-300 font-semibold">Purchased</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onBuyVoidEnergySiphon}
+                        disabled={(state.stardust?.amount || Decimal.zero()).lt(new Decimal(1, 130))}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all cursor-pointer ${
+                          (state.stardust?.amount || Decimal.zero()).gte(new Decimal(1, 130))
+                            ? 'bg-amber-600 hover:bg-amber-500 text-slate-950 shadow-md shadow-amber-600/20'
+                            : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        }`}
+                      >
+                        Buy Upgrade
+                      </button>
+                    )}
+                  </div>
+                </div>
+                </>
               )}
             </>
           )}

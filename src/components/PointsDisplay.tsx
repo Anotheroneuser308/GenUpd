@@ -1,6 +1,7 @@
 import React from 'react';
+import { Decimal } from '../utils/decimal';
 import { GameState } from '../types/game';
-import { getTotalTickspeedSpeed, getPointsGenerationMultiplier } from '../utils/gameCalculations';
+import { getTotalTickspeedSpeed, getPointsGenerationMultiplier, MY_SOFTCAP_THRESHOLD } from '../utils/gameCalculations';
 
 interface PointsDisplayProps {
   state: GameState;
@@ -12,6 +13,7 @@ export const PointsDisplay: React.FC<PointsDisplayProps> = ({ state, activeTab }
   const tickspeedSpeed = getTotalTickspeedSpeed(state);
   const pointsMult = getPointsGenerationMultiplier(state);
   const prestigeResets = state.prestige.count ?? 0;
+  const hasReachedMySoftcap = (state.points?.exponent ?? 0) >= 1_000_000 || (state.points instanceof Decimal ? state.points.gte(MY_SOFTCAP_THRESHOLD) : false);
 
   return (
     <div className="bg-slate-900/90 border-b border-slate-800/80 px-6 py-5">
@@ -25,13 +27,17 @@ export const PointsDisplay: React.FC<PointsDisplayProps> = ({ state, activeTab }
             <span className="text-sm font-medium text-slate-400">
               Points
             </span>
-            <span className="ml-1 text-xs font-semibold text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-cyan-300 to-emerald-200" title="Starts at 1e1,000,000 Points. Point gain is softened to ^0.95 beyond this threshold.">
-              My Softcap
-            </span>
+            {hasReachedMySoftcap && (
+              <span className="ml-1 text-[11px] font-bold font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-400/50 text-cyan-300 tracking-wide uppercase shadow-sm">
+                My Softcap
+              </span>
+            )}
           </div>
-          <div className="mt-1 text-[10px] font-mono text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-cyan-300 to-emerald-200">
-            Starts at 1e1,000,000 Points · Point gain is softened to ^0.95 beyond this threshold.
-          </div>
+          {hasReachedMySoftcap && (
+            <div className="mt-1 text-xs font-mono text-cyan-300 font-medium">
+              Starts at 1e1,000,000 Points · Point gain is softened to ^0.95 beyond this threshold
+            </div>
+          )}
           <div className="flex items-center gap-2 mt-1 text-xs text-slate-400 font-mono flex-wrap">
             <span>+{state.pointsPerSecond.format(notation)} / sec</span>
             <span aria-hidden="true" className="text-slate-600">·</span>

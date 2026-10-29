@@ -81,7 +81,7 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
   const prestigeSkillSynergyBonus = upgs.prestigeSkillSynergy && state.prestige.count >= 10
     ? Math.floor(Math.log10(Math.max(1, state.prestige.count)))
     : 0;
-  const canPrestigeEnergy = state.points.gte(PRESTIGE_ENERGY_THRESHOLD);
+  const canPrestigeEnergy = state.points.gte(PRESTIGE_ENERGY_THRESHOLD) && (hasCoolQoL ? energyGain.gt(0) : energyGain.gte(1));
 
   // Live previews use the same helpers as the actual production calculations.
   const oom6 = getOrderMagnitudeSurgeIntervals(state.points);
@@ -1005,7 +1005,9 @@ export const PrestigeTab: React.FC<PrestigeTabProps> = ({
               >
                 {canPrestigeEnergy
                   ? `Channel Energy (+${energyGain.format(notation)} PE)`
-                  : `Requires ${PRESTIGE_ENERGY_THRESHOLD.format(notation)} Points`}
+                  : hasCoolQoL && state.points.gte(PRESTIGE_ENERGY_THRESHOLD)
+                    ? 'Claimed to Peak (Need higher Points for more PE)'
+                    : `Requires ${PRESTIGE_ENERGY_THRESHOLD.format(notation)} Points`}
               </button>
               <div className="flex items-center gap-4 text-xs font-mono">
                 <span className="text-slate-400">

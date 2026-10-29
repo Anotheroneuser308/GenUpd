@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for Supernova mechanics refinement, tab preservation across Supernova resets, Starlight currency renaming, passive IP/PE/Stardust bonuses, Star cost scaling rework past 30 Stars, removal of dust_8 node from the Infinity Tree, and replacement of Supernova upgrades 1 and 4.",
-  "updatedAt":  "2026-10-27T16:07:41.037134206Z",
+  "summary":  "Completed overhaul of Astral PP Infusion, Nebular Skill Matrix, and Void Energy Siphon with dynamic exponential multipliers granting dozens of orders of magnitude scaled directly from Stardust.",
+  "updatedAt":  "2026-10-29T15:24:10.008074907Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

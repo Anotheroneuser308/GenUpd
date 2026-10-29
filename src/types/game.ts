@@ -84,6 +84,9 @@ export interface StardustState {
   starsUnlocked?: boolean; // cost 100,000,000 stardust (unlocks Stars reset layer)
   radiantMultiplicity?: boolean; // improves Stellar Radiance from additive to multiplicative stacking
   singularityRefraction?: boolean; // cost 1e24 Stardust; weakens the Stardust softcap divisor by another 2
+  astralPPInfusion?: boolean; // cost 1e105 Stardust; multiplies PP gain by 3x
+  nebularSkillMatrix?: boolean; // cost 1e115 Stardust; increases SP gain
+  voidEnergySiphon?: boolean; // cost 1e130 Stardust; multiplies PE gain by 2.5x
   stardustAutoBuyerEnabled?: boolean; // Star 15 automatic Stardust upgrades/buyables toggle
   // Stars Reset Layer:
   stars?: number; // count of Star resets completed
@@ -96,7 +99,9 @@ export type SupernovaUpgradeId =
   | 'stardustRebirth'
   | 'starForgingMastery'
   | 'neutronDensity'
-  | 'celestialSingularity';
+  | 'celestialSingularity'
+  | 'stellarGenesis'
+  | 'hypernovaPulse';
 
 export interface SupernovaState {
   unlocked: boolean;

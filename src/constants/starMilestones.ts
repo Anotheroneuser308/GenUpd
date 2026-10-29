@@ -33,7 +33,7 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
   {
     starsRequired: 5,
     name: 'Nebular Constellation',
-    desc: 'Cosmic Weaver, Supernova Catalyst, and Astral Convergence are permanently preserved across Star resets.',
+    desc: 'Cosmic Weaver, Stellar Crucible, and Astral Convergence are permanently preserved across Star resets.',
     icon: '🌌',
   },
   {
@@ -86,8 +86,8 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
   },
   {
     starsRequired: 40,
-    name: 'Solar Dynamo',
-    desc: 'Multiplies all generator production by 10^(0.02 × Stars^1.08).',
+    name: 'Solar Corona',
+    desc: 'Multiplies Stardust production by 50×, and each Generator Expander level doubles Stardust production (up to 16×).',
     icon: '☀️',
   },
   {
@@ -110,20 +110,20 @@ export const STAR_MILESTONES: StarMilestoneDef[] = [
   },
   {
     starsRequired: 80,
-    name: 'Tachyon Conduction',
-    desc: 'Increases Tickspeed multiplier effectiveness by 20% multiplicatively.',
+    name: 'Tachyon Resonance',
+    desc: 'Multiplies Stardust production by 10×.',
     icon: '⏱️',
   },
   {
     starsRequired: 90,
-    name: 'Quasar Core',
-    desc: 'Current Points power Stardust production: multiplies Stardust by 1 + (log10(Points + 1)/1000)^2.',
+    name: 'Quasar Ignition',
+    desc: 'Pure stellar radiance: multiplies Stardust production by 100×.',
     icon: '🌌',
   },
   {
     starsRequired: 100,
-    name: 'Supernova Catalyst Prime',
-    desc: 'Unlocks the Supernova reset layer! Detonate all Stars and Stardust to trigger a Supernova and harness eternal Star Power.',
+    name: 'Supernova Detonation',
+    desc: 'Unlocks the Supernova reset layer! Detonate all Stars and Stardust to trigger a Supernova and harness eternal Starlight (SL).',
     icon: '💥',
   },
 ];

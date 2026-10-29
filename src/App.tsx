@@ -61,6 +61,9 @@ export default function App() {
     buyStarsUnlock,
     buyRadiantMultiplicity,
     buySingularityRefraction,
+    buyAstralPPInfusion,
+    buyNebularSkillMatrix,
+    buyVoidEnergySiphon,
     toggleStardustAutoBuyer,
     performStarReset,
     performSupernovaReset,
@@ -234,6 +237,9 @@ export default function App() {
             onBuyStarsUnlock={buyStarsUnlock}
             onBuyRadiantMultiplicity={buyRadiantMultiplicity}
             onBuySingularityRefraction={buySingularityRefraction}
+            onBuyAstralPPInfusion={buyAstralPPInfusion}
+            onBuyNebularSkillMatrix={buyNebularSkillMatrix}
+            onBuyVoidEnergySiphon={buyVoidEnergySiphon}
             onToggleStardustAutoBuyer={toggleStardustAutoBuyer}
             onPerformStarReset={performStarReset}
             onPerformSupernovaReset={performSupernovaReset}
